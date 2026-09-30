@@ -1,0 +1,55 @@
+<div id="world" aria-label="Playable procedural Dreamscape world"></div>
+
+<section class="intro-screen" id="intro">
+  <div class="intro-copy">
+    <p class="eyebrow">BEHAVIORAL PROCEDURAL WORLD GENERATION</p>
+    <h1>The world dreams<br />the way <em>you move.</em></h1>
+    <p class="lede">Explore an endless landscape formed by your behavior. Move gently to grow a softer world—or sprint, turn and leap to fracture it.</p>
+    <button id="enterWorld" type="button"><span>ENTER THE DREAM</span><i>→</i></button>
+    <div class="intro-controls"><span>WASD / ARROWS</span> MOVE <span>MOUSE</span> LOOK <span>SHIFT</span> SPRINT <span>SPACE</span> JUMP <span>V</span> VIEW</div>
+  </div>
+  <div class="coordinate">PROTOTYPE // DS.01<br />GENERATIVE SYSTEM ONLINE</div>
+</section>
+
+<header class="hud-top">
+  <div class="brand"><b>D</b><span>DREAMSCAPE</span></div>
+  <div class="facing"><small>FACING</small><strong id="facingDirection">N · NORTH</strong></div>
+  <div class="world-state"><i></i> <span id="experienceState">NEUTRAL DREAMSCAPE</span></div>
+</header>
+
+<aside class="behavior-card">
+  <div class="card-heading"><span>BEHAVIOR SIGNAL</span><strong id="signalLabel">CALM</strong></div>
+  <div class="meter"><div id="meterFill"></div><i id="meterNotch"></i></div>
+  <div class="meter-labels"><span>CALM</span><span>CHAOS</span></div>
+  <div class="stats">
+    <div class="realm-row"><span>CURRENT WORLD</span><strong id="realm">THE CROSSING</strong></div>
+    <div><span>VELOCITY</span><strong id="velocity">0.0</strong></div>
+    <div><span>WORLD SEED</span><strong id="seed">DS-0000</strong></div>
+    <div><span>CHUNKS FORMED</span><strong id="chunks">00</strong></div>
+  </div>
+</aside>
+
+<div class="crosshair"><i></i><i></i><i></i><i></i></div>
+<div class="movement-hint" id="movementHint"><span>WASD / ARROWS</span> MOVE &nbsp;·&nbsp; <span>SHIFT</span> RUN WILD</div>
+<aside class="swarm-panel" id="swarmPanel">
+  <div><i></i><span>VIOLET SWARM</span><strong id="swarmStatus">ROAMING</strong></div>
+  <p><kbd>E</kbd> ATTRACT &nbsp; <kbd>Q</kbd> REPEL &nbsp; <kbd>R</kbd> RECALL</p>
+  <small>LEFT / RIGHT MOUSE ALSO CONTROL THE FIELD</small>
+</aside>
+<div class="compass" aria-label="Current world direction">
+  <small>CURRENT ROUTE</small>
+  <strong id="compassDirection">CENTER</strong>
+  <span id="compassWorld">THE CROSSING</span>
+  <i id="compassCoordinates">X 0 · Z 0</i>
+</div>
+<button class="escape-menu" type="button">ESC &nbsp; RELEASE MOUSE</button>
+<div class="grain" aria-hidden="true"></div>
+<aside class="atmosphere-demo" aria-label="Atmosphere comparison">
+  <strong>ATMOSPHERE STUDY</strong>
+  <p id="atmosphereStatus" aria-live="polite">Loading atmosphere controls...</p>
+  <button id="atmosphereToggle" type="button" aria-pressed="true" disabled>T · THEATRE ON</button>
+  <button id="atmospherePreview" type="button" disabled>P · PREVIEW 8s</button>
+  <small>Compare with T · Preview with P</small>
+  <small id="grassStatus" role="status">Loading grass...</small>
+  <small id="characterStatus" role="status">TPP · V to switch · Loading character...</small>
+</aside>

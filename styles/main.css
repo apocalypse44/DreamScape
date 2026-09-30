@@ -37,3 +37,11 @@ h1 em { color:var(--acid); font-family:Georgia,serif; font-weight:400; }
 .realm-row strong { color:var(--acid); }
 .compass { position:fixed;z-index:3;left:3vw;bottom:25px;min-width:168px;padding:12px 14px;border-left:1px solid var(--acid);background:linear-gradient(90deg,rgba(5,12,11,.5),transparent);font-family:"DM Mono";letter-spacing:.11em;pointer-events:none }.compass small,.compass strong,.compass span,.compass i{display:block}.compass small{color:var(--muted);font-size:7px}.compass strong{margin-top:7px;color:var(--acid);font-size:11px;font-weight:500}.compass span{margin-top:3px;color:var(--ink);font-size:8px}.compass i{margin-top:7px;color:rgba(240,243,223,.38);font-size:7px;font-style:normal}
 @media(max-width:700px){.intro-screen{padding:28px}.intro-copy{width:100%}h1{font-size:53px}.coordinate{display:none}.behavior-card{top:82px;right:16px;width:210px}.hud-top{padding:0 18px}.world-state{display:none}.facing{left:auto;right:16px;transform:translateY(-50%)}.movement-hint{white-space:nowrap}.escape-menu{display:none}}
+.atmosphere-demo { position:fixed; z-index:9; right:3vw; top:360px; width:255px; padding:15px; border:1px solid var(--line); background:rgba(7,15,14,.9); font:10px/1.5 "DM Mono",monospace; }
+.atmosphere-demo strong { color:var(--acid); font-size:9px; letter-spacing:.15em; }
+.atmosphere-demo p { color:var(--ink); margin:10px 0; min-height:30px; }
+.atmosphere-demo button { width:100%; margin:4px 0; padding:10px; border:1px solid var(--line); background:rgba(198,255,101,.07); color:var(--ink); font:inherit; cursor:pointer; text-align:left; }
+.atmosphere-demo button:hover,.atmosphere-demo button:focus-visible { border-color:var(--acid); }
+.atmosphere-demo button:disabled { opacity:.5; cursor:default; }
+.atmosphere-demo small { display:block; margin-top:8px; color:var(--muted); font-size:8px; }
+@media(max-width:700px) { .atmosphere-demo { right:16px; top:auto; bottom:100px; width:210px; } }

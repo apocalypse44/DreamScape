@@ -1,0 +1,36 @@
+# Downloaded assets stay local; keep their setup instructions.
+/assets/*
+docs/
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Optional tooling/build output
+node_modules/
+dist/
+.cache/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# Logs, temporary files and downloaded archives
+*.log
+*.tmp
+*.zip
+*.7z
+*.rar

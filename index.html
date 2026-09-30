@@ -8,57 +8,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=ds5" />
+    <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
-    <div id="world" aria-label="Playable procedural Dreamscape world"></div>
-
-    <section class="intro-screen" id="intro">
-      <div class="intro-copy">
-        <p class="eyebrow">BEHAVIORAL PROCEDURAL WORLD GENERATION</p>
-        <h1>The world dreams<br />the way <em>you move.</em></h1>
-        <p class="lede">Explore an endless landscape formed by your behavior. Move gently to grow a softer world—or sprint, turn and leap to fracture it.</p>
-        <button id="enterWorld" type="button"><span>ENTER THE DREAM</span><i>→</i></button>
-        <div class="intro-controls"><span>WASD</span> MOVE <span>MOUSE</span> LOOK <span>SHIFT</span> SPRINT <span>SPACE</span> JUMP</div>
-      </div>
-      <div class="coordinate">PROTOTYPE // DS.01<br />GENERATIVE SYSTEM ONLINE</div>
-    </section>
-
-    <header class="hud-top">
-      <div class="brand"><b>D</b><span>DREAMSCAPE</span></div>
-      <div class="facing"><small>FACING</small><strong id="facingDirection">N · NORTH</strong></div>
-      <div class="world-state"><i></i> <span id="experienceState">NEUTRAL DREAMSCAPE</span></div>
-    </header>
-
-    <aside class="behavior-card">
-      <div class="card-heading"><span>BEHAVIOR SIGNAL</span><strong id="signalLabel">CALM</strong></div>
-      <div class="meter"><div id="meterFill"></div><i id="meterNotch"></i></div>
-      <div class="meter-labels"><span>CALM</span><span>CHAOS</span></div>
-      <div class="stats">
-        <div class="realm-row"><span>CURRENT WORLD</span><strong id="realm">THE CROSSING</strong></div>
-        <div><span>VELOCITY</span><strong id="velocity">0.0</strong></div>
-        <div><span>WORLD SEED</span><strong id="seed">DS-0000</strong></div>
-        <div><span>CHUNKS FORMED</span><strong id="chunks">00</strong></div>
-      </div>
-    </aside>
-
-    <div class="crosshair"><i></i><i></i><i></i><i></i></div>
-    <div class="movement-hint" id="movementHint"><span>W A S D</span> MOVE &nbsp;·&nbsp; <span>SHIFT</span> RUN WILD</div>
-    <aside class="swarm-panel" id="swarmPanel">
-      <div><i></i><span>VIOLET SWARM</span><strong id="swarmStatus">ROAMING</strong></div>
-      <p><kbd>E</kbd> ATTRACT &nbsp; <kbd>Q</kbd> REPEL &nbsp; <kbd>R</kbd> RECALL</p>
-      <small>LEFT / RIGHT MOUSE ALSO CONTROL THE FIELD</small>
-    </aside>
-    <div class="compass" aria-label="Current world direction">
-      <small>CURRENT ROUTE</small>
-      <strong id="compassDirection">CENTER</strong>
-      <span id="compassWorld">THE CROSSING</span>
-      <i id="compassCoordinates">X 0 · Z 0</i>
-    </div>
-    <button class="escape-menu" type="button">ESC &nbsp; RELEASE MOUSE</button>
-    <div class="grain" aria-hidden="true"></div>
-
+    <main id="app"></main>
+    <noscript>Enable JavaScript to play Dreamscape.</noscript>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="app.js?v=ds7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@theatre/browser-bundles@0.7.2/dist/core-only.min.js"></script>
+    <script src="vendor/fflate.min.js"></script>
+    <script src="vendor/EXRLoader.js"></script>
+    <script src="vendor/GLTFLoader.js"></script>
+    <script src="vendor/FBXLoader.js"></script>
+    <script type="module" src="src/main.js"></script>
   </body>
 </html>
