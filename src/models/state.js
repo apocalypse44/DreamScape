@@ -1,5 +1,8 @@
+// Starting conditions restored by reset.
+export const START = { chaos: 0.06, yaw: 0, pitch: -0.08, lastMoveAngle: 0 };
+
 export function createGameState() {
-  const state = { chaos: 0.06, yaw: 0, pitch: -0.08, locked: false, elapsed: 0, lastMoveAngle: 0, hintTimer: 0 };
+  const state = { ...START, locked: false, elapsed: 0, hintTimer: 0 };
   const keys = new Set();
   state.perspective = 'third';
   const pointerButtons = new Set();

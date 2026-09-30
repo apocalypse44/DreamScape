@@ -19,8 +19,10 @@ export async function mountView() {
   const compassCoordinatesEl = document.querySelector("#compassCoordinates");
   const swarmPanelEl = document.querySelector("#swarmPanel");
   const swarmStatusEl = document.querySelector("#swarmStatus");
+  const fpsEl = document.querySelector("#fps");
+  const loadEl = document.querySelector("#load");
 
-  return { worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl };
+  return { worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl };
 }
 
 export function updateHUD(ui, state, player, biomeAt) {

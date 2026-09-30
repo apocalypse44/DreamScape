@@ -1,7 +1,8 @@
 # Dreamscape
 
 A desktop browser exploration prototype built with HTML, CSS, JavaScript and
-Three.js. Movement changes a calm-to-chaos score that controls atmosphere and
+Three.js. Movement changes a calm-to-chaos score that reshapes nearby terrain
+(smoother when calm, rougher when chaotic) and controls atmosphere and
 environmental motion. Theatre mode adds an HDRI sky, environment lighting and
 instanced grass. Terrain is generated in chunks using seeded noise.
 
@@ -58,8 +59,15 @@ requests from `file://` pages. The server binds to this computer only.
 | Esc | Release mouse / return to intro |
 | T | Toggle Theatre atmosphere, sky and grass |
 | P | Start/stop the eight-second atmosphere preview |
-| E / Q / R | Attract / repel / recall the swarm in Violet Mist |
+| V | Switch third / first person |
+| R | Reset to the starting position, score and terrain (same seed) |
+| [ / ] | Stress test: lower / raise the chunk view radius (1–6) |
+| E / Q / F | Attract (calms the world) / repel (adds chaos) / recall the swarm in Violet Mist |
 | Left / right mouse button | Attract / repel the swarm |
+
+The world seed is kept in the URL (`?seed=1234`). Reloading or sharing that URL
+recreates the same world. The behavior panel shows FPS, frame time and the
+number of loaded chunks.
 
 The atmosphere panel shows HDRI and grass loading status. The preview changes
 visuals temporarily; it does not replace the gameplay behavior score.

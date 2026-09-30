@@ -1,4 +1,4 @@
-export function bindInput({ state, keys, pointerButtons, player, renderer, camera, ui }) {
+export function bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset, onStress }) {
   const { enterButton, introEl } = ui;
   function clearInput() {
     keys.clear();
@@ -32,6 +32,9 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
       state.perspective = state.perspective === 'third' ? 'first' : 'third';
       event.preventDefault();
     }
+    if (event.code === 'KeyR' && !event.repeat) onReset();
+    if (event.code === 'BracketRight' && !event.repeat) onStress(1);
+    if (event.code === 'BracketLeft' && !event.repeat) onStress(-1);
     if (event.code === "Space" && !event.repeat && player.grounded) {
       player.velocity.y = 10.5;
       player.grounded = false;

@@ -1,4 +1,4 @@
-import { createGameState } from '../models/state.js';
+import { createGameState, START } from '../models/state.js';
 import { createWorld } from '../models/world.js';
 import { DreamSwarm } from '../models/swarm.js';
 import { createScene } from '../rendering/scene.js';
@@ -16,13 +16,26 @@ export function startGame(ui) {
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
   let atmosphere = null;
   const world = createWorld({ scene, state, player, onChunk: chunk => atmosphere?.prepare?.(chunk) });
-  const { chunks, hash, biomeAt, terrainHeight, scoreAt, updateChunks } = world;
+  const { chunks, hash, biomeAt, terrainHeight, updateChunks } = world;
   ui.seedEl.textContent = `DS-${world.seed}`;
   const { moteMat, updateMotes, animateEnvironment } = createEnvironment({ scene, state, player, chunks });
   const swarm = new DreamSwarm(scene, terrainHeight);
   const { swarmPanelEl, swarmStatusEl } = ui;
-  const movement = createPlayerController({ state, keys, player, camera, chunks, terrainHeight, scoreAt });
-  bindInput({ state, keys, pointerButtons, player, renderer, camera, ui });
+  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight });
+
+  // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
+  function reset() {
+    Object.assign(state, START);
+    player.velocity.set(0, 0, 0);
+    world.reset();
+    updateChunks();
+    player.position.set(0, terrainHeight(0, 0) + 2.05, 0);
+  }
+  // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
+  function stress(step) {
+    world.viewRadius += step;
+  }
+  bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset: reset, onStress: stress });
   atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles: world.materialProfiles });
   const grass = createGrass({ scene, terrainHeight, hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight });
@@ -31,9 +44,12 @@ export function startGame(ui) {
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
     let mode = "roaming";
-    if (keys.has("KeyR")) mode = "recall";
+    if (keys.has("KeyF")) mode = "recall";
     else if (keys.has("KeyQ") || pointerButtons.has(2)) mode = "repel";
     else if (keys.has("KeyE") || pointerButtons.has(0)) mode = "attract";
+    // Gathering the swarm calms the world; scattering it stirs chaos.
+    if (insideSwarmWorld && mode === "attract") state.chaos -= 0.12 * dt;
+    if (insideSwarmWorld && mode === "repel") state.chaos += 0.2 * dt;
     swarm.setEnabled(insideSwarmWorld, player.position);
     swarm.update(dt, player.position, camera, mode, state.chaos);
     swarmPanelEl.classList.toggle("active", insideSwarmWorld);
@@ -41,11 +57,22 @@ export function startGame(ui) {
   }
 
   const clock = new THREE.Clock();
+  let fpsFrames = 0;
+  let fpsTime = 0;
   function frame() {
     requestAnimationFrame(frame);
-    const dt = Math.min(clock.getDelta(), 0.04);
+    const rawDt = clock.getDelta();
+    const dt = Math.min(rawDt, 0.04);
+    fpsFrames++;
+    fpsTime += rawDt;
+    if (fpsTime >= 0.5) {
+      ui.fpsEl.textContent = `${Math.round(fpsFrames / fpsTime)} · ${(fpsTime / fpsFrames * 1000).toFixed(1)} MS`;
+      ui.loadEl.textContent = `R${world.viewRadius} · ${chunks.size} CHUNKS`;
+      fpsFrames = fpsTime = 0;
+    }
     state.elapsed += dt;
     updateChunks();
+    world.updateTerrain(dt);
     movement.update(dt);
     const cameraDistance = viewCamera.update();
     character.update(dt, cameraDistance);
@@ -65,11 +92,10 @@ export function startGame(ui) {
     moteMat.opacity = 0.3 + visualScore * 0.65;
     moteMat.size = 0.2 + visualScore * 0.42;
     atmosphere.update(visualScore, currentBiome);
-    grass.update(Boolean(atmosphere.isEnabled?.()), player.position, visualScore);
+    grass.update(Boolean(atmosphere.isEnabled?.()), player.position, visualScore, world.terrainVersion);
     renderer.render(scene, camera);
   }
 
-  updateChunks();
-  player.position.y = terrainHeight(0, 0, scoreAt(0, 0)) + 2.05;
+  reset();
   frame();
 }

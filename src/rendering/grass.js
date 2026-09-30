@@ -44,6 +44,8 @@ export function createGrass({ scene, terrainHeight, hash, chunks }) {
   let mesh = null;
   let cellX = null;
   let cellZ = null;
+  let builtVersion = -1;
+  let builtAt = 0;
   let ready = false;
   let failed = false;
   let lastLabel = '';
@@ -96,7 +98,7 @@ export function createGrass({ scene, terrainHeight, hash, chunks }) {
   );
 
   return {
-    update(enabled, position, chaos) {
+    update(enabled, position, chaos, terrainVersion) {
       updateGround(enabled);
       label(!enabled ? 'Grass: off' : failed ? 'Grass unavailable' : ready ? 'Grass: ground + nearby blades' : 'Loading grass...');
       if (!mesh) return;
@@ -104,8 +106,14 @@ export function createGrass({ scene, terrainHeight, hash, chunks }) {
       if (!enabled) return;
       mesh.material.envMapIntensity = 0.8 - chaos * 0.5;
       const cx = Math.floor(position.x / spacing), cz = Math.floor(position.z / spacing);
-      if (cx === cellX && cz === cellZ) return;
+      // Re-seat blades when the terrain reshapes, at most ~3x per second.
+      // ponytail: blades can lag the ground by up to 0.3s while it moves; move to a vertex shader if visible.
+      const now = performance.now();
+      const reshaped = terrainVersion !== builtVersion && now - builtAt > 300;
+      if (cx === cellX && cz === cellZ && !reshaped) return;
       cellX = cx; cellZ = cz;
+      builtVersion = terrainVersion;
+      builtAt = now;
       let count = 0;
       for (let x = cx - radius; x <= cx + radius; x++) {
         for (let z = cz - radius; z <= cz + radius; z++) {

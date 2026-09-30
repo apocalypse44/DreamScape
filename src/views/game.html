@@ -6,7 +6,7 @@
     <h1>The world dreams<br />the way <em>you move.</em></h1>
     <p class="lede">Explore an endless landscape formed by your behavior. Move gently to grow a softer world—or sprint, turn and leap to fracture it.</p>
     <button id="enterWorld" type="button"><span>ENTER THE DREAM</span><i>→</i></button>
-    <div class="intro-controls"><span>WASD / ARROWS</span> MOVE <span>MOUSE</span> LOOK <span>SHIFT</span> SPRINT <span>SPACE</span> JUMP <span>V</span> VIEW</div>
+    <div class="intro-controls"><span>WASD / ARROWS</span> MOVE <span>MOUSE</span> LOOK <span>SHIFT</span> SPRINT <span>SPACE</span> JUMP <span>V</span> VIEW <span>R</span> RESET <span>[ ]</span> STRESS</div>
   </div>
   <div class="coordinate">PROTOTYPE // DS.01<br />GENERATIVE SYSTEM ONLINE</div>
 </section>
@@ -26,6 +26,8 @@
     <div><span>VELOCITY</span><strong id="velocity">0.0</strong></div>
     <div><span>WORLD SEED</span><strong id="seed">DS-0000</strong></div>
     <div><span>CHUNKS FORMED</span><strong id="chunks">00</strong></div>
+    <div><span>FPS</span><strong id="fps">--</strong></div>
+    <div><span>LOAD [ / ]</span><strong id="load">R2 · 25 CHUNKS</strong></div>
   </div>
 </aside>
 
@@ -33,7 +35,8 @@
 <div class="movement-hint" id="movementHint"><span>WASD / ARROWS</span> MOVE &nbsp;·&nbsp; <span>SHIFT</span> RUN WILD</div>
 <aside class="swarm-panel" id="swarmPanel">
   <div><i></i><span>VIOLET SWARM</span><strong id="swarmStatus">ROAMING</strong></div>
-  <p><kbd>E</kbd> ATTRACT &nbsp; <kbd>Q</kbd> REPEL &nbsp; <kbd>R</kbd> RECALL</p>
+  <p><kbd>E</kbd> ATTRACT &nbsp; <kbd>Q</kbd> REPEL &nbsp; <kbd>F</kbd> RECALL</p>
+  <small>ATTRACT CALMS THE WORLD · REPEL STIRS CHAOS</small>
   <small>LEFT / RIGHT MOUSE ALSO CONTROL THE FIELD</small>
 </aside>
 <div class="compass" aria-label="Current world direction">

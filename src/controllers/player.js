@@ -1,4 +1,4 @@
-export function createPlayerController({ state, keys, player, camera, chunks, terrainHeight, scoreAt }) {
+export function createPlayerController({ state, keys, player, chunks, terrainHeight }) {
   function collidesAt(x, z) {
     const playerRadius = 0.55;
     for (const chunk of chunks.values()) {
@@ -57,7 +57,8 @@ export function createPlayerController({ state, keys, player, camera, chunks, te
     if (!collidesAt(player.position.x, nextZ)) player.position.z = nextZ;
     else player.velocity.z = 0;
     player.position.y += player.velocity.y * dt;
-    const ground = terrainHeight(player.position.x, player.position.z, scoreAt(player.position.x, player.position.z)) + 2.05;
+    // Terrain may rise under a standing player; snapping up keeps them on the surface.
+    const ground = terrainHeight(player.position.x, player.position.z) + 2.05;
     if (player.position.y <= ground) {
       player.position.y = ground;
       player.velocity.y = Math.max(0, player.velocity.y);

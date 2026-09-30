@@ -1,10 +1,15 @@
 export function createWorld({ scene, state, player, onChunk }) {
   const CHUNK_SIZE = 64;
   const SEGMENTS = 36;
-  const VIEW_RADIUS = 2;
-  const seed = Math.floor(Math.random() * 8999) + 1000;
+  let viewRadius = 2;
+  // ?seed= in the URL recreates the same world; a random seed is written back so reloads match.
+  const params = new URLSearchParams(location.search);
+  const seed = Number.parseInt(params.get('seed'), 10) || Math.floor(Math.random() * 8999) + 1000;
+  params.set('seed', seed);
+  history.replaceState(null, '', `?${params}`);
   const chunks = new Map();
   let formed = 0;
+  let terrainVersion = 0;
   const BIOMES = {
     hub:   { name:"THE CROSSING", route:"CENTER", ground:0x53645a, fog:0x0b1716, sky:0xbdebd3, roughness:0.2, kind:"hub" },
     north: { name:"VERDANT REACH", route:"N · NORTH", ground:0x527d4f, fog:0x071b18, sky:0xbdebd3, roughness:0.1, kind:"trees" },
@@ -70,23 +75,21 @@ export function createWorld({ scene, state, player, onChunk }) {
     return THREE.MathUtils.lerp(BIOMES.hub.roughness, directional, transition);
   }
 
-  // Height depends on absolute world coordinates, so adjacent chunks share identical edges.
+  // The behavior score shifts every biome's roughness by one shared amount: calm smooths, chaos roughens.
+  // Height depends only on world coordinates plus this shared shift, so adjacent chunks keep identical edges.
+  const shiftFor = chaos => (chaos - 0.25) * 0.8;
+  let targetShift = shiftFor(state.chaos);
+  let terrainShift = targetShift;
+  const lowHeight = (x, z) => noise(x * 0.018, z * 0.018) * 11 + noise(x * 0.043, z * 0.043) * 4;
+  const roughHeight = (x, z) => Math.pow(Math.max(0.01, noise(x * 0.105, z * 0.105)), 0.34) * 18 + noise(x * 0.25, z * 0.25) * 3;
+  const blendHeight = (low, rough, base) =>
+    -5 + THREE.MathUtils.lerp(low, rough, THREE.MathUtils.clamp(base + terrainShift, 0, 1));
   function terrainHeight(x, z) {
-    const score = terrainRoughnessAt(x, z);
-    const low = noise(x * 0.018, z * 0.018) * 11 + noise(x * 0.043, z * 0.043) * 4;
-    const rough = Math.pow(Math.max(0.01, noise(x * 0.105, z * 0.105)), 0.34) * 18 + noise(x * 0.25, z * 0.25) * 3;
-    return -5 + THREE.MathUtils.lerp(low, rough, score);
+    return blendHeight(lowHeight(x, z), roughHeight(x, z), terrainRoughnessAt(x, z));
   }
-
 
   function chunkKey(cx, cz) {
     return `${cx},${cz}`;
-  }
-
-  function scoreAt(x, z) {
-    const cx = Math.floor((x + CHUNK_SIZE / 2) / CHUNK_SIZE);
-    const cz = Math.floor((z + CHUNK_SIZE / 2) / CHUNK_SIZE);
-    return chunks.get(chunkKey(cx, cz))?.userData.score ?? state.chaos;
   }
 
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.38, 3.2, 5);
@@ -114,13 +117,13 @@ export function createWorld({ scene, state, player, onChunk }) {
     group.userData.colliders.push({x:wx,z:wz,radius});
   }
 
-  function createDecor(group, cx, cz, score, biome) {
+  function createDecor(group, cx, cz, biome) {
     const points = poissonPoints(cx, cz, biome.kind === "crystals" ? 7 : 8, biome.kind === "hub" ? 5 : 14);
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
       if (Math.hypot(wx, wz) < 10) return;
-      const y = terrainHeight(wx, wz, score);
+      const y = terrainHeight(wx, wz);
       const object = new THREE.Group();
       if (biome.kind === "trees" || biome.kind === "hub") {
         const trunk = new THREE.Mesh(trunkGeo, trunkMat);
@@ -172,7 +175,7 @@ export function createWorld({ scene, state, player, onChunk }) {
   }
 
   // Tiny WFC-style pass: each cell collapses to a tile allowed by left/up neighbors.
-  function createWfcRuins(group, cx, cz, score, biome) {
+  function createWfcRuins(group, cx, cz, biome) {
     if (biome.kind === "hub") return;
     const rules = { empty:["empty","pillar","arch"], pillar:["empty","pillar"], arch:["empty","pillar"] };
     const cells = [];
@@ -186,7 +189,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       if (tile === "empty") continue;
       const lx = -18 + x*18, lz = -18 + z*18;
       const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
-      const y = terrainHeight(wx,wz,score);
+      const y = terrainHeight(wx,wz);
       const ruin = new THREE.Group();
       const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
       const post = new THREE.Mesh(postGeo,ruinMat); post.position.y=2.5; ruin.add(post);
@@ -207,10 +210,15 @@ export function createWorld({ scene, state, player, onChunk }) {
     const geometry = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, SEGMENTS, SEGMENTS);
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.attributes.position;
+    // Cache the noise per vertex so reshaping only re-blends instead of re-sampling noise.
+    const parts = new Float32Array(positions.count * 3);
     for (let i = 0; i < positions.count; i++) {
       const wx = cx * CHUNK_SIZE + positions.getX(i);
       const wz = cz * CHUNK_SIZE + positions.getZ(i);
-      positions.setY(i, terrainHeight(wx, wz, score));
+      parts[i * 3] = lowHeight(wx, wz);
+      parts[i * 3 + 1] = roughHeight(wx, wz);
+      parts[i * 3 + 2] = terrainRoughnessAt(wx, wz);
+      positions.setY(i, blendHeight(parts[i * 3], parts[i * 3 + 1], parts[i * 3 + 2]));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -226,9 +234,9 @@ export function createWorld({ scene, state, player, onChunk }) {
     const group = new THREE.Group();
     group.position.set(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE);
     group.add(mesh);
-    group.userData = { score, material, cx, cz, biome, colliders:[], animated:[] };
-    createDecor(group, cx, cz, score, biome);
-    createWfcRuins(group, cx, cz, score, biome);
+    group.userData = { score, material, cx, cz, biome, parts, colliders:[], animated:[] };
+    createDecor(group, cx, cz, biome);
+    createWfcRuins(group, cx, cz, biome);
     onChunk(group);
     scene.add(group);
     chunks.set(chunkKey(cx, cz), group);
@@ -238,24 +246,63 @@ export function createWorld({ scene, state, player, onChunk }) {
   function updateChunks() {
     const cx = Math.floor((player.position.x + CHUNK_SIZE / 2) / CHUNK_SIZE);
     const cz = Math.floor((player.position.z + CHUNK_SIZE / 2) / CHUNK_SIZE);
-    for (let x = cx - VIEW_RADIUS; x <= cx + VIEW_RADIUS; x++) {
-      for (let z = cz - VIEW_RADIUS; z <= cz + VIEW_RADIUS; z++) {
+    for (let x = cx - viewRadius; x <= cx + viewRadius; x++) {
+      for (let z = cz - viewRadius; z <= cz + viewRadius; z++) {
         if (!chunks.has(chunkKey(x, z))) createChunk(x, z);
       }
     }
     for (const [key, chunk] of chunks) {
-      if (Math.abs(chunk.userData.cx - cx) > VIEW_RADIUS + 1 || Math.abs(chunk.userData.cz - cz) > VIEW_RADIUS + 1) {
-        scene.remove(chunk);
-        chunk.children[0].geometry.dispose();
-        chunk.children[0].material.dispose();
-        chunks.delete(key);
+      if (Math.abs(chunk.userData.cx - cx) > viewRadius + 1 || Math.abs(chunk.userData.cz - cz) > viewRadius + 1) {
+        removeChunk(key, chunk);
       }
     }
-
   }
 
-  return { seed, chunks, hash, biomeAt, terrainHeight, scoreAt, updateChunks,
+  function removeChunk(key, chunk) {
+    scene.remove(chunk);
+    chunk.children[0].geometry.dispose();
+    chunk.children[0].material.dispose();
+    chunks.delete(key);
+  }
+
+  // Re-blend cached heights at the current shift; objects are re-seated on the new surface.
+  function reshape(chunk) {
+    const { parts, animated } = chunk.userData;
+    const geometry = chunk.children[0].geometry;
+    const positions = geometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      positions.setY(i, blendHeight(parts[i * 3], parts[i * 3 + 1], parts[i * 3 + 2]));
+    }
+    positions.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    for (const item of animated) {
+      const { position } = item.object;
+      position.y = item.baseY = terrainHeight(chunk.position.x + position.x, chunk.position.z + position.z);
+    }
+  }
+
+  function updateTerrain(dt) {
+    targetShift += (shiftFor(state.chaos) - targetShift) * (1 - Math.exp(-1.5 * dt));
+    // ponytail: reshapes every loaded chunk in one frame; spread across frames if the stress test shows spikes.
+    if (Math.abs(targetShift - terrainShift) < 0.004) return;
+    terrainShift = targetShift;
+    for (const chunk of chunks.values()) reshape(chunk);
+    terrainVersion++;
+  }
+
+  function reset() {
+    for (const [key, chunk] of chunks) removeChunk(key, chunk);
+    formed = 0;
+    targetShift = terrainShift = shiftFor(state.chaos);
+    terrainVersion++;
+  }
+
+  return { seed, chunks, hash, biomeAt, terrainHeight, updateChunks, updateTerrain, reset,
     get formed() { return formed; },
+    get terrainVersion() { return terrainVersion; },
+    get viewRadius() { return viewRadius; },
+    set viewRadius(value) { viewRadius = THREE.MathUtils.clamp(value, 1, 6); },
     materialProfiles: [
       [trunkMat, { roughness: 0.95, metalness: 0 }],
       [leafMat, { roughness: 0.8, metalness: 0 }],
