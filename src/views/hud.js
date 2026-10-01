@@ -21,8 +21,20 @@ export async function mountView() {
   const swarmStatusEl = document.querySelector("#swarmStatus");
   const fpsEl = document.querySelector("#fps");
   const loadEl = document.querySelector("#load");
+  const questGoalEl = document.querySelector("#questGoal");
+  const shrinePanelEl = document.querySelector("#shrinePanel");
+  const shrineTextEl = document.querySelector("#shrineText");
 
-  return { worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl };
+  return { worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl, shrinePanelEl, shrineTextEl };
+}
+
+// Text is only written when it changes, so the aria-live panel isn't re-announced every frame.
+export function updateQuestHUD(ui, quest) {
+  if (ui.questGoalEl.textContent !== quest.goal) ui.questGoalEl.textContent = quest.goal;
+  ui.questGoalEl.classList.toggle("warn", quest.restless);
+  ui.shrinePanelEl.classList.toggle("active", quest.nearShrine);
+  ui.shrinePanelEl.classList.toggle("drowned", quest.drowned);
+  if (ui.shrineTextEl.textContent !== quest.shrineText) ui.shrineTextEl.textContent = quest.shrineText;
 }
 
 export function updateHUD(ui, state, player, biomeAt) {

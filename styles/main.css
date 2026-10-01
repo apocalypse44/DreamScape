@@ -45,3 +45,12 @@ h1 em { color:var(--acid); font-family:Georgia,serif; font-weight:400; }
 .atmosphere-demo button:disabled { opacity:.5; cursor:default; }
 .atmosphere-demo small { display:block; margin-top:8px; color:var(--muted); font-size:8px; }
 @media(max-width:700px) { .atmosphere-demo { right:16px; top:auto; bottom:100px; width:210px; } }
+.quest-goal { margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line); color:var(--acid); font:500 8px/1.6 "DM Mono"; letter-spacing:.12em; }
+.quest-goal.warn { color:#ff705d; }
+.shrine-panel { position:fixed; z-index:4; left:50%; top:92px; width:min(440px, calc(100vw - 32px)); box-sizing:border-box; padding:16px 18px; border:1px solid rgba(127,232,255,.35); background:rgba(6,16,20,.78); backdrop-filter:blur(12px); opacity:0; transform:translate(-50%,-8px); transition:.35s; pointer-events:none; }
+.shrine-panel.active { opacity:1; transform:translate(-50%,0); }
+.shrine-panel small { color:#9fefff; font:500 8px "DM Mono"; letter-spacing:.2em; }
+.shrine-panel p { margin:10px 0 0; color:var(--ink); font-size:13px; line-height:1.6; }
+.shrine-panel.drowned { border-color:rgba(255,112,93,.4); }
+.shrine-panel.drowned small { color:#ff705d; }
+.shrine-panel.drowned p { color:var(--muted); font-style:italic; }

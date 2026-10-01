@@ -5,11 +5,14 @@ import { createScene } from '../rendering/scene.js';
 import { createEnvironment } from '../rendering/environment.js';
 import { createAtmosphereDemo } from '../rendering/atmosphere.js';
 import { createGrass } from '../rendering/grass.js';
-import { updateHUD } from '../views/hud.js';
+import { updateHUD, updateQuestHUD } from '../views/hud.js';
 import { bindInput } from './input.js';
 import { createPlayerController } from './player.js';
 import { createCameraController } from './camera.js';
 import { createCharacter } from '../rendering/character.js';
+import { createQuest } from '../models/quest.js';
+import { createShrine } from '../rendering/shrine.js';
+import { createCompanion } from '../rendering/companion.js';
 
 export function startGame(ui) {
   const { state, keys, pointerButtons, player } = createGameState();
@@ -21,7 +24,10 @@ export function startGame(ui) {
   const { moteMat, updateMotes, animateEnvironment } = createEnvironment({ scene, state, player, chunks });
   const swarm = new DreamSwarm(scene, terrainHeight);
   const { swarmPanelEl, swarmStatusEl } = ui;
-  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight });
+  const quest = createQuest({ world, state, player });
+  const shrine = createShrine({ scene, terrainHeight, quest });
+  const companion = createCompanion({ scene, state, player, terrainHeight, quest });
+  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
@@ -30,6 +36,8 @@ export function startGame(ui) {
     world.reset();
     updateChunks();
     player.position.set(0, terrainHeight(0, 0) + 2.05, 0);
+    quest.reset();
+    companion.reset();
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -74,9 +82,13 @@ export function startGame(ui) {
     updateChunks();
     world.updateTerrain(dt);
     movement.update(dt);
+    quest.update();
+    companion.update(dt);
+    shrine.update(dt, state.elapsed);
     const cameraDistance = viewCamera.update();
     character.update(dt, cameraDistance);
     updateHUD(ui, state, player, biomeAt);
+    updateQuestHUD(ui, quest);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
     updateSwarm(dt);
     updateMotes(dt);

@@ -1,8 +1,8 @@
-export function createPlayerController({ state, keys, player, chunks, terrainHeight }) {
+export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders }) {
   function collidesAt(x, z) {
     const playerRadius = 0.55;
-    for (const chunk of chunks.values()) {
-      for (const collider of chunk.userData.colliders) {
+    for (const colliders of [staticColliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]) {
+      for (const collider of colliders) {
         const radius = playerRadius + collider.radius;
         const dx = x - collider.x;
         const dz = z - collider.z;

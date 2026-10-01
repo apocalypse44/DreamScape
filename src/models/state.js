@@ -1,5 +1,5 @@
 // Starting conditions restored by reset.
-export const START = { chaos: 0.06, yaw: 0, pitch: -0.08, lastMoveAngle: 0 };
+export const START = { chaos: 0.06, mode: 'calm', yaw: 0, pitch: -0.08, lastMoveAngle: 0 };
 
 export function createGameState() {
   const state = { ...START, locked: false, elapsed: 0, hintTimer: 0 };
