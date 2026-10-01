@@ -1,29 +1,38 @@
-// The supplied FBX is rigged but has no animation clips or embedded textures.
+// Mixamo character + clips (FBX). Clips share the mixamorig skeleton, so any clip plays on the model.
+const DIR = 'assets/character/';
+const CLIPS = {
+  idle: 'Breathing Idle.fbx', walk: 'Walking.fbx', run: 'Running.fbx', jump: 'Jump.fbx',
+  crouchIdle: 'Crouching Idle.fbx', crouchWalk: 'Crouch Walk.fbx'
+};
+// Playback rates at the player's walk (9 m/s), sprint (18 m/s) and crouch (4.5 m/s); tune until the feet stop sliding.
+const WALK_RATE = 1.6;
+const RUN_RATE = 1.3;
+const CROUCH_RATE = 1.4;
+// Mixamo jumps start with a crouch; skip it (seconds) since our jump leaves the ground instantly.
+const JUMP_SKIP = 0.3;
+
+// Strip forward drift from the hips in case a clip was downloaded without "In Place".
+function inPlace(clip) {
+  for (const track of clip.tracks) {
+    if (!/Hips\.position$/.test(track.name)) continue;
+    const v = track.values;
+    for (let i = 0; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; }
+  }
+  return clip;
+}
+
 export function createCharacter({ scene, state, player }) {
   const root = new THREE.Group();
   scene.add(root);
   const status = document.querySelector('#characterStatus');
-  const joints = [];
-  const swing = new THREE.Quaternion();
-  let phase = 0;
-  let weight = 0;
-  let loaded = false;
+  const loader = new THREE.FBXLoader();
+  const actions = {};
+  let mixer = null;
+  let wasGrounded = true;
   let failed = false;
   let lastStatus = '';
 
-  const manager = new THREE.LoadingManager();
-  const loader = new THREE.FBXLoader(manager);
-  // FBX expects textures at assets/Textures/Textures/<Part>/...; missing ones sample black, so drop them.
-  const mapKeys = ['map', 'normalMap', 'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'specularMap', 'bumpMap', 'emissiveMap'];
-  manager.onLoad = () => root.traverse(object => {
-    if (!object.isMesh) return;
-    for (const material of [].concat(object.material)) {
-      for (const key of mapKeys) if (material[key] && !material[key].image) material[key] = null;
-      if (!material.map) material.color.set(0x8a8478);
-      material.needsUpdate = true;
-    }
-  });
-  loader.load('assets/survival_character.fbx', model => {
+  loader.load(DIR + 'Erika Archer.fbx', model => {
     model.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(model);
     const scale = 2.05 / Math.max(box.max.y - box.min.y, 0.001);
@@ -31,32 +40,25 @@ export function createCharacter({ scene, state, player }) {
     model.position.x -= (box.min.x + box.max.x) * 0.5 * scale;
     model.position.y -= box.min.y * scale;
     model.position.z -= (box.min.z + box.max.z) * 0.5 * scale;
-    root.rotation.set(0, 0, 0); // joint axes below are computed in the model frame
-    root.add(model);
-    root.updateMatrixWorld(true);
-    const parentRotation = new THREE.Quaternion();
     model.traverse(object => {
-      if (object.isMesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-      }
-      if (!object.isBone) return;
-      // Match primary limbs only, not the numerous twist/corrective bones.
-      const match = /^(thigh|calf|upperarm|lowerarm)_([lr])$/i.exec(object.name);
-      if (!match) return;
-      object.parent.getWorldQuaternion(parentRotation);
-      const axis = new THREE.Vector3(1, 0, 0).applyQuaternion(parentRotation.invert());
-      const side = match[2].toLowerCase() === 'l' ? 1 : -1;
-      let base = object.quaternion.clone();
-      if (/upperarm/i.test(match[1])) {
-        // Lower the A-pose arms toward the sides.
-        const down = new THREE.Vector3(0, 0, 1).applyQuaternion(parentRotation);
-        base.premultiply(new THREE.Quaternion().setFromAxisAngle(down, -0.6 * side));
-      }
-      joints.push({ bone: object, base, axis,
-        limb: match[1].toLowerCase(), side });
+      if (!object.isMesh) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      object.frustumCulled = false; // skinned bounds use the bind pose
     });
-    loaded = true;
+    root.add(model);
+    mixer = new THREE.AnimationMixer(model);
+    for (const [name, file] of Object.entries(CLIPS)) {
+      loader.load(DIR + file, clipFile => {
+        const action = mixer.clipAction(inPlace(clipFile.animations[0]));
+        if (name === 'jump') {
+          action.setLoop(THREE.LoopOnce);
+          action.clampWhenFinished = true; // hold the last airborne pose until landing
+        }
+        action.setEffectiveWeight(0).play();
+        actions[name] = action;
+      }, undefined, error => console.warn(`Clip ${file} could not load.`, error));
+    }
   }, undefined, error => {
     failed = true;
     console.warn('Character FBX could not load.', error);
@@ -65,27 +67,40 @@ export function createCharacter({ scene, state, player }) {
   return {
     update(dt, cameraDistance) {
       const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
-      const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : loaded ? 'Character: procedural gait' : 'Loading character...'}`;
+      const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
-      root.visible = loaded && state.perspective === 'third' && cameraDistance > 0.8;
+      root.visible = Boolean(mixer) && state.perspective === 'third' && cameraDistance > 0.8;
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
-      const moving = speed > 0.2 && player.grounded;
       const targetYaw = speed > 0.2 ? Math.atan2(player.velocity.x, player.velocity.z) : state.yaw + Math.PI;
       const delta = Math.atan2(Math.sin(targetYaw - root.rotation.y), Math.cos(targetYaw - root.rotation.y));
       root.rotation.y += delta * (1 - Math.exp(-12 * dt));
-      weight += ((moving ? Math.min(speed / 9, 1) : 0) - weight) * (1 - Math.exp(-12 * dt));
-      phase += dt * (speed > 10 ? 13 : 8);
-      for (const joint of joints) {
-        const stride = Math.sin(phase) * joint.side;
-        let angle = stride * 0.45;
-        if (joint.limb === 'calf') angle = Math.max(0, -stride) * 0.9; // +X bends the knee back
-        if (joint.limb === 'upperarm') angle = -stride * 0.3;
-        if (joint.limb === 'lowerarm') angle = 0.15;
-        swing.setFromAxisAngle(joint.axis, angle * weight);
-        joint.bone.quaternion.copy(joint.base).premultiply(swing);
+      if (!mixer) return;
+
+      if (actions.jump && wasGrounded && !player.grounded && player.velocity.y > 0) {
+        actions.jump.reset().play();
+        actions.jump.time = JUMP_SKIP;
       }
+      wasGrounded = player.grounded;
+
+      // Pick target weights, then ease every clip toward its target so changes cross-fade.
+      // ponytail: falls reuse the held jump pose; add 'Falling Idle.fbx' as a fall clip if drops look off.
+      const moving = speed > 0.5;
+      const run = THREE.MathUtils.smoothstep(speed, 10, 17); // walk at 9 m/s blends into run at 18 m/s
+      const target = { idle: 0, walk: 0, run: 0, jump: 0, crouchIdle: 0, crouchWalk: 0 };
+      if (!player.grounded) target.jump = 1;
+      else if (state.crouching) target[moving ? 'crouchWalk' : 'crouchIdle'] = 1;
+      else if (!moving) target.idle = 1;
+      else { target.walk = 1 - run; target.run = run; }
+      const ease = 1 - Math.exp(-12 * dt);
+      for (const [name, action] of Object.entries(actions)) {
+        action.setEffectiveWeight(action.getEffectiveWeight() + (target[name] - action.getEffectiveWeight()) * ease);
+      }
+      actions.walk?.setEffectiveTimeScale(WALK_RATE * Math.min(speed / 9, 1));
+      actions.run?.setEffectiveTimeScale(RUN_RATE * Math.min(speed / 9, 1));
+      actions.crouchWalk?.setEffectiveTimeScale(CROUCH_RATE * Math.min(speed / 4.5, 1));
+      mixer.update(dt);
     }
   };
 }

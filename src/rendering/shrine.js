@@ -1,4 +1,4 @@
-import { SHRINE } from '../models/quest.js';
+import { SHRINE, SLAB_SIZE } from '../models/quest.js';
 import { loadModel, makeGlow } from './models.js';
 
 const CALM_COLOR = new THREE.Color(0x7fe8ff);
@@ -57,6 +57,16 @@ export function createShrine({ scene, terrainHeight, quest }) {
     const fallback = new THREE.Mesh(new THREE.OctahedronGeometry(0.45), new THREE.MeshBasicMaterial({ color: EMBER_COLOR }));
     embers.forEach(group => group.add(fallback.clone()));
   });
+
+  // Floating parkour slabs leading up to the raised ember.
+  const slabGeo = new THREE.BoxGeometry(SLAB_SIZE, 0.6, SLAB_SIZE);
+  const slabMat = new THREE.MeshStandardMaterial({ color: 0x3a2622, emissive: 0x5d1a08, roughness: 0.8 });
+  for (const { x, z, top } of quest.platforms) {
+    const slab = new THREE.Mesh(slabGeo, slabMat);
+    slab.position.set(x, top - 0.3, z);
+    slab.castShadow = slab.receiveShadow = true;
+    scene.add(slab);
+  }
 
   return {
     colliders,

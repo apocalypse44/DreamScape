@@ -27,7 +27,7 @@ export function startGame(ui) {
   const quest = createQuest({ world, state, player });
   const shrine = createShrine({ scene, terrainHeight, quest });
   const companion = createCompanion({ scene, state, player, terrainHeight, quest });
-  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders });
+  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders, platforms: quest.platforms });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {

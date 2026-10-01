@@ -8,7 +8,7 @@ const CALM_CHAOS = 0.06;
 
 const SHRINE_LINES = {
   companion: 'Your companion fears the wild. Walk gently and the world stays soft. Run wild and the hound will be lost to the flames. If that happens, follow it, gather three embers, and bring them to me.',
-  cursed: 'The hound burns. It runs to the embers it scattered. They rest on peaks that rise only in chaos. Stay wild to reach them.',
+  cursed: 'The hound burns. It runs to the embers it scattered. They rest on peaks that rise only in chaos. Stay wild to reach them. One burns high above. Climb to it.',
   return: 'You carry the embers. Be still, and offer them here.',
   cured: 'The hound is free. The flames will not take it again. Other worlds wait beyond the Crossing.'
 };
@@ -34,11 +34,34 @@ function placeEmbers(world) {
   return picked.map(({ x, z, peak, gain }) => ({ x, y: peak + 1.2, z, gain, taken: false }));
 }
 
+// Parkour: the strongest ember is lifted onto a spiral of floating slabs around its peak.
+// Each slab sits STEP_RISE above the last (jump apex is ~2.2 m), so the climb is always possible.
+const STEPS = 9;
+const STEP_RISE = 1.6;
+const SPIRAL_RADIUS = 6;
+export const SLAB_SIZE = 3;
+function raiseEmber(world, ember) {
+  const platforms = [];
+  let top = -Infinity;
+  for (let i = 0; i < STEPS; i++) {
+    const angle = i * 1.2;
+    const x = ember.x + Math.cos(angle) * SPIRAL_RADIUS;
+    const z = ember.z + Math.sin(angle) * SPIRAL_RADIUS;
+    top = Math.max(world.heightAt(x, z, PEAK_CHAOS), top) + STEP_RISE;
+    platforms.push({ x, z, top });
+  }
+  const last = platforms[STEPS - 1];
+  Object.assign(ember, { x: last.x, z: last.z, y: last.top + 1.2 });
+  return platforms;
+}
+
 export function createQuest({ world, state, player }) {
   const embers = placeEmbers(world);
+  const platforms = raiseEmber(world, embers[0]);
   let stage = 'companion';
   const quest = {
     embers,
+    platforms,
     get stage() { return stage; },
     restless: false,
     nearShrine: false,

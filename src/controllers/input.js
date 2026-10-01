@@ -35,11 +35,7 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
     if (event.code === 'KeyR' && !event.repeat) onReset();
     if (event.code === 'BracketRight' && !event.repeat) onStress(1);
     if (event.code === 'BracketLeft' && !event.repeat) onStress(-1);
-    if (event.code === "Space" && !event.repeat && player.grounded) {
-      player.velocity.y = 10.5;
-      player.grounded = false;
-      state.chaos += 0.08;
-    }
+    if (event.code === "Space" && !event.repeat) player.jumpBuffer = 0.15; // player.js decides if it can jump
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) event.preventDefault();
   });
   document.addEventListener("keyup", event => keys.delete(event.code));

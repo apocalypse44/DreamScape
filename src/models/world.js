@@ -87,14 +87,17 @@ export function createWorld({ scene, state, player, onChunk }) {
   // The Crossing (spawn + shrine) stays still; chaos fades in between 25 m and 45 m from the centre.
   const chaosWeight = (x, z) => THREE.MathUtils.smoothstep(Math.hypot(x, z), 25, 45);
   const calmBase = (x, z) => terrainRoughnessAt(x, z) + CALM_SHIFT;
-  const blendHeight = (low, rough, base, weight, shift = terrainShift) =>
-    -5 + THREE.MathUtils.lerp(low, rough, THREE.MathUtils.clamp(base + shift * weight, 0, 1));
+  // About 60% of the map is a flat plain; hills and chaos peaks only rise where the broad mask is high.
+  const FLAT_Y = 1.5;
+  const hillMask = (x, z) => THREE.MathUtils.smoothstep(noise(x * 0.006 + 71, z * 0.006 - 33), 0.56, 0.64);
+  const blendHeight = (low, rough, base, weight, hill, shift = terrainShift) =>
+    THREE.MathUtils.lerp(FLAT_Y, -5 + THREE.MathUtils.lerp(low, rough, THREE.MathUtils.clamp(base + shift * weight, 0, 1)), hill);
   function terrainHeight(x, z) {
-    return blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z));
+    return blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z));
   }
   // Height the ground would settle at for a given score; used to put items on chaos-only peaks.
   function heightAt(x, z, chaos) {
-    return blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), shiftFor(chaos));
+    return blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z), shiftFor(chaos));
   }
 
   function chunkKey(cx, cz) {
@@ -220,15 +223,16 @@ export function createWorld({ scene, state, player, onChunk }) {
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.attributes.position;
     // Cache the noise per vertex so reshaping only re-blends instead of re-sampling noise.
-    const parts = new Float32Array(positions.count * 4);
+    const parts = new Float32Array(positions.count * 5);
     for (let i = 0; i < positions.count; i++) {
       const wx = cx * CHUNK_SIZE + positions.getX(i);
       const wz = cz * CHUNK_SIZE + positions.getZ(i);
-      parts[i * 4] = lowHeight(wx, wz);
-      parts[i * 4 + 1] = roughHeight(wx, wz);
-      parts[i * 4 + 2] = calmBase(wx, wz);
-      parts[i * 4 + 3] = chaosWeight(wx, wz);
-      positions.setY(i, blendHeight(parts[i * 4], parts[i * 4 + 1], parts[i * 4 + 2], parts[i * 4 + 3]));
+      parts[i * 5] = lowHeight(wx, wz);
+      parts[i * 5 + 1] = roughHeight(wx, wz);
+      parts[i * 5 + 2] = calmBase(wx, wz);
+      parts[i * 5 + 3] = chaosWeight(wx, wz);
+      parts[i * 5 + 4] = hillMask(wx, wz);
+      positions.setY(i, blendHeight(...parts.subarray(i * 5, i * 5 + 5)));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -281,7 +285,8 @@ export function createWorld({ scene, state, player, onChunk }) {
     const geometry = chunk.children[0].geometry;
     const positions = geometry.attributes.position;
     for (let i = 0; i < positions.count; i++) {
-      positions.setY(i, blendHeight(parts[i * 4], parts[i * 4 + 1], parts[i * 4 + 2], parts[i * 4 + 3]));
+      const k = i * 5;
+      positions.setY(i, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4]));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
