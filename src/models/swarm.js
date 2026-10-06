@@ -1,4 +1,4 @@
-/* Violet Mist boid swarm: separation + alignment + cohesion + player steering. */
+/* Spade Kingdom boid swarm: separation + alignment + cohesion + player steering. */
 export class DreamSwarm {
   constructor(scene, terrainHeight, count = 84) {
     this.scene = scene;

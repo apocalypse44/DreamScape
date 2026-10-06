@@ -10,12 +10,14 @@ export function createWorld({ scene, state, player, onChunk }) {
   const chunks = new Map();
   let formed = 0;
   let terrainVersion = 0;
+  // Four kingdoms around a large neutral centre; each kingdom starts KINGDOM_START metres out.
+  const KINGDOM_START = 350;
   const BIOMES = {
-    hub:   { name:"THE CROSSING", route:"CENTER", ground:0x53645a, fog:0x0b1716, sky:0xbdebd3, roughness:0.2, kind:"hub" },
-    north: { name:"VERDANT REACH", route:"N · NORTH", ground:0x527d4f, fog:0x071b18, sky:0xbdebd3, roughness:0.1, kind:"trees" },
-    east:  { name:"EMBER SPIRES", route:"E · EAST", ground:0x712b24, fog:0x290a09, sky:0xff765b, roughness:0.92, kind:"crystals" },
-    south: { name:"GOLDEN DUNES", route:"S · SOUTH", ground:0x9b7a48, fog:0x291e13, sky:0xffd28a, roughness:0.32, kind:"pillars" },
-    west:  { name:"VIOLET MIST", route:"W · WEST", ground:0x50466f, fog:0x161225, sky:0xc4b5ff, roughness:0.48, kind:"wisps" }
+    hub:   { name:"GRIMOIRE TOWER", route:"CENTER", banner:"#c6ff65", ground:0x53645a, fog:0x0b1716, sky:0xbdebd3, roughness:0.2, kind:"hub" },
+    north: { name:"CLOVER KINGDOM", route:"N · NORTH", banner:"#8fe36b", ground:0x527d4f, fog:0x071b18, sky:0xbdebd3, roughness:0.1, kind:"trees" },
+    east:  { name:"HEART KINGDOM", route:"E · EAST", banner:"#ff6b6b", ground:0x712b24, fog:0x290a09, sky:0xff765b, roughness:0.92, kind:"crystals" },
+    south: { name:"DIAMOND KINGDOM", route:"S · SOUTH", banner:"#ffd36b", ground:0x9b7a48, fog:0x291e13, sky:0xffd28a, roughness:0.32, kind:"pillars" },
+    west:  { name:"SPADE KINGDOM", route:"W · WEST", banner:"#b9a6ff", ground:0x50466f, fog:0x161225, sky:0xc4b5ff, roughness:0.48, kind:"wisps" }
   };
 
   function hash(x, z) {
@@ -54,7 +56,7 @@ export function createWorld({ scene, state, player, onChunk }) {
   }
 
   function biomeAt(x, z) {
-    if (Math.hypot(x, z) < 25) return BIOMES.hub;
+    if (Math.hypot(x, z) < KINGDOM_START) return BIOMES.hub;
     if (Math.abs(z) >= Math.abs(x)) return z < 0 ? BIOMES.north : BIOMES.south;
     return x > 0 ? BIOMES.east : BIOMES.west;
   }
@@ -71,7 +73,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       north * BIOMES.north.roughness + south * BIOMES.south.roughness +
       east * BIOMES.east.roughness + west * BIOMES.west.roughness
     ) / total;
-    const transition = THREE.MathUtils.smoothstep(distance, 16, 58);
+    const transition = THREE.MathUtils.smoothstep(distance, KINGDOM_START - 60, KINGDOM_START + 40);
     return THREE.MathUtils.lerp(BIOMES.hub.roughness, directional, transition);
   }
 
@@ -84,7 +86,7 @@ export function createWorld({ scene, state, player, onChunk }) {
   let terrainShift = targetShift;
   const lowHeight = (x, z) => noise(x * 0.018, z * 0.018) * 11 + noise(x * 0.043, z * 0.043) * 4;
   const roughHeight = (x, z) => Math.pow(Math.max(0.01, noise(x * 0.105, z * 0.105)), 0.34) * 18 + noise(x * 0.25, z * 0.25) * 3;
-  // The Crossing (spawn + shrine) stays still; chaos fades in between 25 m and 45 m from the centre.
+  // The tower plaza (spawn + shrine) stays still; chaos fades in between 25 m and 45 m from the centre.
   const chaosWeight = (x, z) => THREE.MathUtils.smoothstep(Math.hypot(x, z), 25, 45);
   const calmBase = (x, z) => terrainRoughnessAt(x, z) + CALM_SHIFT;
   // About 60% of the map is a flat plain; hills and chaos peaks only rise where the broad mask is high.
@@ -130,11 +132,11 @@ export function createWorld({ scene, state, player, onChunk }) {
   }
 
   function createDecor(group, cx, cz, biome) {
-    const points = poissonPoints(cx, cz, biome.kind === "crystals" ? 7 : 8, biome.kind === "hub" ? 5 : 14);
+    const points = poissonPoints(cx, cz, biome.kind === "crystals" ? 7 : 8, biome.kind === "hub" ? 9 : 14);
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
-      if (Math.hypot(wx, wz) < 22) return; // keep the shrine plaza clear
+      if (biomeAt(wx, wz).kind === "hub") return; // Grimoire Tower lands are dressed by rendering/props.js
       const y = terrainHeight(wx, wz);
       const object = new THREE.Group();
       if (biome.kind === "trees" || biome.kind === "hub") {
@@ -313,7 +315,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
-  return { seed, chunks, hash, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, chunks, hash, noise, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
     get formed() { return formed; },
     get terrainVersion() { return terrainVersion; },
     get viewRadius() { return viewRadius; },

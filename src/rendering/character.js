@@ -21,13 +21,50 @@ function inPlace(clip) {
   return clip;
 }
 
-export function createCharacter({ scene, state, player }) {
+// Foot IK: clips assume flat ground, so on slopes each foot is moved onto the terrain under it.
+const MAX_STEP = 0.6; // largest height difference a foot may adjust by (m)
+const v = () => new THREE.Vector3();
+const [hip, knee, foot, target, dir, bend] = [v(), v(), v(), v(), v(), v()];
+const turn = new THREE.Quaternion(), parentQ = new THREE.Quaternion(), worldQ = new THREE.Quaternion();
+
+// Rotate a bone in world space by q, keeping its parent untouched.
+function rotateWorld(bone, q) {
+  bone.parent.getWorldQuaternion(parentQ);
+  bone.getWorldQuaternion(worldQ).premultiply(q);
+  bone.quaternion.copy(parentQ.invert().multiply(worldQ));
+  bone.updateMatrixWorld(true);
+}
+
+// Analytic two-bone IK: bend thigh + calf so the foot reaches `goal`, knee keeps pointing the same way.
+function solveLeg({ thigh, calf, ankle }, goal) {
+  thigh.getWorldPosition(hip);
+  calf.getWorldPosition(knee);
+  ankle.getWorldPosition(foot);
+  const a = hip.distanceTo(knee), b = knee.distanceTo(foot);
+  const c = THREE.MathUtils.clamp(hip.distanceTo(goal), 0.01, a + b - 0.001);
+  dir.subVectors(goal, hip).normalize();
+  bend.subVectors(knee, hip);
+  bend.sub(dir.clone().multiplyScalar(bend.dot(dir))); // knee direction, perpendicular to hip→goal
+  if (bend.lengthSq() < 1e-8) return; // leg perfectly straight: no bend plane, skip this frame
+  bend.normalize();
+  const cosA = THREE.MathUtils.clamp((a * a + c * c - b * b) / (2 * a * c), -1, 1);
+  target.copy(hip).addScaledVector(dir, a * cosA).addScaledVector(bend, a * Math.sqrt(1 - cosA * cosA));
+  rotateWorld(thigh, turn.setFromUnitVectors(knee.sub(hip).normalize(), target.sub(hip).normalize()));
+  calf.getWorldPosition(knee);
+  ankle.getWorldPosition(foot);
+  rotateWorld(calf, turn.setFromUnitVectors(foot.sub(knee).normalize(), dir.subVectors(goal, knee).normalize()));
+}
+
+export function createCharacter({ scene, state, player, terrainHeight }) {
   const root = new THREE.Group();
   scene.add(root);
   const status = document.querySelector('#characterStatus');
   const loader = new THREE.FBXLoader();
   const actions = {};
   let mixer = null;
+  const legs = [];
+  let hipDrop = 0;
+  let ikWeight = 0;
   let wasGrounded = true;
   let failed = false;
   let lastStatus = '';
@@ -47,6 +84,10 @@ export function createCharacter({ scene, state, player }) {
       object.frustumCulled = false; // skinned bounds use the bind pose
     });
     root.add(model);
+    for (const side of ['Left', 'Right']) {
+      const bone = part => model.getObjectByName(`mixamorig${side}${part}`);
+      if (bone('UpLeg') && bone('Leg') && bone('Foot')) legs.push({ thigh: bone('UpLeg'), calf: bone('Leg'), ankle: bone('Foot') });
+    }
     mixer = new THREE.AnimationMixer(model);
     for (const [name, file] of Object.entries(CLIPS)) {
       loader.load(DIR + file, clipFile => {
@@ -63,6 +104,29 @@ export function createCharacter({ scene, state, player }) {
     failed = true;
     console.warn('Character FBX could not load.', error);
   });
+
+  // Lower the hips so the lowest foot can reach its ground, then IK each leg onto the terrain.
+  function placeFeet(dt) {
+    const base = root.position.y; // ground under the player's centre
+    // Only on bare terrain: on a parkour slab the terrain below isn't the floor.
+    const onTerrain = player.grounded && Math.abs(terrainHeight(player.position.x, player.position.z) - base) < 0.1;
+    ikWeight += ((onTerrain && legs.length === 2 ? 1 : 0) - ikWeight) * (1 - Math.exp(-10 * dt));
+    if (ikWeight < 0.01) { hipDrop = 0; return; }
+    root.updateMatrixWorld(true);
+    const deltas = legs.map(({ ankle }) => {
+      ankle.getWorldPosition(foot);
+      return THREE.MathUtils.clamp(terrainHeight(foot.x, foot.z) - base, -MAX_STEP, MAX_STEP);
+    });
+    hipDrop += (Math.min(0, ...deltas) - hipDrop) * (1 - Math.exp(-12 * dt)); // smoothed so steps don't jitter
+    root.position.y = base + hipDrop * ikWeight;
+    root.updateMatrixWorld(true);
+    legs.forEach((leg, i) => {
+      const raise = (deltas[i] - hipDrop) * ikWeight;
+      if (raise < 0.005) return;
+      leg.ankle.getWorldPosition(foot);
+      solveLeg(leg, foot.clone().setY(foot.y + raise));
+    });
+  }
 
   return {
     update(dt, cameraDistance) {
@@ -101,6 +165,7 @@ export function createCharacter({ scene, state, player }) {
       actions.run?.setEffectiveTimeScale(RUN_RATE * Math.min(speed / 9, 1));
       actions.crouchWalk?.setEffectiveTimeScale(CROUCH_RATE * Math.min(speed / 4.5, 1));
       mixer.update(dt);
+      placeFeet(dt);
     }
   };
 }

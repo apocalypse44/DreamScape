@@ -13,12 +13,15 @@ import { createCharacter } from '../rendering/character.js';
 import { createQuest } from '../models/quest.js';
 import { createShrine } from '../rendering/shrine.js';
 import { createCompanion } from '../rendering/companion.js';
+import { createProps } from '../rendering/props.js';
+import { createNPCs, VILLAGERS } from '../rendering/npc.js';
 
 export function startGame(ui) {
   const { state, keys, pointerButtons, player } = createGameState();
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
   let atmosphere = null;
-  const world = createWorld({ scene, state, player, onChunk: chunk => atmosphere?.prepare?.(chunk) });
+  let props = null;
+  const world = createWorld({ scene, state, player, onChunk: chunk => { props?.decorate(chunk); atmosphere?.prepare?.(chunk); } });
   const { chunks, hash, biomeAt, terrainHeight, updateChunks } = world;
   ui.seedEl.textContent = `DS-${world.seed}`;
   const { moteMat, updateMotes, animateEnvironment } = createEnvironment({ scene, state, player, chunks });
@@ -27,6 +30,8 @@ export function startGame(ui) {
   const quest = createQuest({ world, state, player });
   const shrine = createShrine({ scene, terrainHeight, quest });
   const companion = createCompanion({ scene, state, player, terrainHeight, quest });
+  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
+  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders, platforms: quest.platforms });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
@@ -38,6 +43,7 @@ export function startGame(ui) {
     player.position.set(0, terrainHeight(0, 0) + 2.05, 0);
     quest.reset();
     companion.reset();
+    npcs.reset();
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -45,9 +51,9 @@ export function startGame(ui) {
   }
   bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset: reset, onStress: stress });
   atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles: world.materialProfiles });
-  const grass = createGrass({ scene, terrainHeight, hash, chunks });
+  const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight });
-  const character = createCharacter({ scene, state, player });
+  const character = createCharacter({ scene, state, player, terrainHeight });
   const chaosFog = new THREE.Color(0x2a0809);
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
@@ -82,8 +88,10 @@ export function startGame(ui) {
     updateChunks();
     world.updateTerrain(dt);
     movement.update(dt);
+    props.update(player.position, world.terrainVersion);
     quest.update();
     companion.update(dt);
+    npcs.update(dt);
     shrine.update(dt, state.elapsed);
     const cameraDistance = viewCamera.update();
     character.update(dt, cameraDistance);
@@ -104,7 +112,7 @@ export function startGame(ui) {
     moteMat.opacity = 0.3 + visualScore * 0.65;
     moteMat.size = 0.2 + visualScore * 0.42;
     atmosphere.update(visualScore, currentBiome);
-    grass.update(Boolean(atmosphere.isEnabled?.()), player.position, visualScore, world.terrainVersion);
+    grass.update(Boolean(atmosphere.isEnabled?.()));
     renderer.render(scene, camera);
   }
 

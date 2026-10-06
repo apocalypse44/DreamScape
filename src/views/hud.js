@@ -12,6 +12,7 @@ export async function mountView() {
   const chunksEl = document.querySelector("#chunks");
   const seedEl = document.querySelector("#seed");
   const realmEl = document.querySelector("#realm");
+  const kingdomEl = document.querySelector("#kingdomName");
   const facingEl = document.querySelector("#facingDirection");
   const experienceStateEl = document.querySelector("#experienceState");
   const compassDirectionEl = document.querySelector("#compassDirection");
@@ -25,7 +26,7 @@ export async function mountView() {
   const shrinePanelEl = document.querySelector("#shrinePanel");
   const shrineTextEl = document.querySelector("#shrineText");
 
-  return { worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl, shrinePanelEl, shrineTextEl };
+  return { kingdomEl, worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl, shrinePanelEl, shrineTextEl };
 }
 
 // Text is only written when it changes, so the aria-live panel isn't re-announced every frame.
@@ -50,6 +51,14 @@ export function updateHUD(ui, state, player, biomeAt) {
   experienceStateEl.textContent = `${experienceState} DREAMSCAPE`;
   const currentWorld = biomeAt(player.position.x, player.position.z);
   realmEl.textContent = currentWorld.name;
+  if (ui.kingdomEl.textContent !== currentWorld.name) {
+    ui.kingdomEl.textContent = currentWorld.name;
+    ui.kingdomEl.style.color = currentWorld.banner;
+    // Restart the entry flash each time the player crosses into another kingdom.
+    ui.kingdomEl.classList.remove("enter");
+    void ui.kingdomEl.offsetWidth;
+    ui.kingdomEl.classList.add("enter");
+  }
   compassDirectionEl.textContent = currentWorld.route;
   compassWorldEl.textContent = currentWorld.name;
   compassCoordinatesEl.textContent = `X ${Math.round(player.position.x)} · Z ${Math.round(player.position.z)}`;

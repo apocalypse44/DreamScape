@@ -25,7 +25,11 @@ h1 em { color:var(--acid); font-family:Georgia,serif; font-weight:400; }
 .brand b { width:29px;height:29px;display:grid;place-items:center;border:1px solid rgba(198,255,101,.55);border-radius:50%;color:var(--acid);font-weight:500; }
 .world-state { color:var(--muted);font:8px "DM Mono";letter-spacing:.16em; }
 .world-state i { display:inline-block;width:5px;height:5px;margin-right:8px;border-radius:50%;background:var(--acid);box-shadow:0 0 10px var(--acid); }
-.facing { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;font-family:"DM Mono";letter-spacing:.15em }.facing small{color:var(--muted);font-size:7px}.facing strong{min-width:92px;color:var(--acid);font-size:9px;font-weight:500}
+.facing { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;font-family:"DM Mono";letter-spacing:.15em;text-align:center }.facing small{color:var(--muted);font-size:7px}.facing small b{color:var(--acid);font-weight:500}
+.kingdom-name { color:var(--acid);font:500 15px "DM Mono";letter-spacing:.32em;white-space:nowrap;text-shadow:0 0 18px currentColor }
+.kingdom-name.enter { animation:kingdom-enter 2.4s ease-out }
+@keyframes kingdom-enter { 0%{opacity:0;letter-spacing:.7em} 25%{opacity:1} 100%{letter-spacing:.32em} }
+@media (prefers-reduced-motion:reduce) { .kingdom-name.enter { animation:none } }
 
 .behavior-card { position:fixed;z-index:3;right:3vw;top:94px;width:255px;padding:18px;border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(14px);pointer-events:none; }
 .card-heading,.meter-labels{display:flex;justify-content:space-between;font:500 8px "DM Mono";letter-spacing:.14em}.card-heading strong{color:var(--acid);font-weight:500}.meter{position:relative;height:3px;margin:17px 0 8px;background:rgba(255,255,255,.12)}.meter div{width:5%;height:100%;background:linear-gradient(90deg,#c6ff65,#ff705d);transition:width .15s}.meter>i{position:absolute;left:5%;top:-3px;width:1px;height:9px;background:white;transition:left .15s}.meter-labels{color:rgba(235,241,223,.35);font-size:7px}.stats{display:grid;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.stats div{display:flex;justify-content:space-between}.stats span{color:var(--muted);font:8px "DM Mono";letter-spacing:.12em}.stats strong{font:400 9px "DM Mono"}

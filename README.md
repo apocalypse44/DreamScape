@@ -71,12 +71,12 @@ requests from `file://` pages. The server binds to this computer only.
 | V | Switch third / first person |
 | R | Reset to the starting position, score and terrain (same seed) |
 | [ / ] | Stress test: lower / raise the chunk view radius (1–6) |
-| E / Q / F | Attract (calms the world) / repel (adds chaos) / recall the swarm in Violet Mist |
+| E / Q / F | Attract (calms the world) / repel (adds chaos) / recall the swarm in the Spade Kingdom |
 | Left / right mouse button | Attract / repel the swarm |
 
 ### Quest: The Ember Hound
 
-The shrine at The Crossing gives instructions, but only to a calm player.
+The shrine at the Grimoire Tower gives instructions, but only to a calm player.
 Becoming chaotic (score above 0.65; calm again below 0.40) curses your dog into
 the Ember Hound. It leads you to three embers that float on peaks that only rise
 in chaos. Collect them while chaotic, then return to the shrine and stand

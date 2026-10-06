@@ -1,0 +1,134 @@
+// Villagers of the Grimoire Tower: Quaternius mannequins + Universal Animation Library clips (CC0).
+// They share the library's own skeleton, so every clip plays without retargeting.
+// Each NPC reacts to the behavior score: calm visitors get a greeting, chaotic ones a refusal.
+const UAL1 = encodeURI('assets/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb');
+const UAL2 = encodeURI('assets/universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb');
+const FEMALE = encodeURI('assets/universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Female Mannequin/Unreal-Godot/Mannequin_F.glb');
+const WALK_SPEED = 1.3; // m/s, matches Walk_Loop's stride
+const GREET = 6;        // calm player within this range: NPC turns and talks
+const REFUSE = 12;      // chaotic player within this range: NPC turns and shakes its head
+
+// idle: clip when alone · path: walking loop (points around a home) · body: M or F · tint: robe color
+export const VILLAGERS = [
+  { name: 'Shrine Keeper', body: 'F', tint: 0x2f6f8f, home: [4, -6], idle: 'Idle_FoldArms_Loop' },
+  { name: 'Mage', body: 'M', tint: 0x7a2f2f, home: [-20, -16], idle: 'Spell_Simple_Idle_Loop' },
+  { name: 'Lantern Guard', body: 'M', tint: 0x3b3b3b, home: [7, -42], idle: 'Idle_Lantern_Loop' },
+  { name: 'Farmer', body: 'F', tint: 0x7a6a2f, home: [24, 21], idle: 'Farm_Watering' },
+  { name: 'Ring Walker', body: 'F', tint: 0x4f7a3a, home: [0, 0], path: 'ring' },
+  { name: 'Traveller', body: 'M', tint: 0x5a4a7a, home: [-34, 30], path: 'wander' }
+];
+
+function stripRootMotion(clip) {
+  for (const track of clip.tracks) {
+    if (track.name !== 'root.position') continue;
+    const v = track.values;
+    for (let i = 3; i < v.length; i++) v[i] = v[i % 3];
+  }
+  return clip;
+}
+
+export function createNPCs({ scene, state, player, terrainHeight, hash, colliders, onReady }) {
+  const root = new THREE.Group();
+  scene.add(root);
+  const npcs = [];
+  const clips = {};
+  const loader = new THREE.GLTFLoader();
+  const fetchBuffer = url => fetch(url).then(r => { if (!r.ok) throw new Error(`${url}: ${r.status}`); return r.arrayBuffer(); });
+  const parse = buffer => new Promise((resolve, reject) => loader.parse(buffer, '', resolve, reject));
+
+  function play(npc, name) {
+    if (npc.current === name || !clips[name]) return;
+    const next = npc.actions[name] ||= npc.mixer.clipAction(clips[name]);
+    next.reset().fadeIn(0.35).play();
+    npc.actions[npc.current]?.fadeOut(0.35);
+    npc.current = name;
+  }
+
+  // Walkers: the ring follows the plaza's stone circle; wanderers pick seeded points near home.
+  function target(npc, t) {
+    const [hx, hz] = npc.def.home;
+    if (npc.def.path === 'ring') return [Math.cos(t * WALK_SPEED / 16) * 16, Math.sin(t * WALK_SPEED / 16) * 16];
+    const leg = Math.floor(t / 12); // a new spot every 12 s
+    return [hx + (hash(leg, 41) - 0.5) * 30, hz + (hash(41, leg) - 0.5) * 30];
+  }
+
+  // Start position: walkers begin on their route (never on the spawn point), others at home.
+  function place(npc) {
+    npc.t = hash(npc.def.home[0], npc.def.home[1]) * 50;
+    const [x, z] = npc.def.path ? target(npc, npc.t) : npc.def.home;
+    npc.group.position.set(x, 0, z);
+    npc.collider.x = x;
+    npc.collider.z = z;
+  }
+
+  Promise.all([fetchBuffer(UAL1), fetchBuffer(UAL2), fetchBuffer(FEMALE)]).then(async ([male, extra, female]) => {
+    for (const buffer of [male, extra]) {
+      for (const clip of (await parse(buffer)).animations) clips[clip.name] = stripRootMotion(clip);
+    }
+    for (const def of VILLAGERS) {
+      const gltf = await parse(def.body === 'F' ? female : male); // a fresh parse = an independent skeleton
+      const model = gltf.scene;
+      model.traverse(object => {
+        if (!object.isMesh) return;
+        object.castShadow = true;
+        object.frustumCulled = false;
+        if (object.material.name === 'M_Main') {
+          object.material = object.material.clone();
+          object.material.color.set(def.tint);
+        }
+      });
+      const group = new THREE.Group();
+      group.add(model);
+      root.add(group);
+      const collider = { x: def.home[0], z: def.home[1], radius: 0.45 };
+      colliders.push(collider);
+      const npc = { def, group, collider, mixer: new THREE.AnimationMixer(model), actions: {}, current: null, t: 0 };
+      place(npc);
+      npcs.push(npc);
+      play(npc, def.idle || 'Walk_Loop');
+    }
+    onReady?.(root);
+  }).catch(error => console.warn('NPCs could not load.', error));
+
+  return {
+    update(dt) {
+      for (const npc of npcs) {
+        const { def, group } = npc;
+        const dx = player.position.x - group.position.x;
+        const dz = player.position.z - group.position.z;
+        const distance = Math.hypot(dx, dz);
+        const chaotic = state.mode === 'chaos';
+        const reacting = chaotic ? distance < REFUSE : distance < GREET;
+        let yaw = group.rotation.y;
+        if (reacting) {
+          play(npc, chaotic ? 'Idle_No_Loop' : 'Idle_Talking_Loop');
+          yaw = Math.atan2(dx, dz);
+        } else if (def.path) {
+          npc.t += dt;
+          const [tx, tz] = target(npc, npc.t);
+          const mx = tx - group.position.x, mz = tz - group.position.z;
+          const gap = Math.hypot(mx, mz);
+          if (gap > 0.3) {
+            const step = Math.min(gap, WALK_SPEED * dt);
+            group.position.x += mx / gap * step;
+            group.position.z += mz / gap * step;
+            yaw = Math.atan2(mx, mz);
+            play(npc, 'Walk_Loop');
+          } else {
+            play(npc, 'Idle_Loop');
+          }
+        } else {
+          group.position.set(def.home[0], 0, def.home[1]);
+          play(npc, def.idle);
+        }
+        const turn = Math.atan2(Math.sin(yaw - group.rotation.y), Math.cos(yaw - group.rotation.y));
+        group.rotation.y += turn * (1 - Math.exp(-6 * dt));
+        group.position.y = terrainHeight(group.position.x, group.position.z);
+        npc.collider.x = group.position.x;
+        npc.collider.z = group.position.z;
+        npc.mixer.update(dt);
+      }
+    },
+    reset() { npcs.forEach(place); }
+  };
+}
