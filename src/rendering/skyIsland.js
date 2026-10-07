@@ -1,15 +1,15 @@
 import { SKY, SKY_MAIN, SKY_PLATFORMS, SKY_JUMPS, SKY_LOOKOUT, SKY_SECRET, SKY_SHRINE,
-  SKY_RAMP, SKY_BRIDGE, SUMMIT_DOOR, SKY_DOOR, createSkyJourney } from '../models/skyIsland.js';
+  SKY_RAMP, SKY_BRIDGE, SUMMIT_DOOR, SKY_DOOR, SKY_LAKE, createSkyJourney } from '../models/skyIsland.js';
 import { loadModel } from './models.js';
 import { cloverGroundTexture } from './cloverDressing.js';
-import { createWaterSurface } from './waterfall.js';
+import { createWaterSurface, createSoftDot } from './waterfall.js';
 import { createSkyGardenDetails, createStarlightTexture } from './skyGardenDetails.js';
 
 export function createSkyIsland({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover floating sky garden'; scene.add(root);
   const journey = createSkyJourney(), colliders = [];
   const details = createSkyGardenDetails({root,world,onReady});colliders.push(...details.colliders);
-  const rock = new THREE.MeshStandardMaterial({ color: 0x53656c, roughness: 1, flatShading: true });
+  const rock = new THREE.MeshStandardMaterial({ color: 0x5a4c3e, roughness: 1, flatShading: true });
   const stone = new THREE.MeshStandardMaterial({ color: 0x9fae96, roughness: 0.95 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x394d4b, roughness: 1 });
   const grass = new THREE.MeshStandardMaterial({ color: 0xc0daa4, map: cloverGroundTexture(world), roughness: 1 });
@@ -18,31 +18,47 @@ export function createSkyIsland({ scene, world, onReady }) {
     const m = new THREE.Mesh(geometry, material); m.position.set(x,y,z);
     m.castShadow = m.receiveShadow = true; root.add(m); return m;
   }
-  function island(p, decorate = true) {
-    const vertices = [], colors = [];
-    const rings = [[p.top - 0.18, 1, 0], [p.top - (p.top - p.bottom) * 0.32, 0.87, 0.6], [p.bottom, 0.15, -1]];
-    const point = (i,r) => [p.outline[i][0] * rings[r][1] + rings[r][2], rings[r][0], p.outline[i][1] * rings[r][1]];
-    for (let r = 0; r < rings.length-1; r++) for (let i = 0; i < p.outline.length; i++) {
-      const j = (i+1) % p.outline.length;
-      const color = new THREE.Color(0x53656c).multiplyScalar(0.72 + world.hash(i,r+1220)*0.45);
-      for (const pt of [point(i,r),point(j,r),point(i,r+1),point(j,r),point(j,r+1),point(i,r+1)]) {
-        vertices.push(...pt); colors.push(color.r,color.g,color.b);
+  // Craggy floating rock: the outline is subdivided, then each lower ring shrinks with
+  // per-vertex jitter so the underside tapers into an uneven root-like point. The top ring
+  // stays the exact collision outline. Bands go soil -> rock -> dark underside.
+  const BANDS = [0x6b5133, 0x5d4a37, 0x5b5750, 0x4b4d4c, 0x393f40, 0x2c3233];
+  const vineMat = new THREE.MeshStandardMaterial({ color: 0x4d6b34 });
+  function island(p, decorate = true, parent = root) {
+    const vertices = [], colors = [], h = p.top - p.bottom;
+    const outline = p.outline.flatMap(([x, z], i) => {
+      const [nx, nz] = p.outline[(i + 1) % p.outline.length];
+      return [0, 1, 2].map(k => [x + (nx - x) * k / 3, z + (nz - z) * k / 3]);
+    });
+    const levels = [[0.003, 1], [0.1, 1.05], [0.3, 0.9], [0.55, 0.66], [0.8, 0.38], [1, 0.14]];
+    const rings = levels.map(([depth, scale], r) => outline.map(([x, z], i) => {
+      const jitter = r === 0 ? 1 : 0.82 + world.hash(i + p.z, r * 31 + p.x) * 0.36;
+      const sag = r === 0 ? 0 : (world.hash(i * 7 + p.x, r + p.z) - 0.5) * h * 0.08;
+      return [x * scale * jitter, p.top - depth * h + sag, z * scale * jitter];
+    }));
+    const n = outline.length;
+    for (let r = 0; r < rings.length - 1; r++) for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const color = new THREE.Color(BANDS[r]).multiplyScalar(0.8 + world.hash(i, r + 1220 + p.z) * 0.35);
+      for (const pt of [rings[r][i], rings[r][j], rings[r + 1][i], rings[r][j], rings[r + 1][j], rings[r + 1][i]]) {
+        vertices.push(...pt); colors.push(color.r, color.g, color.b);
       }
     }
     // Close the pointed underside so the island is solid when seen from below.
-    for (let i=0;i<p.outline.length;i++) {
-      vertices.push(...point(i,2), ...point((i+1)%p.outline.length,2), -1,p.bottom-2,0);
-      for (let k=0;k<3;k++) colors.push(0.2,0.27,0.29);
+    const tip = [(world.hash(p.x, p.z) - 0.5) * 2, p.bottom - h * 0.12, (world.hash(p.z, p.x) - 0.5) * 2];
+    const last = rings[rings.length - 1], under = new THREE.Color(BANDS[5]);
+    for (let i = 0; i < n; i++) {
+      vertices.push(...last[i], ...last[(i + 1) % n], ...tip);
+      for (let k = 0; k < 3; k++) colors.push(under.r, under.g, under.b);
     }
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
     geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3)); geometry.computeVertexNormals();
     const cliff = rock.clone(); cliff.vertexColors = true; cliff.color.set(0xffffff); cliff.side = THREE.DoubleSide;
-    mesh(geometry,cliff,p.x,0,p.z);
+    parent.add(mesh(geometry,cliff,p.x,0,p.z));
     const shape = new THREE.Shape(); p.outline.forEach(([x,z],i) => i ? shape.lineTo(x,-z) : shape.moveTo(x,-z)); shape.closePath();
     const cap = new THREE.ShapeGeometry(shape); cap.rotateX(-Math.PI/2);
     const pos = cap.attributes.position, uv = cap.attributes.uv;
     for(let i=0;i<pos.count;i++) uv.setXY(i,(p.x+pos.getX(i))/12,(p.z+pos.getZ(i))/12);
-    mesh(cap,decorate ? grass : dark,p.x,p.top,p.z);
+    parent.add(mesh(cap,grass,p.x,p.top,p.z));
     if (decorate) {
       // Angular buttresses and hanging vegetation break up the cliff silhouette.
       p.outline.forEach(([x,z],i) => {
@@ -58,9 +74,18 @@ export function createSkyIsland({ scene, world, onReady }) {
   }
   [SKY_MAIN, SKY_LOOKOUT, SKY_SECRET, ...SKY_JUMPS].forEach(p => island(p));
   // Small unreachable fragments frame the island without offering a ground route.
+  // Each drifts on its own slow bob, with a flowering shrub on top and hanging roots.
+  const fragments = [];
   for (const [x,z,y,r] of [[-30,13,56,3],[-32,-18,72,2],[13,31,59,3],[30,22,49,2],[-10,-32,78,2.5]]) {
-    const outline=Array.from({length:7},(_,i)=>[Math.cos(i*Math.PI*2/7)*r,Math.sin(i*Math.PI*2/7)*r]);
-    island({x:SKY.x+x,z:SKY.z+z,top:y,bottom:y-8,outline},false);
+    const outline=Array.from({length:7},(_,i)=>[Math.cos(i*Math.PI*2/7)*r*(0.85+world.hash(i,z)*0.3),Math.sin(i*Math.PI*2/7)*r*(0.85+world.hash(z,i)*0.3)]);
+    const group = new THREE.Group(); root.add(group);
+    const f = {x:SKY.x+x,z:SKY.z+z,top:y,bottom:y-r*3,outline};
+    island(f,false,group);
+    for(let k=0;k<3;k++){
+      const hang=mesh(new THREE.ConeGeometry(0.1,1.6+k*0.6,4),vineMat,f.x+outline[k*2][0]*0.9,y-1-k*0.3,f.z+outline[k*2][1]*0.9);
+      hang.rotation.z=Math.PI; group.add(hang);
+    }
+    fragments.push({group,phase:world.hash(x,z)*6.28,x:f.x,z:f.z,top:y,scale:r*0.9});
   }
   mesh(new THREE.BoxGeometry(12,3.8,12),rock,SKY_SHRINE.x,66,SKY_SHRINE.z);
   mesh(new THREE.BoxGeometry(12,0.15,12),grass,SKY_SHRINE.x,67.925,SKY_SHRINE.z);
@@ -129,11 +154,32 @@ export function createSkyIsland({ scene, world, onReady }) {
   const pool=mesh(new THREE.CircleGeometry(3.2,48),poolMat,SKY.x-15,64.11,SKY.z-2); pool.rotation.x=-Math.PI/2;
   const stream=mesh(new THREE.PlaneGeometry(9,1.8,16,1),poolMat,SKY.x-19,64.12,SKY.z+1);
   stream.rotation.x=-Math.PI/2; stream.rotation.z=-0.48;
-  const fall=mesh(new THREE.PlaneGeometry(3.2,36,12,48),fallMat,SKY.x-23,46.1,SKY.z+3.2);
-  fall.rotation.y=Math.PI/2;
-  const sprayGeo=new THREE.BufferGeometry(),sprayPositions=new Float32Array(80*3);
+  // Four falls (W from the spring, plus N, E, S rims) drop all the way into the ground lake.
+  const fallTop=63.9, fallHeight=fallTop-SKY_LAKE.level, falls=[];
+  for(const edge of [6,0,2,4]) {
+    const o=SKY_MAIN.outline,[ax,az]=o[edge],[bx,bz]=o[(edge+1)%o.length];
+    let nx=bz-az,nz=-(bx-ax); const len=Math.hypot(nx,nz); nx/=len; nz/=len;
+    const mx=(ax+bx)/2,mz=(az+bz)/2; if(nx*mx+nz*mz<0){nx=-nx;nz=-nz;}
+    const x=SKY.x+mx+nx*0.5,z=SKY.z+mz+nz*0.5,width=edge===6?3.2:2.4;
+    // Arc outward as far as the basin allows, so foam never spills past the fountain rim.
+    const rimDist=Math.hypot(x-SKY_LAKE.x,z-SKY_LAKE.z),arc=Math.max(0.5,Math.min(3.5,26.5-rimDist));
+    const geo=new THREE.PlaneGeometry(width,fallHeight,8,60),fp=geo.attributes.position;
+    // Fans out and arcs away from the rim as it falls.
+    for(let i=0;i<fp.count;i++){const drop=(fallHeight/2-fp.getY(i))/fallHeight;
+      fp.setX(i,fp.getX(i)*(1+drop*1.6)); fp.setZ(i,Math.sqrt(drop)*arc);}
+    const fall=mesh(geo,fallMat,x,SKY_LAKE.level+fallHeight/2,z);
+    fall.rotation.y=Math.atan2(nx,nz); fall.castShadow=false; scene.add(fall); // not root: camera rays ignore water
+    const lx=x+nx*arc,lz=z+nz*arc;
+    const churn=mesh(new THREE.CircleGeometry(Math.min(4.5,29.8-Math.hypot(lx-SKY_LAKE.x,lz-SKY_LAKE.z)),40),poolMat,lx,SKY_LAKE.level+0.04,lz);
+    churn.rotation.x=-Math.PI/2; churn.castShadow=false; scene.add(churn);
+    falls.push({x:lx,z:lz});
+  }
+  const lakeMat=createWaterSurface('lake');
+  const lake=mesh(new THREE.CircleGeometry(SKY_LAKE.radius,96),lakeMat,SKY_LAKE.x,SKY_LAKE.level,SKY_LAKE.z);
+  lake.rotation.x=-Math.PI/2; lake.castShadow=false; scene.add(lake);
+  const sprayGeo=new THREE.BufferGeometry(),sprayPositions=new Float32Array(240*3);
   sprayGeo.setAttribute('position',new THREE.BufferAttribute(sprayPositions,3));
-  const spray=new THREE.Points(sprayGeo,new THREE.PointsMaterial({color:0xcce9e5,size:0.12,transparent:true,opacity:0.45,depthWrite:false})); root.add(spray);
+  const spray=new THREE.Points(sprayGeo,new THREE.PointsMaterial({color:0xe2f4f1,map:createSoftDot(),size:0.6,transparent:true,opacity:0.5,depthWrite:false})); spray.frustumCulled=false; scene.add(spray);
   const placements=[];
   for(const [x,z,model,height] of [[-13,14,'CommonTree_2',7],[13,14,'CommonTree_3',6],[-18,-8,'CommonTree_1',6],
     [12,-15,'Pine_1',6],[7,-20,'Pine_2',5],[-18,7,'CommonTree_2',5]]) {
@@ -145,6 +191,10 @@ export function createSkyIsland({ scene, world, onReady }) {
   }
   // Rocks around the spring anchor its edge and keep the stream readable.
   for(let i=0;i<10;i++) { const a=i*Math.PI*2/10; placements.push({x:-15+Math.cos(a)*3.4,z:-2+Math.sin(a)*3.4,model:'Rock_Medium_2',height:0.6}); }
+  loadModel(encodeURI('assets/Stylized Nature MegaKit[Standard]/glTF/Bush_Common_Flowers.gltf'),1).then(({object})=>{
+    for(const f of fragments){const b=object.clone(true);b.scale.setScalar(f.scale);b.position.set(f.x,f.top-0.05,f.z);f.group.add(b);}
+    onReady?.(root);
+  }).catch(error=>console.warn('Sky fragment shrubs unavailable.',error));
   for(const model of new Set(placements.map(p=>p.model))) loadModel(encodeURI(`assets/Stylized Nature MegaKit[Standard]/glTF/${model}.gltf`),1)
     .then(({object})=>{
       for(const p of placements.filter(p=>p.model===model && SKY_MAIN.contains(SKY.x+p.x,SKY.z+p.z))) {
@@ -247,8 +297,11 @@ export function createSkyIsland({ scene, world, onReady }) {
       shrineGlow.intensity=journey.awakened?1.4:0.45;
       gardenLights.forEach(m=>m.material.emissiveIntensity=journey.awakened?1.7:0.12);
       orbit.rotation.z+=dt*.25;
-      for(let i=0;i<80;i++) {const t=(time*.34+world.hash(i,1810))%1;
-        sprayPositions.set([SKY.x-23-world.hash(i,1811)*1.3,64-t*38,SKY.z+3.2+(world.hash(i,1812)-.5)*3],i*3);}
+      lakeMat.uniforms.uTime.value=time;
+      // Spray billows up and out of each fall's landing churn.
+      for(let i=0;i<240;i++) {const f=falls[i%4],t=(time*.45+world.hash(i,1810))%1,a=world.hash(i,1811)*6.28,r=t*(1.5+world.hash(i,1812)*3);
+        sprayPositions.set([f.x+Math.cos(a)*r,SKY_LAKE.level+0.2+Math.sin(t*Math.PI)*(1.5+world.hash(i,1813)*2),f.z+Math.sin(a)*r],i*3);}
+      for(const f of fragments) f.group.position.y=Math.sin(time*0.45+f.phase)*0.7;
       sprayGeo.attributes.position.needsUpdate=true;
     },
     updateTravelCamera(camera,player){

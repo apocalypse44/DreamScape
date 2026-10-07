@@ -1,6 +1,8 @@
 import { loadModel, makeGlow } from './models.js';
 
 const FIRE_COUNT = 90;
+// [right, behind] offsets in metres, tried in order: beside, tighter beside, other side, behind.
+const SLOTS = [[1.5, 0], [1.1, 0.3], [-1.5, 0], [-1.1, 0.3], [0, 1.3]];
 
 // Dog and Ember Hound share one rig and clip set (Quaternius), so swapping models is a visibility toggle.
 function createBody(scene, url, height, glow) {
@@ -23,12 +25,15 @@ function play(body, name) {
   body.current = name;
 }
 
-export function createCompanion({ scene, state, player, terrainHeight, quest }) {
+export function createCompanion({ scene, state, player, quest, surfaceAt }) {
+  // Climbs onto Clover terraces / Sky Garden instead of staying in the ravine below.
+  const groundAt = (x, z) => surfaceAt(x, z, player.position.y - 2.05 + 1);
   const dog = createBody(scene, 'assets/animals/ShibaInu.gltf', 0.9, false);
   const hound = createBody(scene, 'assets/animals/Wolf.gltf', 1.5, true);
   const position = new THREE.Vector3();
   const goal = new THREE.Vector3();
   let yaw = 0;
+  let slot = SLOTS[0]; // kept while the player is airborne, so jumps don't reshuffle it
 
   // Rising embers around the cursed hound; same Points technique as the world motes.
   const firePositions = new Float32Array(FIRE_COUNT * 3);
@@ -65,28 +70,44 @@ export function createCompanion({ scene, state, player, terrainHeight, quest }) 
       hound.root.visible = cursed;
       fire.visible = cursed;
 
-      // Cursed: lead the player to the next ember. Otherwise: trot just behind the player.
+      // Cursed: lead the player to the next ember. Otherwise: walk at the player's right side.
       const ember = quest.stage === 'cursed' ? quest.nextEmber() : null;
       if (ember) {
         const away = Math.atan2(player.position.x - ember.x, player.position.z - ember.z);
         goal.set(ember.x + Math.sin(away) * 3, 0, ember.z + Math.cos(away) * 3);
       } else {
-        // Beside and slightly behind, out of the third-person camera's line of sight.
-        goal.set(player.position.x + Math.sin(state.yaw + 1.3) * 2.6, 0, player.position.z + Math.cos(state.yaw + 1.3) * 2.6);
+        // Player right = (cos yaw, -sin yaw); see player.js movement basis. On narrow bridges
+        // and ledges the side slot can hang over a drop, so pull it in or swap sides until the
+        // ground there is at the player's level; fall back to just behind.
+        const feet = player.position.y - 2.05, c = Math.cos(state.yaw), sn = Math.sin(state.yaw);
+        if (player.grounded) slot = SLOTS.find(([r, b]) => {
+          const x = player.position.x + c * r + sn * b, z = player.position.z - sn * r + c * b;
+          return Math.abs(groundAt(x, z) - feet) < 1.2;
+        }) || SLOTS[SLOTS.length - 1];
+        goal.set(player.position.x + c * slot[0] + sn * slot[1], 0, player.position.z - sn * slot[0] + c * slot[1]);
       }
       const dx = goal.x - position.x;
       const dz = goal.z - position.z;
       const distance = Math.hypot(dx, dz);
       // ponytail: no collision with trees or ruins; add the player's collider check if it clips badly.
       if (!ember && distance > 70) position.set(goal.x, 0, goal.z); // never lose the companion
-      const speed = distance > 1 ? Math.min(cursed ? 16 : 19, distance * 1.6 + 1) : 0;
-      if (speed) {
-        position.x += dx / distance * speed * dt;
-        position.z += dz / distance * speed * dt;
+      // Following: match the player's velocity plus a spring toward the side slot, so it
+      // keeps pace instead of chasing a moving point. Leading: plain seek to the ember.
+      let vx, vz;
+      if (ember) {
+        const seek = distance > 1 ? Math.min(22, distance * 2.5 + 1) / distance : 0;
+        vx = dx * seek; vz = dz * seek;
+      } else {
+        vx = player.velocity.x + dx * 4; vz = player.velocity.z + dz * 4;
+        if (Math.hypot(dx, dz) < 0.3 && Math.hypot(player.velocity.x, player.velocity.z) < 0.5) vx = vz = 0;
       }
-      position.y = terrainHeight(position.x, position.z);
+      let speed = Math.hypot(vx, vz);
+      if (speed > 30) { vx *= 30 / speed; vz *= 30 / speed; speed = 30; }
+      position.x += vx * dt;
+      position.z += vz * dt;
+      position.y = groundAt(position.x, position.z);
 
-      const facing = speed ? Math.atan2(dx, dz) : Math.atan2(player.position.x - position.x, player.position.z - position.z);
+      const facing = speed > 0.5 ? Math.atan2(vx, vz) : Math.atan2(player.position.x - position.x, player.position.z - position.z);
       yaw += Math.atan2(Math.sin(facing - yaw), Math.cos(facing - yaw)) * (1 - Math.exp(-10 * dt));
       body.root.position.copy(position);
       body.root.rotation.y = yaw;

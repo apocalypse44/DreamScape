@@ -107,7 +107,41 @@ const foamFragment = /* glsl */`
     #include <fog_fragment>
   }
 `;
+// Open water in world space: no radial cut, so it can fill any basin.
+const lakeFragment = /* glsl */`
+  uniform float uTime;
+  varying vec3 vWorld;
+  #include <fog_pars_fragment>
+  ${noise}
+  float wave(vec2 p) {
+    return fbm(p * 0.3 + vec2(uTime * 0.12, -uTime * 0.09)) + fbm(p * 1.2 - uTime * 0.2) * 0.35;
+  }
+  void main() {
+    vec2 p = vWorld.xz;
+    float e = 0.2, h = wave(p);
+    vec3 n = normalize(vec3((h - wave(p + vec2(e, 0))) * 1.5, e, (h - wave(p + vec2(0, e))) * 1.5));
+    vec3 view = normalize(cameraPosition - vWorld);
+    float fresnel = 0.05 + 0.75 * pow(1.0 - max(dot(n, view), 0.0), 4.0);
+    vec3 r = reflect(-view, n);
+    vec3 sky = mix(vec3(0.3, 0.45, 0.43), vec3(0.62, 0.78, 0.84), smoothstep(-0.1, 0.8, r.y));
+    vec3 color = mix(vec3(0.02, 0.13, 0.15), sky, fresnel);
+    color += pow(max(dot(reflect(-normalize(vec3(-0.4, 0.8, 0.3)), n), view), 0.0), 90.0) * vec3(1.2, 1.15, 0.95);
+    color = mix(color, vec3(0.85, 0.93, 0.9), smoothstep(0.7, 0.85, fbm(p * 0.7 + uTime * 0.15)) * 0.25);
+    gl_FragColor = vec4(color, 0.94);
+    #include <tonemapping_fragment>
+    #include <encodings_fragment>
+    #include <fog_fragment>
+  }
+`;
+export function createSoftDot() {
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 32;
+  const ctx = canvas.getContext('2d'), g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(canvas);
+}
 export function createWaterSurface(kind) {
+  if (kind === 'lake') return waterMaterial(lakeFragment);
   return waterMaterial(kind === 'fall' ? flowFragment : poolFragment, kind === 'fall');
 }
 function waterMaterial(fragmentShader, curtain = false) {
@@ -327,6 +361,66 @@ export function createWaterfall({ scene, world, onReady }) {
   foam.position.set(0, 0.07, -1);
   root.add(foam);
 
+  // Player feedback: a burst + ripple on entering the pool, smaller kicks while wading.
+  const wadeCount = 120;
+  const wadePositions = new Float32Array(wadeCount * 3), wadeVelocity = new Float32Array(wadeCount * 3);
+  const wadeLife = new Float32Array(wadeCount);
+  const wadeGeo = new THREE.BufferGeometry();
+  wadeGeo.setAttribute('position', new THREE.BufferAttribute(wadePositions, 3));
+  const wade = new THREE.Points(wadeGeo, new THREE.PointsMaterial({ color: 0xeef9f6,
+    map: foamTexture, size: 0.22, transparent: true, opacity: 0.85, depthWrite: false }));
+  wade.frustumCulled = false;
+  root.add(wade);
+  const ripples = Array.from({ length: 6 }, () => {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 32), new THREE.MeshBasicMaterial({
+      color: 0xe7f5f2, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.visible = false; root.add(ring);
+    return { ring, age: 1 };
+  });
+  let nextWade = 0, nextRipple = 0, wasInPool = false;
+  const lastPlayer = new THREE.Vector3();
+  function kick(x, z, count, power) {
+    for (let i = 0, n = 0; i < wadeCount && n < count; i++) {
+      if (wadeLife[i] > 0) continue;
+      const angle = Math.random() * Math.PI * 2, out = (0.4 + Math.random()) * power;
+      wadePositions.set([x + Math.cos(angle) * 0.3, 0.1, z + Math.sin(angle) * 0.3], i * 3);
+      wadeVelocity.set([Math.cos(angle) * out, (1.5 + Math.random() * 2.5) * power, Math.sin(angle) * out], i * 3);
+      wadeLife[i] = 0.5 + Math.random() * 0.4; n++;
+    }
+  }
+  function ripple(x, z, size) {
+    const r = ripples.reduce((a, b) => (b.age > a.age ? b : a));
+    r.age = 0; r.size = size; r.ring.position.set(x, 0.08, z); r.ring.visible = true;
+  }
+  function updateWading(dt, playerPosition) {
+    const x = playerPosition.x - WATERFALL.x, z = playerPosition.z - WATERFALL.z;
+    const feet = playerPosition.y - 2.05 - WATERFALL.base;
+    const inPool = Math.hypot(x, z) < WATERFALL.poolRadius - 0.4 && feet < 0.4;
+    const speed = dt > 0 ? Math.hypot(playerPosition.x - lastPlayer.x, playerPosition.z - lastPlayer.z) / dt : 0;
+    const falling = dt > 0 ? (lastPlayer.y - playerPosition.y) / dt : 0;
+    lastPlayer.copy(playerPosition);
+    if (inPool && !wasInPool) { kick(x, z, 60, 1 + Math.min(falling, 12) / 12); ripple(x, z, 3.5); }
+    if (inPool && speed > 1) {
+      nextWade -= dt; nextRipple -= dt;
+      if (nextWade <= 0) { kick(x, z, 4, 0.55); nextWade = 0.05; }
+      if (nextRipple <= 0) { ripple(x, z, 1.8); nextRipple = 0.4; }
+    }
+    wasInPool = inPool;
+    for (let i = 0; i < wadeCount; i++) {
+      if (wadeLife[i] <= 0) { wadePositions[i * 3 + 1] = -50; continue; }
+      wadeLife[i] -= dt; wadeVelocity[i * 3 + 1] -= 9.8 * dt;
+      for (let k = 0; k < 3; k++) wadePositions[i * 3 + k] += wadeVelocity[i * 3 + k] * dt;
+      if (wadePositions[i * 3 + 1] < 0.05) wadeLife[i] = 0;
+    }
+    wadeGeo.attributes.position.needsUpdate = true;
+    for (const r of ripples) {
+      if (r.age >= 1) { r.ring.visible = false; continue; }
+      r.age = Math.min(1, r.age + dt * 0.9);
+      r.ring.scale.setScalar(0.3 + r.age * r.size);
+      r.ring.material.opacity = 0.6 * (1 - r.age);
+    }
+  }
+
   // The plaza renderer owns the single continuous approach to the falls.
   const sign = new THREE.Group();
   sign.position.set(WATERFALL_CHECKPOINT.x - WATERFALL.x + 1.5, 0,
@@ -391,6 +485,7 @@ export function createWaterfall({ scene, world, onReady }) {
       splashPositions[i * 3 + 2] = -1 + Math.sin(angle) * radius * 0.6;
     });
     splashGeo.attributes.position.needsUpdate = true;
+    updateWading(dt, playerPosition);
 
     if (terrainVersion !== world.terrainVersion) {
       terrainVersion = world.terrainVersion;
@@ -403,7 +498,7 @@ export function createWaterfall({ scene, world, onReady }) {
       distance < 9 ? 'GRIMOIRE FALLS · SHALLOW POOL' : `GRIMOIRE FALLS · ${distance} m · NW OF SPAWN`;
     if (hint.textContent !== label) hint.textContent = label;
   }
-  update(0, { x: 0, z: 0 });
+  update(0, { x: 0, y: 50, z: 0 });
   return { colliders, platforms, courseRecovery, obstacles: cliff, reserved: (x, z) => waterfallArea(x, z), update,
-    reset() { time = 0; terrainVersion = -1; climbRecovery.reset(); feedback = ''; feedbackTime = 0; lookoutReached = false; } };
+    reset() { time = 0; terrainVersion = -1; climbRecovery.reset(); feedback = ''; feedbackTime = 0; lookoutReached = false; wasInPool = false; wadeLife.fill(0); } };
 }

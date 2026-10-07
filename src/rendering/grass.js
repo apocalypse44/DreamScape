@@ -1,43 +1,30 @@
-/* Procedural grass ground texture for Theatre mode. Blade models were removed; props.js dresses the land. */
-// Only the green lands get it, so each kingdom keeps its own ground color in Theatre mode.
-const GRASSY = new Set(['hub', 'trees']);
-
+/* Procedural ground detail for Theatre mode. Blade models were removed; props.js dresses the land. */
+// The texture is near-white grain multiplied by each chunk's per-vertex kingdom colour,
+// so every kingdom keeps its own ground and borders stay on the real 350 m circle.
 export function createGrass({ hash, chunks }) {
   const status = document.querySelector('#grassStatus');
-  // Procedural ground detail: the model's blade atlas is not a tileable lawn.
   const size = 128;
   const pixels = new Uint8Array(size * size * 3);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const noise = hash(x + 503, y + 709);
-    const blade = Math.pow(noise, 3);
-    const i = (y * size + x) * 3;
-    pixels[i] = 65 + blade * 48;
-    pixels[i + 1] = 87 + blade * 57;
-    pixels[i + 2] = 35 + blade * 28;
+    const blade = Math.pow(hash(x + 503, y + 709), 3);
+    const patch = hash(Math.floor(x / 8) + 31, Math.floor(y / 8) + 77);
+    const v = 175 + blade * 80 - patch * 25;
+    pixels.fill(Math.min(255, v), (y * size + x) * 3, (y * size + x) * 3 + 3);
   }
   const groundTexture = new THREE.DataTexture(pixels, size, size, THREE.RGBFormat);
   groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
   groundTexture.repeat.set(16, 16);
-  groundTexture.encoding = THREE.sRGBEncoding;
   groundTexture.magFilter = THREE.LinearFilter;
   groundTexture.minFilter = THREE.LinearMipmapLinearFilter;
   groundTexture.generateMipmaps = true;
   groundTexture.needsUpdate = true;
-  const groundStates = new WeakMap();
+  const applied = new WeakMap();
   const updateGround = enabled => {
     for (const chunk of chunks.values()) {
-      if (!GRASSY.has(chunk.userData.biome.kind)) continue;
       const material = chunk.userData.material;
-      let state = groundStates.get(material);
-      if (!state) {
-        state = { map: material.map, color: material.color.clone(), enabled: false };
-        groundStates.set(material, state);
-      }
-      if (state.enabled === enabled) continue;
-      state.enabled = enabled;
-      material.map = enabled ? groundTexture : state.map;
-      if (enabled) material.color.set(0xffffff);
-      else material.color.copy(state.color);
+      if (applied.get(material) === enabled) continue;
+      applied.set(material, enabled);
+      material.map = enabled ? groundTexture : null;
       material.needsUpdate = true;
     }
   };

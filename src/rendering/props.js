@@ -19,11 +19,13 @@ const MODELS = [
   ...range('RockPath_Round_Small', 3), ...range('RockPath_Square_Small', 3)
 ];
 const SHADOW = /Tree|Pine|Rock_Medium/;
+const DRESSED = new Set(['hub', 'trees']); // Grimoire Tower + Clover Kingdom
 
 export function createProps({ scene, world, blockers, onReady }) {
   const { hash, noise, heightAt, biomeAt, terrainHeight, chunks } = world;
   const smooth = THREE.MathUtils.smoothstep;
   const parts = {}; // model name -> [{ mesh, capacity }]
+  const heights = {}; // model name -> top of the model above its origin, at scale 1
   const root = new THREE.Group();
   scene.add(root);
   let ready = false;
@@ -63,7 +65,7 @@ export function createProps({ scene, world, blockers, onReady }) {
     { cell: 60, far: true, clear: 10, collide: 0.9, scale: [0.9, 1.2], sink: 0.2, // rare landmark trees
       chance: (x, z) => forest(x, z) < 0.2 ? 0.25 : 0,
       model: (x, z) => pick(range('TwistedTree', 5), x, z) },
-    { cell: 12, far: true, clear: 4, collide: 1.1, scale: [0.5, 1.6], sink: 0.45,
+    { cell: 12, far: true, clear: 4, collide: 1.1, jumpable: true, scale: [0.5, 1.6], sink: 0.45,
       chance: (x, z) => 0.02 + 0.45 * outcrop(x, z) + Math.min(0.2, slope(x, z) * 0.4),
       model: (x, z) => pick(range('Rock_Medium', 3), x, z) },
     { cell: 6, clear: 3, scale: [0.8, 1.3], sink: 0.1,
@@ -83,7 +85,7 @@ export function createProps({ scene, world, blockers, onReady }) {
   function blocked(x, z, clear) {
     if (world.isPathArea?.(x, z)) return true;
     if (world.isLandmarkArea?.(x, z)) return true;
-    if (Math.hypot(x, z) < 22 || biomeAt(x, z).kind !== 'hub') return true;
+    if (Math.hypot(x, z) < 22 || !DRESSED.has(biomeAt(x, z).kind)) return true;
     if (clear && roadDistance(x, z) < clear) return true;
     return blockers().some(b => Math.hypot(b.x - x, b.z - z) < 8);
   }
@@ -105,7 +107,12 @@ export function createProps({ scene, world, blockers, onReady }) {
           const scale = THREE.MathUtils.lerp(layer.scale[0], layer.scale[1], hash(z, x));
           list.push({ model: layer.model(x, z), x, z, scale, sink: layer.sink * scale,
             rot: hash(x * 0.7, z * 0.3) * Math.PI * 2, far: Boolean(layer.far) });
-          if (layer.collide) chunk.userData.colliders.push({ x, z, radius: layer.collide * scale });
+          if (layer.collide) {
+            const model = layer.model(x, z), sink = layer.sink * scale;
+            // Rocks report their height once the model loads, so a high enough jump clears them.
+            chunk.userData.colliders.push({ x, z, radius: layer.collide * scale,
+              height: layer.jumpable ? () => heights[model] === undefined ? undefined : heights[model] * scale - sink : undefined });
+          }
         }
       }
     });
@@ -171,6 +178,7 @@ export function createProps({ scene, world, blockers, onReady }) {
   const loader = new THREE.GLTFLoader();
   Promise.all(MODELS.map(name => new Promise(resolve => loader.load(`${DIR}${name}.gltf`, gltf => {
     gltf.scene.updateMatrixWorld(true);
+    heights[name] = new THREE.Box3().setFromObject(gltf.scene).max.y;
     parts[name] = [];
     gltf.scene.traverse(object => {
       if (!object.isMesh) return;

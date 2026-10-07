@@ -7,7 +7,7 @@ import { createAtmosphereDemo } from '../rendering/atmosphere.js';
 import { createGrass } from '../rendering/grass.js';
 import { updateHUD, updateQuestHUD } from '../views/hud.js';
 import { bindInput } from './input.js';
-import { createPlayerController } from './player.js';
+import { createPlayerController, createSurfaceAt } from './player.js';
 import { createCameraController } from './camera.js';
 import { createCharacter } from '../rendering/character.js';
 import { createQuest } from '../models/quest.js';
@@ -21,6 +21,8 @@ import { createWayfinding } from '../rendering/wayfinding.js';
 import { createPlaza } from '../rendering/plaza.js';
 import { createCloverTerrain } from '../rendering/cloverTerrain.js';
 import { createSkyIsland } from '../rendering/skyIsland.js';
+import { createKingdomBorder } from '../rendering/kingdomBorder.js';
+import { createHeavenlyFalls } from '../rendering/heavenlyFalls.js';
 
 export function startGame(ui) {
   const { state, keys, pointerButtons, player } = createGameState();
@@ -42,12 +44,16 @@ export function startGame(ui) {
   const clover = createCloverTerrain({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const skyIsland = createSkyIsland({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   shrine.colliders.push(...waterfall.colliders, ...wayfinding.colliders, ...ridge.colliders, ...plaza.colliders, ...clover.colliders);
-  shrine.colliders.push(...skyIsland.colliders);
-  const companion = createCompanion({ scene, state, player, terrainHeight, quest });
+  const heavenly = createHeavenlyFalls({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
+  shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders);
+  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms];
+  const kingdomBorder = createKingdomBorder({ scene, world, player });
+  const surfaceAt = createSurfaceAt(platforms, terrainHeight);
+  const companion = createCompanion({ scene, state, player, quest, surfaceAt });
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders,
-    platforms: [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms],
+    platforms,
     isMovementBlocked: () => skyIsland.journey.blocked,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
@@ -87,7 +93,7 @@ export function startGame(ui) {
   atmosphere.prepare?.(skyIsland.root);
   const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root] });
-  const character = createCharacter({ scene, state, player, terrainHeight });
+  const character = createCharacter({ scene, state, player, surfaceAt });
   const chaosFog = new THREE.Color(0x2a0809);
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
@@ -126,6 +132,8 @@ export function startGame(ui) {
     props.update(player.position, world.terrainVersion);
     quest.update();
     companion.update(dt);
+    kingdomBorder.update(dt);
+    heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
     waterfall.update(dt, player.position);

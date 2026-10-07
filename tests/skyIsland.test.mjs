@@ -46,9 +46,9 @@ test('curved flight is continuous, clears the cliffs, reverses safely and resets
 });
 test('missed island jumps recover at island height and reset clears discoveries and travel',()=>{
   const j=createSkyJourney();travel(j,SUMMIT_DOOR);
-  assert.deepEqual(j.recovery({position:{x:100,y:59,z:-550}}),SKY_ARRIVAL);
+  assert.deepEqual(j.recovery({position:{x:116,y:59,z:-550}}),SKY_ARRIVAL);
   assert.equal(j.recovery({position:position(SKY_ARRIVAL)}),null);
-  j.update(.1,position({x:67,z:-563,top:68}),false,true);assert.equal(j.awakened,true);
+  j.update(.1,position({x:83,z:-563,top:68}),false,true);assert.equal(j.awakened,true);
   j.update(.1,position(SKY_SECRET),false,true);assert.equal(j.secret,true);
   j.reset();assert.equal(j.visiting,false);assert.equal(j.awakened,false);assert.equal(j.secret,false);assert.equal(j.blocked,false);
   assert.equal(j.recovery({position:{y:0}}),null);

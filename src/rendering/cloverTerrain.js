@@ -1,12 +1,13 @@
 import { CLOVER_ENTRANCE, CLOVER_PLATEAUS, CLOVER_RAMPS, CLOVER_JUMPS,
   CLOVER_SURFACES, CLOVER_VALLEY, CLOVER_ASCENT_JUMPS, createCloverRecovery, cloverArea } from '../models/cloverTerrain.js';
 import { loadModel } from './models.js';
+import { createWaterSurface } from './waterfall.js';
 import { createCloverDressing, cloverGroundTexture } from './cloverDressing.js';
 import { createCloverSanctuary } from './cloverSanctuary.js';
 
 export function createCloverTerrain({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover cliff terraces'; scene.add(root);
-  const rock = new THREE.MeshStandardMaterial({ color: 0x26352c, roughness: 1, flatShading: true });
+  const rock = new THREE.MeshStandardMaterial({ color: 0x4a4136, roughness: 1, flatShading: true });
   const grass = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, map: cloverGroundTexture(world) });
   const wood = new THREE.MeshStandardMaterial({ color: 0x382515, roughness: 1 });
   const colliders = [], recovery = createCloverRecovery();
@@ -16,6 +17,27 @@ export function createCloverTerrain({ scene, world, onReady }) {
   colliders.push(...sanctuary.colliders);
   for (const p of CLOVER_PLATEAUS) for (const x of [-7, 7]) colliders.push({ x, z: p.z - 3, radius: 0.8 });
   let capLayer = 0;
+  // Natural cliff faces: push side vertices in/out along the outward direction with layered
+  // noise (strongest mid-cliff, zero at the walking edge so visuals still match collision).
+  // Grass caps get a drooping, irregular turf lip instead of a square slab edge.
+  function roughen(pos, levelOf, p, originY, cap) {
+    const hw = p.width / 2, hd = p.depth / 2;
+    for (let i = 0; i < pos.count; i++) {
+      const level = levelOf(pos.getY(i));
+      if (level > 0.99) continue;
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const dx = x / hw, dz = z / hd, len = Math.hypot(dx, dz);
+      if (len < 0.2) continue;
+      const wx = p.x + x, wy = originY + y, wz = p.z + z;
+      const n = world.noise(wx * 0.21 + wy * 0.13, wz * 0.21 - wy * 0.17) - 0.5 +
+        (world.noise(wx * 0.63 + wy * 0.41, wz * 0.63 - wy * 0.37) - 0.5) * 0.5;
+      const amp = Math.min(2.6, 0.35 * Math.min(p.width, p.depth));
+      const push = cap ? 0.3 + n * 0.5 : (n - 0.2) * amp * (1 - level * level);
+      pos.setX(i, x + dx / len * push);
+      pos.setZ(i, z + dz / len * push);
+      if (cap) pos.setY(i, y - 0.1 - Math.max(0, n) * 0.5);
+    }
+  }
   function block(p, material, cap = false) {
     const capBias = cap ? ++capLayer * 0.001 : 0;
     if (cap) {
@@ -25,11 +47,11 @@ export function createCloverTerrain({ scene, world, onReady }) {
     // Keep the rock body below the grass cap: coincident top faces caused
     // the striped depth fighting visible on the plateau and stepping rocks.
     const bodyTop = p.top - 0.2;
-    const height = cap ? 0.18 : bodyTop - p.bottom;
+    const height = cap ? 0.45 : bodyTop - p.bottom;
     if (p.outline) {
       const shape = new THREE.Shape();
       p.outline.forEach(([x, z], i) => i ? shape.lineTo(x, -z) : shape.moveTo(x, -z)); shape.closePath();
-      const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: cap ? 1 : 3 });
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: cap ? 1 : 12 });
       geo.rotateX(Math.PI / 2);
       const positions = geo.attributes.position;
       for (let i = 0; i < positions.count; i++) {
@@ -38,6 +60,7 @@ export function createCloverTerrain({ scene, world, onReady }) {
         const scale = cap || level > 0.99 ? 1 : 0.73 + level * 0.2 + world.hash(positions.getX(i) + p.z, positions.getZ(i)) * 0.06;
         positions.setXYZ(i, positions.getX(i) * scale, positions.getY(i), -positions.getZ(i) * scale);
       }
+      roughen(positions, y => 1 + y / height, p, cap ? p.top : bodyTop, cap);
       // The final Z flip preserves the model's exact collision outline.
       const indices = geo.index;
       if (!indices) {
@@ -53,7 +76,11 @@ export function createCloverTerrain({ scene, world, onReady }) {
       const mesh = new THREE.Mesh(geo, material); mesh.position.set(p.x, cap ? p.top + capBias : bodyTop, p.z);
       mesh.castShadow = mesh.receiveShadow = true; root.add(mesh); return;
     }
-    const geometry = new THREE.BoxGeometry(p.width, height, p.depth, 4, 3, 4);
+    const seg = v => Math.max(2, Math.ceil(v / 1.5));
+    const geometry = new THREE.BoxGeometry(p.width, height, p.depth, seg(p.width), cap ? 1 : seg(height), seg(p.depth));
+    roughen(geometry.attributes.position, y => (y + height / 2) / height, p,
+      cap ? p.top - height / 2 : (bodyTop + p.bottom) / 2, cap);
+    if (cap) geometry.computeVertexNormals();
     if (!cap) {
       const pos = geometry.attributes.position;
       for (let i = 0; i < pos.count; i++) {
@@ -164,6 +191,11 @@ export function createCloverTerrain({ scene, world, onReady }) {
     dummy.updateMatrix(); approach.setMatrixAt(i, dummy.matrix);
   }
   approach.instanceMatrix.needsUpdate = true; approach.frustumCulled = false; approach.receiveShadow = true; root.add(approach);
+  // Lake filling the ravine under the elevated kingdom. Added to the scene, not root,
+  // so the camera's obstacle raycast against clover.root ignores it.
+  const lakeMat = createWaterSurface('lake');
+  const lake = new THREE.Mesh(new THREE.PlaneGeometry(86, 216), lakeMat);
+  lake.rotation.x = -Math.PI / 2; lake.position.set(0, -4, -452); scene.add(lake);
   const hint = document.createElement('small'); document.querySelector('.compass').appendChild(hint);
   let messageTime = 0, recoveredAtSummit = false;
   function courseRecovery(player) {
@@ -173,6 +205,7 @@ export function createCloverTerrain({ scene, world, onReady }) {
   }
   function update(player, dt = 0) {
     messageTime = Math.max(0, messageTime - dt);
+    lakeMat.uniforms.uTime.value += dt;
     const sanctuaryLabel = sanctuary.update(player, dt);
     const distance = Math.round(Math.hypot(player.x, player.z - CLOVER_ENTRANCE.z));
     const label = messageTime > 0 ? (recoveredAtSummit ? 'CLOVER SUMMIT · RETURNED TO SUMMIT ENTRANCE' : 'CLOVER TERRACES · RETURNED TO ENTRANCE') : sanctuaryLabel ||

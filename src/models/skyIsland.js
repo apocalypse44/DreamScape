@@ -1,5 +1,5 @@
 // All heights are feet heights. The island is separate from generated terrain.
-export const SKY = Object.freeze({ x: 72, z: -552, top: 64 });
+export const SKY = Object.freeze({ x: 88, z: -552, top: 64 }); // x keeps Heavenly Falls clear of the Clover cliffs
 export const SUMMIT_DOOR = Object.freeze({ x: 2, z: -499, top: 24 });
 export const SKY_DOOR = Object.freeze({ x: SKY.x, z: SKY.z + 14, top: SKY.top });
 export const SKY_ARRIVAL = Object.freeze({ x: SKY.x, z: SKY.z + 10, top: SKY.top, yaw: 0 });
@@ -88,4 +88,23 @@ export function createSkyJourney() {
     },
     reset() { visiting = pressed = awakened = secret = false; transition = cinematic = null; }
   };
+}
+
+// Lake on the ground beneath the island: its four waterfalls land here.
+export const SKY_LAKE = Object.freeze({ x: SKY.x + 2, z: SKY.z - 2, level: 1, radius: 31 });
+const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+export function skyLakeArea(x, z, margin = 0) {
+  return Math.hypot(x - SKY_LAKE.x, z - SKY_LAKE.z) < 44 + margin;
+}
+// Heavenly Falls fountain rim: a walkable stone ring around the basin.
+export const HEAVENLY_RIM = Object.freeze({ x: SKY_LAKE.x, z: SKY_LAKE.z, top: 1.65, bottom: 0.6, solid: true,
+  width: 63.2, depth: 63.2, inner: 30.4, outer: 31.6,
+  contains(px, pz, pad = 0) { const d = Math.hypot(px - SKY_LAKE.x, pz - SKY_LAKE.z); return d > 30.4 - pad && d < 31.6 + pad; } });
+// Shallow wadeable bowl (1.4 m deep), then a level plaza at 1.6 m out to 38 m before
+// blending back into the generated land.
+export function skyLakeTerrain(x, z, original) {
+  const d = Math.hypot(x - SKY_LAKE.x, z - SKY_LAKE.z);
+  if (d >= 44) return original;
+  const bed = SKY_LAKE.level - 1.4 * (1 - smooth(18, 30, d)) + 0.6 * smooth(28, 33, d);
+  return original + (bed - original) * (1 - smooth(38, 44, d));
 }

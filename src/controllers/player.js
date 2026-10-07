@@ -2,6 +2,26 @@ import { SLAB_SIZE } from '../models/quest.js';
 import { MOVEMENT } from '../models/movementConfig.js';
 import { createRecovery } from '../models/recovery.js';
 
+// Highest walkable surface at (x, z) that is no higher than `limit`: platforms or terrain.
+// Used by visuals (dog, foot IK) so they stand on slabs and rims, not the ground beneath.
+export function createSurfaceAt(platforms, terrainHeight) {
+  return (x, z, limit = Infinity) => {
+    let y = terrainHeight(x, z);
+    for (const p of platforms) {
+      if (p.width < 0.5) continue; // ponytail: thin = bridge rail, never floor; tag rails if a real narrow ledge appears
+      const top = p.topAt ? p.topAt(x, z) : p.top;
+      if (top <= y || top > limit) continue;
+      if (p.contains ? p.contains(x, z) : Math.abs(x - p.x) < (p.width ?? SLAB_SIZE) / 2 &&
+        Math.abs(z - p.z) < (p.depth ?? SLAB_SIZE) / 2) y = top;
+    }
+    return y;
+  };
+}
+
+// One edge margin for side blocking, landing and head bumps. With different margins a
+// player who stepped off a ledge dropped inside the wall's blocking band and could not move.
+const EDGE = 0.55;
+
 export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, isMovementBlocked = () => false, colliderFilter = () => true }) {
   function collidesAt(x, z) {
     const playerRadius = 0.55;
@@ -14,7 +34,14 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
         const radius = playerRadius + collider.radius;
         const dx = x - collider.x;
         const dz = z - collider.z;
-        if (dx*dx + dz*dz < radius*radius) return true;
+        if (dx*dx + dz*dz >= radius*radius) continue;
+        // Low obstacles (rocks) only block while the feet are below their top.
+        const height = collider.height?.();
+        if (height !== undefined && feet > terrainHeight(collider.x, collider.z) + height) continue;
+        // Already overlapping (e.g. landed beside a rock): moving away is always allowed.
+        const cx = player.position.x - collider.x, cz = player.position.z - collider.z;
+        if (cx*cx + cz*cz < radius*radius && dx*dx + dz*dz >= cx*cx + cz*cz) continue;
+        return true;
       }
     }
     return false;
@@ -29,7 +56,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     return !collidesAt(x, z) && terrainHeight(x, z) - feet <= MOVEMENT.stepHeight &&
       !platforms.some(p => p.solid && feet + MOVEMENT.stepHeight < topAt(p, x, z) - 0.01 &&
         feet + MOVEMENT.stepHeight + MOVEMENT.eyeHeight > p.bottom &&
-        contains(p, x, z, 0.55));
+        contains(p, x, z, EDGE));
   }
 
   function updatePlayer(dt) {
@@ -101,7 +128,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     player.position.y += player.velocity.y * dt;
     // Solid course rocks also stop upward movement into their underside.
     if (player.velocity.y > 0) for (const p of platforms) {
-      if (!p.solid || !contains(p, player.position.x, player.position.z, 0.3)) continue;
+      if (!p.solid || !contains(p, player.position.x, player.position.z, EDGE)) continue;
       if (prevFeet + MOVEMENT.eyeHeight <= p.bottom && player.position.y >= p.bottom) {
         player.position.y = p.bottom;
         player.velocity.y = 0;
@@ -128,8 +155,9 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     // ponytail: slabs are one-way (land from above only, no side/head collision); add box sweeps if pass-through looks wrong.
     if (player.velocity.y <= 0) for (const slab of platforms) {
       const top = topAt(slab, player.position.x, player.position.z);
-      const canStep = slab.ramp && wasGrounded && top - prevFeet <= MOVEMENT.stepHeight;
-      if ((prevFeet >= top - 0.05 || canStep) && contains(slab, player.position.x, player.position.z, 0.3) && nextFeet <= top) ground = Math.max(ground, top + MOVEMENT.eyeHeight);
+      // Walking into any surface up to a step high climbs onto it (ramps, kerbs, the fountain rim).
+      const canStep = wasGrounded && top - prevFeet <= MOVEMENT.stepHeight;
+      if ((prevFeet >= top - 0.05 || canStep) && contains(slab, player.position.x, player.position.z, EDGE) && nextFeet <= top) ground = Math.max(ground, top + MOVEMENT.eyeHeight);
     }
     // Stick to downhill slopes instead of floating off them for a few frames.
     const snap = wasGrounded && player.velocity.y <= 0 && player.position.y - ground < MOVEMENT.stepHeight;

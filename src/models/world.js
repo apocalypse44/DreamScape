@@ -2,7 +2,8 @@ import { waterfallTerrain, waterfallArea } from './waterfall.js';
 import { ridgeTerrain, ridgeArea } from './ridge.js';
 import { plazaPathArea, plazaTerrain } from './plaza.js';
 import { cloverGround, cloverArea, cloverApproach } from './cloverTerrain.js';
-const landmarkTerrain = (x, z, original) => cloverGround(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original))));
+import { skyLakeTerrain, skyLakeArea } from './skyIsland.js';
+const landmarkTerrain = (x, z, original) => cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original)))));
 
 export function createWorld({ scene, state, player, onChunk }) {
   const CHUNK_SIZE = 64;
@@ -19,11 +20,11 @@ export function createWorld({ scene, state, player, onChunk }) {
   // Four kingdoms around a large neutral centre; each kingdom starts KINGDOM_START metres out.
   const KINGDOM_START = 350;
   const BIOMES = {
-    hub:   { name:"GRIMOIRE TOWER", route:"CENTER", banner:"#c6ff65", ground:0x53645a, fog:0x0b1716, sky:0xbdebd3, roughness:0.2, kind:"hub" },
-    north: { name:"CLOVER KINGDOM", route:"N · NORTH", banner:"#8fe36b", ground:0x527d4f, fog:0x071b18, sky:0xbdebd3, roughness:0.1, kind:"trees" },
-    east:  { name:"HEART KINGDOM", route:"E · EAST", banner:"#ff6b6b", ground:0x712b24, fog:0x290a09, sky:0xff765b, roughness:0.92, kind:"crystals" },
-    south: { name:"DIAMOND KINGDOM", route:"S · SOUTH", banner:"#ffd36b", ground:0x9b7a48, fog:0x291e13, sky:0xffd28a, roughness:0.32, kind:"pillars" },
-    west:  { name:"SPADE KINGDOM", route:"W · WEST", banner:"#b9a6ff", ground:0x50466f, fog:0x161225, sky:0xc4b5ff, roughness:0.48, kind:"wisps" }
+    hub:   { name:"GRIMOIRE TOWER", route:"CENTER", banner:"#c6ff65", ground:0x5b7633, fog:0x0b1716, sky:0xbdebd3, roughness:0.2, kind:"hub" },
+    north: { name:"CLOVER KINGDOM", route:"N · NORTH", banner:"#8fe36b", ground:0x2e8656, fog:0x071b18, sky:0xbdebd3, roughness:0.1, kind:"trees" },
+    east:  { name:"HEART KINGDOM", route:"E · EAST", banner:"#ff6b6b", ground:0x8a3328, fog:0x290a09, sky:0xff765b, roughness:0.92, kind:"crystals" },
+    south: { name:"DIAMOND KINGDOM", route:"S · SOUTH", banner:"#ffd36b", ground:0xc29c5e, fog:0x291e13, sky:0xffd28a, roughness:0.32, kind:"pillars" },
+    west:  { name:"SPADE KINGDOM", route:"W · WEST", banner:"#b9a6ff", ground:0x5a4a8c, fog:0x161225, sky:0xc4b5ff, roughness:0.48, kind:"wisps" }
   };
 
   function hash(x, z) {
@@ -142,8 +143,9 @@ export function createWorld({ scene, state, player, onChunk }) {
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
-      if (cloverArea(wx, wz, 5)) return;
-      if (biomeAt(wx, wz).kind === "hub") return; // Grimoire Tower lands are dressed by rendering/props.js
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz)) return;
+      const kind = biomeAt(wx, wz).kind;
+      if (kind === "hub" || kind === "trees") return; // Grimoire + Clover lands are dressed by rendering/props.js
       const y = terrainHeight(wx, wz);
       const object = new THREE.Group();
       if (biome.kind === "trees" || biome.kind === "hub") {
@@ -210,7 +212,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       if (tile === "empty") continue;
       const lx = -18 + x*18, lz = -18 + z*18;
       const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
-      if (cloverArea(wx, wz, 5)) continue;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz)) continue;
       const y = terrainHeight(wx,wz);
       const ruin = new THREE.Group();
       const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
@@ -246,9 +248,15 @@ export function createWorld({ scene, state, player, onChunk }) {
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
-    const color = new THREE.Color(biome.ground);
+    // Per-vertex ground colour so kingdom borders follow the real 350 m circle, not chunk squares.
+    const colors = new Float32Array(positions.count * 3), tint = new THREE.Color();
+    for (let i = 0; i < positions.count; i++) {
+      // Hex is the on-screen colour (sRGB); vertex colours are linear, like the old sRGB grass texture.
+      tint.set(biomeAt(cx * CHUNK_SIZE + positions.getX(i), cz * CHUNK_SIZE + positions.getZ(i)).ground).convertSRGBToLinear().toArray(colors, i * 3);
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     const material = new THREE.MeshStandardMaterial({
-      color,
+      color: 0xffffff, vertexColors: true,
       roughness: 0.92,
       metalness: score * 0.12,
       flatShading: score > 0.55
@@ -324,9 +332,9 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
-  return { seed, chunks, hash, noise, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
-    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5),
+    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z),
     get formed() { return formed; },
     get terrainVersion() { return terrainVersion; },
     get viewRadius() { return viewRadius; },

@@ -55,7 +55,7 @@ function solveLeg({ thigh, calf, ankle }, goal) {
   rotateWorld(calf, turn.setFromUnitVectors(foot.sub(knee).normalize(), dir.subVectors(goal, knee).normalize()));
 }
 
-export function createCharacter({ scene, state, player, terrainHeight }) {
+export function createCharacter({ scene, state, player, surfaceAt }) {
   const root = new THREE.Group();
   scene.add(root);
   const status = document.querySelector('#characterStatus');
@@ -108,14 +108,15 @@ export function createCharacter({ scene, state, player, terrainHeight }) {
   // Lower the hips so the lowest foot can reach its ground, then IK each leg onto the terrain.
   function placeFeet(dt) {
     const base = root.position.y; // ground under the player's centre
-    // Only on bare terrain: on a parkour slab the terrain below isn't the floor.
-    const onTerrain = player.grounded && Math.abs(terrainHeight(player.position.x, player.position.z) - base) < 0.1;
+    // Feet land on whatever surface is under them (terrain, slab, fountain rim), never below it.
+    const ground = (x, z) => surfaceAt(x, z, base + 0.15);
+    const onTerrain = player.grounded && Math.abs(ground(player.position.x, player.position.z) - base) < 0.1;
     ikWeight += ((onTerrain && legs.length === 2 ? 1 : 0) - ikWeight) * (1 - Math.exp(-10 * dt));
     if (ikWeight < 0.01) { hipDrop = 0; return; }
     root.updateMatrixWorld(true);
     const deltas = legs.map(({ ankle }) => {
       ankle.getWorldPosition(foot);
-      return THREE.MathUtils.clamp(terrainHeight(foot.x, foot.z) - base, -MAX_STEP, MAX_STEP);
+      return THREE.MathUtils.clamp(ground(foot.x, foot.z) - base, -MAX_STEP, MAX_STEP);
     });
     hipDrop += (Math.min(0, ...deltas) - hipDrop) * (1 - Math.exp(-12 * dt)); // smoothed so steps don't jitter
     root.position.y = base + hipDrop * ikWeight;

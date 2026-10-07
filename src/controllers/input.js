@@ -25,11 +25,13 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
     state.pitch -= event.movementY * 0.002;
     state.pitch = THREE.MathUtils.clamp(state.pitch, -1.35, 1.35);
   });
+  document.body.classList.toggle("tpp", state.perspective === 'third'); // crosshair is FPP-only
   document.addEventListener("keydown", event => {
     if (!state.locked || !document.hasFocus()) return;
     keys.add(event.code);
     if (event.code === 'KeyV' && !event.repeat) {
       state.perspective = state.perspective === 'third' ? 'first' : 'third';
+      document.body.classList.toggle("tpp", state.perspective === 'third');
       event.preventDefault();
     }
     if (event.code === 'KeyR' && !event.repeat) onReset();

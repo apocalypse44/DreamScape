@@ -37,7 +37,7 @@ function fixture(terrainHeight = () => 0, platforms = [], options = {}) {
 function frames(f, count, dt = 1 / 60) { for (let i = 0; i < count; i++) f.controller.update(dt); }
 
 test('sky garden main route climbs the shrine ramp and walks to the lookout', () => {
-  const f=fixture(()=>0,SKY_PLATFORMS,{staticColliders:[{x:67,z:-563,radius:2,minY:68,maxY:72}]});
+  const f=fixture(()=>0,SKY_PLATFORMS,{staticColliders:[{x:83,z:-563,radius:2,minY:68,maxY:72}]});
   f.controller.teleport(SKY_ARRIVAL);f.keys.add('KeyW');
   for(const [x,z] of SKY_WALK_ROUTE) {
     let count=0;
@@ -49,7 +49,7 @@ test('sky garden main route climbs the shrine ramp and walks to the lookout', ()
   }
 });
 test('sky floating ledges can be reached with ordinary jumps',()=>{
-  const f=fixture(()=>0,SKY_PLATFORMS);f.controller.teleport({x:93,z:-560,top:64});
+  const f=fixture(()=>0,SKY_PLATFORMS);f.controller.teleport({x:109,z:-560,top:64});
   for(const p of [...SKY_JUMPS,SKY_SECRET]) {
     f.player.jumpBuffer=.15;f.keys.add('KeyW');let count=0;
     while(Math.hypot(p.x-f.player.position.x,p.z-f.player.position.z)>.25 && count++<240) {
@@ -58,7 +58,7 @@ test('sky floating ledges can be reached with ordinary jumps',()=>{
     f.keys.clear();frames(f,60);assert.ok(count<240);
     assert.ok(Math.abs(f.player.position.y-p.top-2.05)<.001,`sky landing ${p.x},${p.z}: ${f.player.position.y}`);
   }
-  for(const p of [...SKY_JUMPS].reverse().concat({x:93,z:-560,top:64})) {
+  for(const p of [...SKY_JUMPS].reverse().concat({x:109,z:-560,top:64})) {
     f.player.jumpBuffer=.15;f.keys.add('KeyW');let count=0;
     while(Math.hypot(p.x-f.player.position.x,p.z-f.player.position.z)>.25 && count++<240) {
       f.state.yaw=Math.atan2(-(p.x-f.player.position.x),-(p.z-f.player.position.z));f.controller.update(1/120);
@@ -72,13 +72,13 @@ test('teleport clears momentum, buffered jumps and camera angles; island recover
   const f=fixture(()=>3,SKY_PLATFORMS,{courseRecovery:p=>j.recovery(p)});
   f.player.velocity.set(9,10,9);f.player.jumpBuffer=.15;f.state.pitch=1;f.controller.teleport(SKY_ARRIVAL);
   assert.deepEqual({...f.player.velocity},{x:0,y:0,z:0});assert.equal(f.player.jumpBuffer,0);assert.equal(f.state.pitch,0);
-  f.player.position.set(120,59,-552);f.player.grounded=false;frames(f,1);
-  assert.equal(f.player.position.y,66.05);assert.equal(f.player.position.x,72);
+  f.player.position.set(136,59,-552);f.player.grounded=false;frames(f,1);
+  assert.equal(f.player.position.y,66.05);assert.equal(f.player.position.x,SKY_ARRIVAL.x);
   f.controller.teleport(SUMMIT_ARRIVAL);assert.equal(f.player.position.y,26.05);
 });
 test('portal fade blocks movement and island obstacles respect vertical bounds',()=>{
   let blocked=true;
-  const f=fixture(()=>0,SKY_PLATFORMS,{isMovementBlocked:()=>blocked,staticColliders:[{x:72,z:-544,radius:1,minY:0,maxY:5}]});
+  const f=fixture(()=>0,SKY_PLATFORMS,{isMovementBlocked:()=>blocked,staticColliders:[{x:88,z:-544,radius:1,minY:0,maxY:5}]});
   f.controller.teleport(SKY_ARRIVAL);f.keys.add('KeyW');f.player.jumpBuffer=.15;frames(f,20);
   assert.equal(f.player.position.z,SKY_ARRIVAL.z);assert.equal(f.player.position.y,66.05);
   blocked=false;frames(f,30);assert.ok(f.player.position.z<-544);
@@ -349,4 +349,50 @@ test('slopes and airborne platforms cannot become safe-ground checkpoints', () =
   recovery.updateCheckpoint(2, true);
   recovery.respawn();
   assert.equal(player.position.x, 0);
+});
+
+test('stepping off a tall ledge never leaves the player stuck against its wall', () => {
+  // A 4 m block like the Sky Garden shrine: walk off each side, then walk away along every direction.
+  const block = { x: 0, z: 0, width: 12, depth: 12, top: 4, bottom: 0, solid: true };
+  for (const [yaw, along] of [[0, 0], [Math.PI / 2, 0], [Math.PI, 0], [-Math.PI / 2, 0]]) {
+    const f = fixture(() => 0, [block]);
+    f.controller.teleport({ x: 0, z: 0, top: 4, yaw });
+    f.keys.add('KeyW');
+    let count = 0;
+    while (f.player.position.y > 6.04 && count++ < 600) f.controller.update(1 / 60);
+    f.keys.clear(); // a misstep: let go as soon as the drop starts
+    assert.ok(count < 600, `never stepped off at yaw ${yaw}`);
+    frames(f, 30);
+    for (const side of ['KeyA', 'KeyD', 'KeyW']) {
+      f.keys.clear(); f.keys.add(side);
+      const start = { x: f.player.position.x, z: f.player.position.z };
+      frames(f, 30);
+      const moved = Math.hypot(f.player.position.x - start.x, f.player.position.z - start.z);
+      assert.ok(moved > 1, `stuck at the foot of the ledge (yaw ${yaw}, key ${side}, moved ${moved.toFixed(2)})`);
+    }
+  }
+});
+
+test('Heavenly Falls: the fountain rim can be walked onto but the basin is off limits', async () => {
+  const { SKY_LAKE, HEAVENLY_RIM, skyLakeTerrain } = await import(moduleUrl(new URL('../src/models/skyIsland.js', import.meta.url)));
+  // Same barrier rendering/heavenlyFalls.js adds around the basin.
+  const basin = { x: SKY_LAKE.x, z: SKY_LAKE.z, radius: HEAVENLY_RIM.inner - 0.2 };
+  const f = fixture((x, z) => skyLakeTerrain(x, z, 1.5), [HEAVENLY_RIM], { staticColliders: [basin] });
+  f.controller.teleport({ x: SKY_LAKE.x + 36, z: SKY_LAKE.z, top: 1.6, yaw: Math.PI / 2 });
+  f.keys.add('KeyW'); frames(f, 240);
+  const d = f.player.position.x - SKY_LAKE.x;
+  assert.ok(d > HEAVENLY_RIM.inner - 0.2 && d < HEAVENLY_RIM.outer, `stopped at ${d.toFixed(2)} m, not on the rim`);
+  assert.ok(Math.abs(f.player.position.y - 2.05 - HEAVENLY_RIM.top) < 0.01, `not standing on the rim top (${f.player.position.y})`);
+  f.state.yaw = -Math.PI / 2; frames(f, 60);
+  assert.ok(f.player.position.x - SKY_LAKE.x > 33, 'could not walk back off the rim');
+});
+
+test('a low rock blocks walking but a running jump clears it', () => {
+  const rock = { x: 0, z: -4, radius: 1.2, height: () => 1.0 };
+  const walk = fixture(() => 0, [], { staticColliders: [rock] });
+  walk.keys.add('KeyW'); frames(walk, 120);
+  assert.ok(walk.player.position.z > -4 + 1.2, `walked through the rock (z ${walk.player.position.z.toFixed(2)})`);
+  const jump = fixture(() => 0, [], { staticColliders: [rock] });
+  jump.keys.add('KeyW'); frames(jump, 6); jump.player.jumpBuffer = 0.15; frames(jump, 120);
+  assert.ok(jump.player.position.z < -4 - 1.8, `jump did not clear the rock (z ${jump.player.position.z.toFixed(2)})`);
 });
