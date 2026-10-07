@@ -1,4 +1,4 @@
-export function createCameraController({ camera, state, player, chunks, terrainHeight }) {
+export function createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles = [] }) {
   const target = new THREE.Vector3();
   const direction = new THREE.Vector3();
   const candidate = new THREE.Vector3();
@@ -18,7 +18,7 @@ export function createCameraController({ camera, state, player, chunks, terrainH
       raycaster.set(target, direction);
       raycaster.near = 0;
       raycaster.far = distance + 0.25;
-      const obstacles = Array.from(chunks.values());
+      const obstacles = [...chunks.values(), ...staticObstacles];
       obstacles.forEach(chunk => chunk.updateMatrixWorld(true));
       const hit = raycaster.intersectObjects(obstacles, true)[0];
       if (hit) distance = Math.max(0.1, hit.distance - 0.3);
