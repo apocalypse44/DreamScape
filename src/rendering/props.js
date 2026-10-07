@@ -81,6 +81,8 @@ export function createProps({ scene, world, blockers, onReady }) {
   ];
 
   function blocked(x, z, clear) {
+    if (world.isPathArea?.(x, z)) return true;
+    if (world.isLandmarkArea?.(x, z)) return true;
     if (Math.hypot(x, z) < 22 || biomeAt(x, z).kind !== 'hub') return true;
     if (clear && roadDistance(x, z) < clear) return true;
     return blockers().some(b => Math.hypot(b.x - x, b.z - z) < 8);
@@ -107,8 +109,11 @@ export function createProps({ scene, world, blockers, onReady }) {
         }
       }
     });
-    // Trail stones: small flat stones every ~1.7 m along each road and the plaza ring.
+    // Legacy kingdom roads start outside the new plaza approaches. The plaza
+    // owns nearby paths, so its route must not acquire parallel stone trails.
     const stone = (x, z) => {
+      if (Math.hypot(x, z) < 30 || world.isPathArea?.(x, z)) return;
+      if (world.isLandmarkArea?.(x, z)) return;
       if (x < minX || x >= minX + size || z < minZ || z >= minZ + size || biomeAt(x, z).kind !== 'hub') return;
       list.push({ model: pick([...range('RockPath_Round_Small', 3), ...range('RockPath_Square_Small', 3)], x, z),
         x, z, scale: 0.9 + hash(x, z) * 0.3, sink: 0.04, rot: hash(z, x) * Math.PI * 2, far: false });
@@ -119,7 +124,6 @@ export function createProps({ scene, world, blockers, onReady }) {
         stone(dx * along - dz * side, dz * along + dx * side);
       }
     });
-    for (let a = 0; a < Math.PI * 2; a += 1.7 / 16) stone(Math.cos(a) * 16, Math.sin(a) * 16);
     chunk.userData.props = list;
   }
 

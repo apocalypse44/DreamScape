@@ -15,6 +15,12 @@ import { createShrine } from '../rendering/shrine.js';
 import { createCompanion } from '../rendering/companion.js';
 import { createProps } from '../rendering/props.js';
 import { createNPCs, VILLAGERS } from '../rendering/npc.js';
+import { createWaterfall } from '../rendering/waterfall.js';
+import { createRidge } from '../rendering/ridge.js';
+import { createWayfinding } from '../rendering/wayfinding.js';
+import { createPlaza } from '../rendering/plaza.js';
+import { createCloverTerrain } from '../rendering/cloverTerrain.js';
+import { createSkyIsland } from '../rendering/skyIsland.js';
 
 export function startGame(ui) {
   const { state, keys, pointerButtons, player } = createGameState();
@@ -29,21 +35,45 @@ export function startGame(ui) {
   const { swarmPanelEl, swarmStatusEl } = ui;
   const quest = createQuest({ world, state, player });
   const shrine = createShrine({ scene, terrainHeight, quest });
+  const waterfall = createWaterfall({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
+  const ridge = createRidge({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
+  const wayfinding = createWayfinding({ scene, world });
+  const plaza = createPlaza({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
+  const clover = createCloverTerrain({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
+  const skyIsland = createSkyIsland({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
+  shrine.colliders.push(...waterfall.colliders, ...wayfinding.colliders, ...ridge.colliders, ...plaza.colliders, ...clover.colliders);
+  shrine.colliders.push(...skyIsland.colliders);
   const companion = createCompanion({ scene, state, player, terrainHeight, quest });
-  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
+  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
-  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders, platforms: quest.platforms });
+  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders,
+    platforms: [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms],
+    isMovementBlocked: () => skyIsland.journey.blocked,
+    colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
+    courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
+      : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
     Object.assign(state, START);
-    player.velocity.set(0, 0, 0);
+    keys.clear();
+    pointerButtons.clear();
+    state.crouching = false;
+    state.hintTimer = 0;
+    ui.worldEl.ownerDocument.querySelector('#movementHint').classList.remove('fade');
     world.reset();
-    updateChunks();
     player.position.set(0, terrainHeight(0, 0) + 2.05, 0);
+    movement.reset();
+    updateChunks();
     quest.reset();
     companion.reset();
     npcs.reset();
+    waterfall.reset();
+    ridge.reset();
+    wayfinding.reset();
+    plaza.reset();
+    clover.reset();
+    skyIsland.reset();
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -51,8 +81,12 @@ export function startGame(ui) {
   }
   bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset: reset, onStress: stress });
   atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles: world.materialProfiles });
+  atmosphere.prepare?.(wayfinding.root);
+  atmosphere.prepare?.(plaza.root);
+  atmosphere.prepare?.(clover.root);
+  atmosphere.prepare?.(skyIsland.root);
   const grass = createGrass({ hash, chunks });
-  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight });
+  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root] });
   const character = createCharacter({ scene, state, player, terrainHeight });
   const chaosFog = new THREE.Color(0x2a0809);
   function updateSwarm(dt) {
@@ -87,13 +121,21 @@ export function startGame(ui) {
     state.elapsed += dt;
     updateChunks();
     world.updateTerrain(dt);
-    movement.update(dt);
+    skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
+    if (!skyIsland.journey.blocked) movement.update(dt);
     props.update(player.position, world.terrainVersion);
     quest.update();
     companion.update(dt);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
-    const cameraDistance = viewCamera.update();
+    waterfall.update(dt, player.position);
+    ridge.update(player.position);
+    wayfinding.update();
+    plaza.update();
+    clover.update(player.position, dt);
+    let cameraDistance;
+    if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
+    else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(); }
     character.update(dt, cameraDistance);
     updateHUD(ui, state, player, biomeAt);
     updateQuestHUD(ui, quest);
@@ -112,6 +154,17 @@ export function startGame(ui) {
     moteMat.opacity = 0.3 + visualScore * 0.65;
     moteMat.size = 0.2 + visualScore * 0.42;
     atmosphere.update(visualScore, currentBiome);
+    // Lift the veil at the summit and above the clouds so the destination and
+    // views remain visible even when running has increased the world's chaos.
+    if (skyIsland.journey.visiting || skyIsland.journey.blocked) {
+      scene.fog.density = Math.min(scene.fog.density, 0.0035);
+      scene.fog.color.set(0xa9cbd3);
+      if (!scene.background?.isTexture) scene.background = scene.fog.color;
+      sun.intensity = Math.max(sun.intensity, 1.8);
+      hemi.intensity = Math.max(hemi.intensity, 1.5);
+    } else if (player.position.y > 24 && Math.hypot(player.position.x-2,player.position.z+510)<45) {
+      scene.fog.density = Math.min(scene.fog.density, 0.006);
+    }
     grass.update(Boolean(atmosphere.isEnabled?.()));
     renderer.render(scene, camera);
   }

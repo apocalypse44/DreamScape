@@ -1,3 +1,9 @@
+import { waterfallTerrain, waterfallArea } from './waterfall.js';
+import { ridgeTerrain, ridgeArea } from './ridge.js';
+import { plazaPathArea, plazaTerrain } from './plaza.js';
+import { cloverGround, cloverArea, cloverApproach } from './cloverTerrain.js';
+const landmarkTerrain = (x, z, original) => cloverGround(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original))));
+
 export function createWorld({ scene, state, player, onChunk }) {
   const CHUNK_SIZE = 64;
   const SEGMENTS = 36;
@@ -95,11 +101,11 @@ export function createWorld({ scene, state, player, onChunk }) {
   const blendHeight = (low, rough, base, weight, hill, shift = terrainShift) =>
     THREE.MathUtils.lerp(FLAT_Y, -5 + THREE.MathUtils.lerp(low, rough, THREE.MathUtils.clamp(base + shift * weight, 0, 1)), hill);
   function terrainHeight(x, z) {
-    return blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z));
+    return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z)));
   }
   // Height the ground would settle at for a given score; used to put items on chaos-only peaks.
   function heightAt(x, z, chaos) {
-    return blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z), shiftFor(chaos));
+    return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z), shiftFor(chaos)));
   }
 
   function chunkKey(cx, cz) {
@@ -136,6 +142,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
+      if (cloverArea(wx, wz, 5)) return;
       if (biomeAt(wx, wz).kind === "hub") return; // Grimoire Tower lands are dressed by rendering/props.js
       const y = terrainHeight(wx, wz);
       const object = new THREE.Group();
@@ -203,6 +210,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       if (tile === "empty") continue;
       const lx = -18 + x*18, lz = -18 + z*18;
       const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
+      if (cloverArea(wx, wz, 5)) continue;
       const y = terrainHeight(wx,wz);
       const ruin = new THREE.Group();
       const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
@@ -234,7 +242,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       parts[i * 5 + 2] = calmBase(wx, wz);
       parts[i * 5 + 3] = chaosWeight(wx, wz);
       parts[i * 5 + 4] = hillMask(wx, wz);
-      positions.setY(i, blendHeight(...parts.subarray(i * 5, i * 5 + 5)));
+      positions.setY(i, landmarkTerrain(wx, wz, blendHeight(...parts.subarray(i * 5, i * 5 + 5))));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -288,7 +296,8 @@ export function createWorld({ scene, state, player, onChunk }) {
     const positions = geometry.attributes.position;
     for (let i = 0; i < positions.count; i++) {
       const k = i * 5;
-      positions.setY(i, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4]));
+      const wx = chunk.position.x + positions.getX(i), wz = chunk.position.z + positions.getZ(i);
+      positions.setY(i, landmarkTerrain(wx, wz, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4])));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -316,6 +325,8 @@ export function createWorld({ scene, state, player, onChunk }) {
   }
 
   return { seed, chunks, hash, noise, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
+    isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
+    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5),
     get formed() { return formed; },
     get terrainVersion() { return terrainVersion; },
     get viewRadius() { return viewRadius; },

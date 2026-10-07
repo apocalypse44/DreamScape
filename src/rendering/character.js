@@ -133,7 +133,7 @@ export function createCharacter({ scene, state, player, terrainHeight }) {
       const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
       const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
-      root.visible = Boolean(mixer) && state.perspective === 'third' && cameraDistance > 0.8;
+      root.visible = Boolean(mixer) && (state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
@@ -153,7 +153,8 @@ export function createCharacter({ scene, state, player, terrainHeight }) {
       const moving = speed > 0.5;
       const run = THREE.MathUtils.smoothstep(speed, 10, 17); // walk at 9 m/s blends into run at 18 m/s
       const target = { idle: 0, walk: 0, run: 0, jump: 0, crouchIdle: 0, crouchWalk: 0 };
-      if (!player.grounded) target.jump = 1;
+      if (player.inFlight) target.idle = 1;
+      else if (!player.grounded) target.jump = 1;
       else if (state.crouching) target[moving ? 'crouchWalk' : 'crouchIdle'] = 1;
       else if (!moving) target.idle = 1;
       else { target.walk = 1 - run; target.run = run; }

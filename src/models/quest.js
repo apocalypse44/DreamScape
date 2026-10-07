@@ -22,6 +22,7 @@ function placeEmbers(world) {
     const radius = 45 + world.hash(913, i) * 70;
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
+    if (world.isLandmarkArea?.(x, z)) continue;
     const peak = world.heightAt(x, z, PEAK_CHAOS);
     candidates.push({ x, z, peak, gain: peak - world.heightAt(x, z, CALM_CHAOS) });
   }
