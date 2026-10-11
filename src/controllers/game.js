@@ -10,7 +10,7 @@ import { bindInput } from './input.js';
 import { createPlayerController, createSurfaceAt } from './player.js';
 import { createCameraController } from './camera.js';
 import { createCharacter } from '../rendering/character.js';
-import { createQuest } from '../models/quest.js';
+import { createQuest, SHRINE } from '../models/quest.js';
 import { createShrine } from '../rendering/shrine.js';
 import { createCompanion } from '../rendering/companion.js';
 import { createProps } from '../rendering/props.js';
@@ -23,6 +23,7 @@ import { createCloverTerrain } from '../rendering/cloverTerrain.js';
 import { createSkyIsland } from '../rendering/skyIsland.js';
 import { createKingdomBorder } from '../rendering/kingdomBorder.js';
 import { createHeavenlyFalls } from '../rendering/heavenlyFalls.js';
+import { Phase3 } from '../phase3/phase3.js';
 
 export function startGame(ui) {
   const { state, keys, pointerButtons, player } = createGameState();
@@ -31,11 +32,30 @@ export function startGame(ui) {
   let props = null;
   const world = createWorld({ scene, state, player, onChunk: chunk => { props?.decorate(chunk); atmosphere?.prepare?.(chunk); } });
   const { chunks, hash, biomeAt, terrainHeight, updateChunks } = world;
+  const phase3BiomeAt = (x, z) => {
+    const b = world.biomeAt(x, z);
+    const biomeIds = {
+      hub: 'hub',
+      trees: 'north',
+      crystals: 'east',
+      pillars: 'south',
+      wisps: 'west',
+    };
+
+    return biomeIds[b.kind];
+  };
   ui.seedEl.textContent = `DS-${world.seed}`;
   const { moteMat, updateMotes, animateEnvironment } = createEnvironment({ scene, state, player, chunks });
   const swarm = new DreamSwarm(scene, terrainHeight);
   const { swarmPanelEl, swarmStatusEl } = ui;
-  const quest = createQuest({ world, state, player });
+  const quest = createQuest({
+    world,
+    state,
+    player,
+    onEmberPickup: (index, count, total) => Phase3.pickupEmber(index, count, total),
+    onEmberPosition: (index, position) => Phase3.setEmberPosition(index, position),
+    onOfferEmbers: onDone => Phase3.startOffering(onDone),
+  });
   const shrine = createShrine({ scene, terrainHeight, quest });
   const waterfall = createWaterfall({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const ridge = createRidge({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
@@ -72,6 +92,7 @@ export function startGame(ui) {
     movement.reset();
     updateChunks();
     quest.reset();
+    Phase3.reset(world.seed);
     companion.reset();
     npcs.reset();
     waterfall.reset();
@@ -94,6 +115,53 @@ export function startGame(ui) {
   const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root] });
   const character = createCharacter({ scene, state, player, surfaceAt });
+  const phase3Ready = Phase3.init({
+    scene,
+    camera,
+    renderer,
+    seed: world.seed,
+
+    getPlayer: () => ({
+      position: player.position,
+      sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'),
+      crouching: state.crouching,
+    }),
+    isInputActive: () => state.locked,
+
+    getChaos: () => state.chaos,
+
+    addChaos: (d) => {
+      state.chaos = THREE.MathUtils.clamp(state.chaos + d, 0.025, 0.98);
+    },
+
+    terrainHeight: (x, z) => world.terrainHeight(x, z),
+
+    biomeAt: phase3BiomeAt,
+
+    questStage: () => (
+      quest.stage === 'cursed' || quest.stage === 'return' ? 'cursed'
+      : quest.stage === 'cured' ? 'cured'
+      : 'dog'
+    ),
+
+    nextEmberPos: () => quest.nextEmber(),
+
+    // These need to be connected to the actual shrine API.
+    shrinePos: new THREE.Vector3(SHRINE.x, terrainHeight(SHRINE.x, SHRINE.z), SHRINE.z),
+    shrineTarget: () => shrine.crystalWorldPosition,
+
+    shrineLine: () => quest.shrineText,
+
+    dog: companion.phase3Dog,
+
+    character: {
+      lockMovement: (sec) => {
+        state.interactionLock = sec;
+      },
+    },
+  });
+  Phase3.setEmbers(quest.embers);
+  phase3Ready.catch(error => console.error('Phase 3 could not initialize.', error));
   const chaosFog = new THREE.Color(0x2a0809);
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
@@ -131,7 +199,8 @@ export function startGame(ui) {
     if (!skyIsland.journey.blocked) movement.update(dt);
     props.update(player.position, world.terrainVersion);
     quest.update();
-    companion.update(dt);
+    companion.update(dt, () => Phase3.updateDog(dt, state.elapsed));
+    quest.updateHoundEmber(companion.position);
     kingdomBorder.update(dt);
     heavenly.update(dt, player.position);
     npcs.update(dt);
@@ -147,6 +216,7 @@ export function startGame(ui) {
     character.update(dt, cameraDistance);
     updateHUD(ui, state, player, biomeAt);
     updateQuestHUD(ui, quest);
+    Phase3.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
     updateSwarm(dt);
     updateMotes(dt);
@@ -174,6 +244,7 @@ export function startGame(ui) {
       scene.fog.density = Math.min(scene.fog.density, 0.006);
     }
     grass.update(Boolean(atmosphere.isEnabled?.()));
+    Phase3.applyCameraShake(camera, dt);
     renderer.render(scene, camera);
   }
 

@@ -1,4 +1,6 @@
 // The Ember Hound: chaos curses the dog, embers on chaos-only peaks cure it at the shrine.
+import { EMBER_DEFS, houndEmberRule } from '../phase3/challenges.js';
+
 export const SHRINE = { x: 0, z: -11 }; // straight ahead of the spawn point, inside talk range
 const EMBERS = 3;
 const TALK_RADIUS = 14;
@@ -32,7 +34,10 @@ function placeEmbers(world) {
     if (picked.length === EMBERS) break;
     if (picked.every(other => Math.hypot(other.x - candidate.x, other.z - candidate.z) > 30)) picked.push(candidate);
   }
-  return picked.map(({ x, z, peak, gain }) => ({ x, y: peak + 1.2, z, gain, taken: false }));
+  return picked.map(({ x, z, peak, gain }, index) => ({
+    x, y: peak + 1.2, z, gain, taken: false,
+    challenge: EMBER_DEFS[index].type,
+  }));
 }
 
 // Parkour: the strongest ember is lifted onto a spiral of floating slabs around its peak.
@@ -56,10 +61,13 @@ function raiseEmber(world, ember) {
   return platforms;
 }
 
-export function createQuest({ world, state, player }) {
+export function createQuest({ world, state, player, onEmberPickup, onEmberPosition, onOfferEmbers }) {
   const embers = placeEmbers(world);
   const platforms = raiseEmber(world, embers[0]);
+  const emberStartPositions = embers.map(({ x, y, z }) => ({ x, y, z }));
   let stage = 'companion';
+  let offering = false;
+  let houndCarrying = false;
   const quest = {
     embers,
     platforms,
@@ -77,19 +85,37 @@ export function createQuest({ world, state, player }) {
       const calm = state.mode === 'calm';
       quest.restless = stage === 'companion' && calm && state.chaos > 0.5;
 
-      if (stage === 'companion' && !calm) stage = 'cursed';
+      if (stage === 'companion' && !calm) {
+        stage = 'cursed';
+        houndCarrying = true;
+      }
       if (stage === 'cursed') {
-        for (const ember of embers) {
+        for (const [i, ember] of embers.entries()) {
           if (ember.taken) continue;
           // Player position is eye height (feet + 2.05); embers float 1.2 above the chaos peak.
           const reach = Math.hypot(player.position.x - ember.x, player.position.z - ember.z) < 2.2 &&
             Math.abs(player.position.y - 1 - ember.y) < 2.5;
-          if (reach) ember.taken = true;
+          if (reach) {
+            ember.taken = true;
+            onEmberPickup?.(i, embers.filter(item => item.taken).length, EMBERS);
+          }
         }
         if (embers.every(ember => ember.taken)) stage = 'return';
       }
       const shrineDistance = Math.hypot(player.position.x - SHRINE.x, player.position.z - SHRINE.z);
-      if (stage === 'return' && calm && shrineDistance < OFFER_RADIUS) stage = 'cured';
+      if (stage === 'return' && calm && shrineDistance < OFFER_RADIUS && !offering) {
+        if (onOfferEmbers) {
+          offering = true;
+          onOfferEmbers(() => {
+            if (stage !== 'return') return;
+            offering = false;
+            stage = 'cured';
+            quest.update();
+          });
+        } else {
+          stage = 'cured';
+        }
+      }
 
       quest.nearShrine = shrineDistance < TALK_RADIUS;
       quest.drowned = !calm; // the shrine only speaks to a calm player
@@ -107,11 +133,29 @@ export function createQuest({ world, state, player }) {
     nextEmber() {
       let best = null;
       for (const ember of embers) {
-        if (ember.taken) continue;
+        if (ember.taken || (ember.challenge === 'hound' && houndCarrying)) continue;
         if (!best || Math.hypot(ember.x - player.position.x, ember.z - player.position.z) <
             Math.hypot(best.x - player.position.x, best.z - player.position.z)) best = ember;
       }
       return best;
+    },
+
+    get houndCarrying() { return houndCarrying; },
+
+    updateHoundEmber(houndPosition) {
+      if (!houndCarrying || stage !== 'cursed') return;
+      const index = embers.findIndex(ember => ember.challenge === 'hound');
+      const ember = embers[index];
+      if (!ember || ember.taken) {
+        houndCarrying = false;
+        return;
+      }
+      ember.x = houndPosition.x;
+      ember.y = houndPosition.y + 1.3;
+      ember.z = houndPosition.z;
+      onEmberPosition?.(index, ember);
+      const rule = houndEmberRule(player.position, houndPosition, state.chaos);
+      if (rule === 'drop') houndCarrying = false;
     },
 
     // The shrine beam shows which mode the current step needs.
@@ -119,7 +163,11 @@ export function createQuest({ world, state, player }) {
 
     reset() {
       stage = 'companion';
-      embers.forEach(ember => { ember.taken = false; });
+      offering = false;
+      houndCarrying = false;
+      embers.forEach((ember, index) => {
+        Object.assign(ember, emberStartPositions[index], { taken: false });
+      });
       quest.update();
     }
   };
