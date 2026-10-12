@@ -62,10 +62,12 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
   function updatePlayer(dt) {
     const forward = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
     const side = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
-    const blocked = isMovementBlocked();
+    const interactionLocked = (state.interactionLock || 0) > 0;
+    state.interactionLock = Math.max(0, (state.interactionLock || 0) - dt);
+    const blocked = isMovementBlocked() || interactionLocked;
     const moving = state.locked && !blocked && Boolean(forward || side);
     if (blocked) player.jumpBuffer = 0;
-    state.crouching = state.locked && keys.has("KeyC");
+    state.crouching = state.locked && (keys.has("KeyC") || interactionLocked);
     const sprint = !state.crouching && (keys.has("ShiftLeft") || keys.has("ShiftRight"));
     const walkSpeed = state.crouching ? 4.5 : 9;
     if (moving) {

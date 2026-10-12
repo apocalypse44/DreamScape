@@ -72,6 +72,7 @@ requests from `file://` pages. The server binds to this computer only.
 | R | Reset to the starting position, score and terrain (same seed) |
 | [ / ] | Stress test: lower / raise the chunk view radius (1–6) |
 | E / Q / F | Attract (calms the world) / repel (adds chaos) / recall the swarm in the Spade Kingdom |
+| E near companion | Pet while calm outside Violet Mist; E attracts the swarm inside Violet Mist |
 | Left / right mouse button | Attract / repel the swarm |
 
 ### Quest: The Ember Hound
@@ -79,8 +80,10 @@ requests from `file://` pages. The server binds to this computer only.
 The shrine at the Grimoire Tower gives instructions, but only to a calm player.
 Becoming chaotic (score above 0.65; calm again below 0.40) curses your dog into
 the Ember Hound. It leads you to three embers that float on peaks that only rise
-in chaos. Collect them while chaotic, then return to the shrine and stand
-still nearby to cure the hound for good. R restarts the quest.
+in chaos. Their shards orbit you after pickup. One is reached by the floating
+slab climb; another travels with the hound and drops when you approach calmly.
+Return to the shrine while calm to offer the embers and cure the hound. You can
+pet your companion with E while calm. R restarts the quest and companion state.
 
 The world seed is kept in the URL (`?seed=1234`). Reloading or sharing that URL
 recreates the same world. The behavior panel shows FPS, frame time and the
