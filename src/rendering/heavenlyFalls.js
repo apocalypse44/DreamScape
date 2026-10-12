@@ -159,7 +159,7 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
   let time = 0;
   onReady?.(root);
   return {
-    root, colliders, platforms: [HEAVENLY_RIM],
+    root, jet, colliders, platforms: [HEAVENLY_RIM],
     update(dt, player) {
       time += dt;
       poolMat.uniforms.uTime.value = fallMat.uniforms.uTime.value = time;

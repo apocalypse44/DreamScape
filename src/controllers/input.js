@@ -16,8 +16,12 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
     state.locked = document.pointerLockElement === renderer.domElement;
     clearInput();
     if (state.locked) document.activeElement?.blur();
-    document.body.classList.toggle("playing", state.locked);
-    introEl.classList.toggle("hidden", state.locked);
+    // The map frees the mouse on purpose: stay in play mode (no intro screen) while it is open or
+    // while waiting for the click that resumes after it closed.
+    const inPlay = state.locked || state.mapOpen || state.awaitResume;
+    document.body.classList.toggle("playing", inPlay);
+    introEl.classList.toggle("hidden", inPlay);
+    if (state.locked) state.awaitResume = false;
   });
   document.addEventListener("mousemove", event => {
     if (!state.locked) return;

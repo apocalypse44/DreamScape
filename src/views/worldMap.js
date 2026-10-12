@@ -40,6 +40,10 @@ const CSS = `
 #mapButton kbd { position: absolute; right: -4px; bottom: -4px; padding: 1px 4px; border-radius: 3px;
   background: ${GOLD}; color: #16120a; font: 700 8px 'DM Mono', monospace; }
 .hud-top .world-state { margin-right: 54px; }
+#resumeHint { position: fixed; z-index: 29; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none;
+  padding: 14px 22px; border: 1px solid rgba(216,178,90,.7); border-radius: 4px; background: rgba(14,12,8,.82);
+  color: ${GOLD}; font: 600 11px 'DM Mono', monospace; letter-spacing: .2em; cursor: pointer; }
+#resumeHint.on { display: block; }
 #worldMap { position: fixed; inset: 0; z-index: 30; display: none; place-items: center;
   background: radial-gradient(circle at center, rgba(20,16,8,.55), rgba(3,5,4,.88)); backdrop-filter: blur(6px); }
 #worldMap.open { display: grid; }
@@ -83,7 +87,8 @@ function drawClover(ctx, x, y, size, fill, stroke) {
   ctx.restore();
 }
 
-export function createWorldMap({ world, player, state, quest, companion, navigation, gates = [] }) {
+// canvas: the game's canvas, used to free and recapture the mouse around the map.
+export function createWorldMap({ world, player, state, quest, companion, navigation, gates = [], canvas: gameCanvas }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.appendChild(style);
@@ -108,6 +113,14 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span><span class="hint">M / ESC · CLOSE</span></footer></div>`;
   document.body.appendChild(overlay);
+  const resumeHint = document.createElement('button');
+  resumeHint.id = 'resumeHint';
+  resumeHint.type = 'button';
+  resumeHint.textContent = 'CLICK TO RESUME';
+  document.body.appendChild(resumeHint);
+  const resume = () => { resumeHint.classList.remove('on'); gameCanvas?.requestPointerLock(); };
+  resumeHint.addEventListener('click', resume);
+  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) resumeHint.classList.remove('on'); });
   const canvas = overlay.querySelector('canvas.map');
   const ctx = canvas.getContext('2d');
   const sealCanvas = overlay.querySelector('canvas.seal');
@@ -347,26 +360,35 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
     label('100 m', 40 * u + bar / 2, size - 26 * u, { font: `${14 * u}px 'DM Mono', monospace`, color: '#f3e3b5' });
   }
 
-  function setOpen(next) {
+  // viaGesture: closed by M, ✕ or a click, which may recapture the mouse. Escape can't: browsers
+  // reserve it for leaving pointer lock, so it shows a one-click resume prompt instead of the intro.
+  function setOpen(next, viaGesture = true) {
     if (next === open) return;
     open = next;
     overlay.classList.toggle('open', open);
-    if (!open) return;
+    state.mapOpen = open;
+    if (!open) {
+      if (!state.awaitResume) return; // the map was opened from the menu: nothing to resume
+      if (viaGesture) resume();
+      else resumeHint.classList.add('on');
+      return;
+    }
+    if (state.locked) { // opened while playing: free the mouse for the map, stay in play mode
+      state.awaitResume = true;
+      document.exitPointerLock();
+    }
     if (!relief) buildRelief(); // ~100k height samples, once per page
     resize();
     draw(performance.now() / 1000);
     if (!state.locked) overlay.querySelector('header button').focus({ preventScroll: true });
   }
 
-  button.addEventListener('click', () => {
-    document.exitPointerLock?.();
-    setOpen(!open);
-  });
+  button.addEventListener('click', () => setOpen(!open));
   overlay.querySelector('header button').addEventListener('click', () => setOpen(false));
   overlay.addEventListener('click', event => { if (event.target === overlay) setOpen(false); });
   addEventListener('keydown', event => {
     if (event.code === 'KeyM' && !event.repeat) setOpen(!open);
-    else if (event.code === 'Escape' && open) setOpen(false);
+    else if (event.code === 'Escape' && open) setOpen(false, false);
   });
   addEventListener('resize', () => { if (open) resize(); });
 

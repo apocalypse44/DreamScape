@@ -1,7 +1,7 @@
 import { loadModel, makeGlow } from './models.js';
 import { findPath } from '../models/pathfinding.js';
 
-const FIRE_COUNT = 90;
+const FIRE_COUNT = 140;
 // [right, behind] offsets in metres, tried in order: beside, tighter beside, other side, behind.
 const SLOTS = [[1.5, 0], [1.1, 0.3], [-1.5, 0], [-1.1, 0.3], [0, 1.3]];
 
@@ -132,31 +132,80 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
   let yaw = 0;
   let slot = SLOTS[0]; // kept while the player is airborne, so jumps don't reshuffle it
 
-  // Rising embers around the cursed hound; same Points technique as the world motes.
+  // Flames around the cursed hound: a particle system drawn with a custom point shader. Each flame is
+  // a soft round sprite whose colour follows a blackbody-like ramp over its life (white-hot, yellow,
+  // orange, deep red), shrinking and fading as it rises; a sideways sway makes the trail flicker.
+  // About one in eight is a spark: small, bright, faster and longer-lived.
   const firePositions = new Float32Array(FIRE_COUNT * 3);
-  const fireLife = new Float32Array(FIRE_COUNT);
+  const fireAge = new Float32Array(FIRE_COUNT);  // 0 = just born, 1 = gone (drives colour and size)
+  const fireSeed = new Float32Array(FIRE_COUNT).map(() => Math.random());
+  const fireLife = new Float32Array(FIRE_COUNT); // seconds left
+  const fireMax = new Float32Array(FIRE_COUNT).fill(1);
   const fireGeometry = new THREE.BufferGeometry();
   fireGeometry.setAttribute('position', new THREE.BufferAttribute(firePositions, 3));
-  const fire = new THREE.Points(fireGeometry, new THREE.PointsMaterial({
-    color: 0xff7a2a, size: 0.32, transparent: true, opacity: 0.9,
-    blending: THREE.AdditiveBlending, depthWrite: false
-  }));
+  fireGeometry.setAttribute('aAge', new THREE.BufferAttribute(fireAge, 1));
+  fireGeometry.setAttribute('aSeed', new THREE.BufferAttribute(fireSeed, 1));
+  const fireMaterial = new THREE.ShaderMaterial({
+    uniforms: { uScale: { value: 800 } },
+    vertexShader: `
+      attribute float aAge;
+      attribute float aSeed;
+      uniform float uScale;
+      varying float vAge;
+      varying float vSpark;
+      void main() {
+        vAge = aAge;
+        vSpark = step(0.875, aSeed);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float size = vSpark > 0.5 ? 0.09 : mix(0.62, 0.18, aAge) * (0.75 + 0.5 * aSeed); // metres
+        gl_PointSize = size * uScale / -mv.z;
+      }`,
+    fragmentShader: `
+      varying float vAge;
+      varying float vSpark;
+      void main() {
+        float r = length(gl_PointCoord - 0.5) * 2.0;
+        if (r > 1.0) discard;
+        float soft = pow(1.0 - r, vSpark > 0.5 ? 0.8 : 1.8);
+        vec3 hot = vec3(1.0, 0.92, 0.65), flame = vec3(1.0, 0.5, 0.1), ember = vec3(0.7, 0.1, 0.02);
+        vec3 colour = vAge < 0.3 ? mix(hot, flame, vAge / 0.3) : mix(flame, ember, (vAge - 0.3) / 0.7);
+        if (vSpark > 0.5) colour = vec3(1.0, 0.75, 0.35);
+        float alpha = soft * (1.0 - vAge) * smoothstep(0.0, 0.1, vAge) * (vSpark > 0.5 ? 1.0 : 0.75);
+        gl_FragColor = vec4(colour * alpha, alpha);
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  });
+  const fire = new THREE.Points(fireGeometry, fireMaterial);
   fire.frustumCulled = false;
   scene.add(fire);
 
+  let fireTime = 0;
   function updateFire(dt) {
+    fireTime += dt;
+    // Pixels per metre at distance 1: keeps sprite sizes in world units at any resolution.
+    fireMaterial.uniforms.uScale.value = innerHeight * Math.min(devicePixelRatio, 1.75) / 1.35;
     for (let i = 0; i < FIRE_COUNT; i++) {
+      const spark = fireSeed[i] > 0.875;
       fireLife[i] -= dt;
       if (fireLife[i] <= 0) {
-        fireLife[i] = 0.4 + Math.random() * 0.7;
-        firePositions[i * 3] = position.x + (Math.random() - 0.5) * 1.1;
-        firePositions[i * 3 + 1] = position.y + 0.3 + Math.random() * 0.9;
-        firePositions[i * 3 + 2] = position.z + (Math.random() - 0.5) * 1.1;
+        // Born inside the hound's body (an ellipsoid along its facing), mostly low on the back.
+        fireMax[i] = fireLife[i] = spark ? 0.9 + Math.random() * 0.6 : 0.45 + Math.random() * 0.55;
+        const along = (Math.random() - 0.5) * 1.3, across = (Math.random() - 0.5) * 0.6;
+        firePositions[i * 3] = position.x + Math.sin(yaw) * along + Math.cos(yaw) * across;
+        firePositions[i * 3 + 1] = position.y + 0.45 + Math.random() * 0.6;
+        firePositions[i * 3 + 2] = position.z + Math.cos(yaw) * along - Math.sin(yaw) * across;
       } else {
-        firePositions[i * 3 + 1] += (1.6 + (i % 5) * 0.4) * dt;
+        const rise = spark ? 3.2 : 1.4 + fireSeed[i] * 1.2;
+        const sway = Math.sin(fireTime * 7 + fireSeed[i] * 40) * (spark ? 1.2 : 0.5) * dt;
+        firePositions[i * 3] += sway;
+        firePositions[i * 3 + 1] += rise * dt;
+        firePositions[i * 3 + 2] += Math.cos(fireTime * 6 + fireSeed[i] * 25) * (spark ? 1.2 : 0.5) * dt;
       }
+      fireAge[i] = 1 - fireLife[i] / fireMax[i];
     }
     fireGeometry.attributes.position.needsUpdate = true;
+    fireGeometry.attributes.aAge.needsUpdate = true;
   }
 
   const phase3Dog = {

@@ -216,6 +216,6 @@ export function createCloverTerrain({ scene, world, onReady }) {
     if (hint.textContent !== label) hint.textContent = label;
   }
   onReady?.(root);
-  return { root, platforms: CLOVER_SURFACES, colliders, update, courseRecovery,
+  return { root, lake, platforms: CLOVER_SURFACES, colliders, update, courseRecovery,
     reset() { recovery.reset(); sanctuary.reset(); messageTime = 0; } };
 }

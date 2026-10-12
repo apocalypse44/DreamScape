@@ -500,6 +500,6 @@ export function createWaterfall({ scene, world, onReady }) {
     if (hint.textContent !== label) hint.textContent = label;
   }
   update(0, { x: 0, y: 50, z: 0 });
-  return { colliders, platforms, courseRecovery, obstacles: cliff, reserved: (x, z) => waterfallArea(x, z), update,
+  return { root, colliders, platforms, courseRecovery, obstacles: cliff, reserved: (x, z) => waterfallArea(x, z), update,
     reset() { time = 0; terrainVersion = -1; climbRecovery.reset(); feedback = ''; feedbackTime = 0; lookoutReached = false; wasInPool = false; wadeLife.fill(0); } };
 }

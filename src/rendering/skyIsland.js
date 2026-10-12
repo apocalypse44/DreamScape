@@ -8,6 +8,8 @@ import { fitText } from './canvasText.js';
 
 export function createSkyIsland({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover floating sky garden'; scene.add(root);
+  // Falls, lake and spray: outside root so camera rays ignore the water; grouped so they can be hidden together.
+  const water = new THREE.Group(); water.name = 'Sky Garden falls and lake'; scene.add(water);
   const journey = createSkyJourney(), colliders = [];
   const details = createSkyGardenDetails({root,world,onReady});colliders.push(...details.colliders);
   const rock = new THREE.MeshStandardMaterial({ color: 0x5a4c3e, roughness: 1, flatShading: true });
@@ -170,18 +172,18 @@ export function createSkyIsland({ scene, world, onReady }) {
     for(let i=0;i<fp.count;i++){const drop=Math.max(0,(fallHeight/2-fp.getY(i))/fallHeight);
       fp.setX(i,fp.getX(i)*(1+drop*1.6)); fp.setZ(i,Math.sqrt(drop)*arc);}
     const fall=mesh(geo,fallMat,x,SKY_LAKE.level+fallHeight/2,z);
-    fall.rotation.y=Math.atan2(nx,nz); fall.castShadow=false; scene.add(fall); // not root: camera rays ignore water
+    fall.rotation.y=Math.atan2(nx,nz); fall.castShadow=false; water.add(fall); // not root: camera rays ignore water
     const lx=x+nx*arc,lz=z+nz*arc;
     const churn=mesh(new THREE.CircleGeometry(Math.min(4.5,29.8-Math.hypot(lx-SKY_LAKE.x,lz-SKY_LAKE.z)),40),poolMat,lx,SKY_LAKE.level+0.04,lz);
-    churn.rotation.x=-Math.PI/2; churn.castShadow=false; scene.add(churn);
+    churn.rotation.x=-Math.PI/2; churn.castShadow=false; water.add(churn);
     falls.push({x:lx,z:lz});
   }
   const lakeMat=createWaterSurface('lake');
   const lake=mesh(new THREE.CircleGeometry(SKY_LAKE.radius,96),lakeMat,SKY_LAKE.x,SKY_LAKE.level,SKY_LAKE.z);
-  lake.rotation.x=-Math.PI/2; lake.castShadow=false; scene.add(lake);
+  lake.rotation.x=-Math.PI/2; lake.castShadow=false; water.add(lake);
   const sprayGeo=new THREE.BufferGeometry(),sprayPositions=new Float32Array(240*3);
   sprayGeo.setAttribute('position',new THREE.BufferAttribute(sprayPositions,3));
-  const spray=new THREE.Points(sprayGeo,new THREE.PointsMaterial({color:0xe2f4f1,map:createSoftDot(),size:0.6,transparent:true,opacity:0.5,depthWrite:false})); spray.frustumCulled=false; scene.add(spray);
+  const spray=new THREE.Points(sprayGeo,new THREE.PointsMaterial({color:0xe2f4f1,map:createSoftDot(),size:0.6,transparent:true,opacity:0.5,depthWrite:false})); spray.frustumCulled=false; water.add(spray);
   const placements=[];
   for(const [x,z,model,height] of [[-13,14,'CommonTree_2',7],[13,14,'CommonTree_3',6],[-18,-8,'CommonTree_1',6],
     [12,-15,'Pine_1',6],[7,-20,'Pine_2',5],[-18,7,'CommonTree_2',5]]) {
@@ -268,7 +270,7 @@ export function createSkyIsland({ scene, world, onReady }) {
   const pulseMaterial=new THREE.MeshBasicMaterial({color:0xbaffdf,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
   const pulse=new THREE.Mesh(new THREE.RingGeometry(.8,1,64),pulseMaterial);pulse.rotation.x=-Math.PI/2;scene.add(pulse);
   let time=0,pulseTime=0,trailHistory=[],travelFov=null;
-  return {root,colliders,platforms:[...SKY_PLATFORMS,...rails],journey,
+  return {root,water,colliders,platforms:[...SKY_PLATFORMS,...rails],journey,
     update(dt,player,keys,state,onTravel) {
       time+=dt; const event=journey.update(dt,player.position,keys.has('KeyE'),state.locked);
       player.inFlight=Boolean(event.flight);

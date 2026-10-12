@@ -85,7 +85,7 @@ export function startGame(ui) {
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, companion, navigation, gates: gates.gates });
+  const worldMap = createWorldMap({ world, player, state, quest, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders,
@@ -261,6 +261,29 @@ export function startGame(ui) {
       Phase3.toast(`DEMO · ${gate ? `${gate.name} GATE` : 'GRIMOIRE TOWER'}`, 2200);
     },
   });
+  // Stress-test radius below the default (0 or 1): hide landmarks outside the loaded square of chunks,
+  // so islands and arches don't float over the void. At radius 2+ they stay visible from afar as
+  // destinations, as designed. Footprints (XZ boxes) are measured when the radius changes.
+  const landmarks = [waterfall.root, wayfinding.root, ridge.root, plaza.root, clover.root, clover.lake,
+    skyIsland.root, skyIsland.water, heavenly.root, heavenly.jet, ...gates.root.children].filter(Boolean);
+  const footprints = new Map();
+  let cullRadius = null;
+  function cullLandmarks() {
+    const radius = world.viewRadius;
+    if (radius >= 2) {
+      if (cullRadius !== null) { landmarks.forEach(object => { object.visible = true; }); cullRadius = null; }
+      return;
+    }
+    if (cullRadius !== radius) { footprints.clear(); cullRadius = radius; }
+    const reach = (radius + 0.5) * 64; // half-width of the loaded square, in metres
+    for (const object of landmarks) {
+      let box = footprints.get(object);
+      if (!box) footprints.set(object, box = new THREE.Box3().setFromObject(object));
+      const dx = Math.max(box.min.x - player.position.x, 0, player.position.x - box.max.x);
+      const dz = Math.max(box.min.z - player.position.z, 0, player.position.z - box.max.z);
+      object.visible = Math.max(dx, dz) < reach; // square, like the chunk grid
+    }
+  }
   const resolution = createResolutionGovernor(renderer);
   const clock = new THREE.Clock();
   let fpsFrames = 0;
@@ -303,6 +326,7 @@ export function startGame(ui) {
     navigation.update(dt); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     demoSpawns.update();
+    cullLandmarks();
     updateHUD(ui, state, player, biomeAt);
     updateQuestHUD(ui, quest);
     Phase3.update(dt, state.elapsed);
