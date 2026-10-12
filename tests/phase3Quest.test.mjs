@@ -44,6 +44,14 @@ test('Phase 3 pickups orbit through an offering before curing and reset to their
   quest.update();
   assert.equal(quest.stage, 'cursed');
 
+  // A calm approach makes the hound drop its ember where it stands.
+  const hound = { x: 40, y: 3, z: 20 };
+  state.chaos = 0.06;
+  player.position = { x: hound.x, y: 2.05, z: hound.z };
+  quest.updateHoundEmber(hound);
+  assert.equal(quest.houndCarrying, false);
+  state.chaos = 0.7;
+
   for (const ember of quest.embers) {
     player.position = { x: ember.x, y: ember.y + 1, z: ember.z };
     quest.update();
@@ -80,6 +88,11 @@ test('the hound carries its ember, flees in chaos, and drops it for a calm appro
   const ember = quest.embers.find(item => item.challenge === 'hound');
   assert.deepEqual([ember.x, ember.y, ember.z], [50, 5.3, -25]);
   assert.deepEqual(positions[positions.length - 1], [2, 50, 5.3, -25]);
+
+  // Reaching the hound while chaotic does not take the ember it still carries.
+  player.position = { x: hound.x, y: ember.y + 1, z: hound.z };
+  quest.update();
+  assert.equal(ember.taken, false);
 
   state.chaos = 0.06;
   player.position = { x: hound.x, y: ember.y + 1, z: hound.z };

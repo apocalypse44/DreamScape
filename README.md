@@ -70,9 +70,13 @@ requests from `file://` pages. The server binds to this computer only.
 | P | Start/stop the eight-second atmosphere preview |
 | V | Switch third / first person |
 | R | Reset to the starting position, score and terrain (same seed) |
-| [ / ] | Stress test: lower / raise the chunk view radius (1–6) |
+| [ / ] | Stress test: lower / raise the chunk view radius (0–6: 1, 9, 25 … 169 chunks) |
 | E / Q / F | Attract (calms the world) / repel (adds chaos) / recall the swarm in the Spade Kingdom |
 | E near companion | Pet while calm outside Violet Mist; E attracts the swarm inside Violet Mist |
+| G | Show / hide the quest route on the ground (the direction arrow always stays) |
+| K | Preview the Kamui vortex (it also fills the screen on entering chaos, and plays on the Sky Garden gateway and the cure) |
+| 1–5 (Theatre mode) | Demo spawns: 1 Grimoire Tower, 2 Clover, 3 Heart, 4 Diamond, 5 Spade gate (also buttons in the Atmosphere Study panel) |
+| M (or the map button, top right) | Open the Grimoire Atlas: kingdoms, landmarks, embers, the hound, your route and position |
 | Left / right mouse button | Attract / repel the swarm |
 
 ### Quest: The Ember Hound
@@ -249,8 +253,8 @@ jumping routes, explicit-height recovery, discovery and reset.
 - **CORS request not HTTP:** use the launcher, not a `file://` page.
 - **Old code after an update:** refresh with Ctrl+Shift+R.
 - **Movement does not respond:** click Enter the Dream; mouse capture is required.
-- **Slow initial loading:** the current 4K EXR is about 29.5 MB. A smaller EXR
-  requires changing its path in `src/rendering/hdri.js`.
+- **Slow initial loading:** most of the first load is models and animations; the
+  1K sky EXR is only about 1.9 MB (path in `src/rendering/hdri.js`).
 - **Low frame rate:** grass density/range is configured in `src/rendering/grass.js`; actual
   performance depends on the device. This prototype has no verified FPS guarantee.
 

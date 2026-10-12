@@ -92,7 +92,24 @@ export function createWorld({ scene, state, player, onChunk }) {
   let targetShift = shiftFor(state.chaos);
   let terrainShift = targetShift;
   const lowHeight = (x, z) => noise(x * 0.018, z * 0.018) * 11 + noise(x * 0.043, z * 0.043) * 4;
-  const roughHeight = (x, z) => Math.pow(Math.max(0.01, noise(x * 0.105, z * 0.105)), 0.34) * 18 + noise(x * 0.25, z * 0.25) * 3;
+  // Chaos face of the land: domain-warped fBm (Inigo Quilez, "Domain Warping"). The sample point is
+  // pushed through two nested noise fields, h(p) = fbm(p + k·r), r = fbm(p + k·q), q = fbm(p), which
+  // folds the ground into twisted ridges instead of needle spikes. Parameters were picked offline to
+  // keep slopes gentler than the old layer (median gradient 0.79 vs 1.07) at similar curvature.
+  // The field is fixed per world, so chunks still cache it per vertex; chaos only blends toward it.
+  // ?warp=0 restores the old spike layer for before/after comparisons.
+  const WARP = params.get('warp') !== '0';
+  const WARP_SCALE = 0.016, WARP_STRENGTH = 1.2;
+  const fbm = (x, z) => noise(x, z) * 0.62 + noise(x * 2.03 + 17.1, z * 2.03 - 9.4) * 0.38;
+  function warpedHeight(x, z) {
+    const px = x * WARP_SCALE, pz = z * WARP_SCALE;
+    const qx = fbm(px, pz), qz = fbm(px + 5.2, pz + 1.3);
+    const rx = fbm(px + WARP_STRENGTH * qx + 1.7, pz + WARP_STRENGTH * qz + 9.2);
+    const rz = fbm(px + WARP_STRENGTH * qx + 8.3, pz + WARP_STRENGTH * qz + 2.8);
+    return 2 + fbm(px + WARP_STRENGTH * rx, pz + WARP_STRENGTH * rz) * 22;
+  }
+  const spikeHeight = (x, z) => Math.pow(Math.max(0.01, noise(x * 0.105, z * 0.105)), 0.34) * 18 + noise(x * 0.25, z * 0.25) * 3;
+  const roughHeight = WARP ? warpedHeight : spikeHeight;
   // The tower plaza (spawn + shrine) stays still; chaos fades in between 25 m and 45 m from the centre.
   const chaosWeight = (x, z) => THREE.MathUtils.smoothstep(Math.hypot(x, z), 25, 45);
   const calmBase = (x, z) => terrainRoughnessAt(x, z) + CALM_SHIFT;
@@ -101,13 +118,18 @@ export function createWorld({ scene, state, player, onChunk }) {
   const hillMask = (x, z) => THREE.MathUtils.smoothstep(noise(x * 0.006 + 71, z * 0.006 - 33), 0.56, 0.64);
   const blendHeight = (low, rough, base, weight, hill, shift = terrainShift) =>
     THREE.MathUtils.lerp(FLAT_Y, -5 + THREE.MathUtils.lerp(low, rough, THREE.MathUtils.clamp(base + shift * weight, 0, 1)), hill);
-  function terrainHeight(x, z) {
-    return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z)));
+  // Same result as blendHeight on all five layers, but skips noise the blend would weight by zero:
+  // flat plains (hill = 0) need no layers, calm-blended hills need no warped layer.
+  function heightFor(x, z, shift) {
+    const hill = hillMask(x, z);
+    if (hill <= 0) return landmarkTerrain(x, z, FLAT_Y);
+    const base = calmBase(x, z), weight = chaosWeight(x, z);
+    const rough = base + shift * weight > 0 ? roughHeight(x, z) : 0;
+    return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), rough, base, weight, hill, shift));
   }
+  const terrainHeight = (x, z) => heightFor(x, z, terrainShift);
   // Height the ground would settle at for a given score; used to put items on chaos-only peaks.
-  function heightAt(x, z, chaos) {
-    return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), roughHeight(x, z), calmBase(x, z), chaosWeight(x, z), hillMask(x, z), shiftFor(chaos)));
-  }
+  const heightAt = (x, z, chaos) => heightFor(x, z, shiftFor(chaos));
 
   function chunkKey(cx, cz) {
     return `${cx},${cz}`;
@@ -246,6 +268,10 @@ export function createWorld({ scene, state, player, onChunk }) {
       parts[i * 5 + 4] = hillMask(wx, wz);
       positions.setY(i, landmarkTerrain(wx, wz, blendHeight(...parts.subarray(i * 5, i * 5 + 5))));
     }
+    // Only vertices on hills inside the chaos ring can move (landmarks just blend the base height),
+    // so reshape() touches those alone and skips chunks that cannot change at all.
+    const dynamic = [];
+    for (let i = 0; i < positions.count; i++) if (parts[i * 5 + 4] > 0 && parts[i * 5 + 3] > 0) dynamic.push(i);
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
     // Per-vertex ground colour so kingdom borders follow the real 350 m circle, not chunk squares.
@@ -266,7 +292,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     const group = new THREE.Group();
     group.position.set(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE);
     group.add(mesh);
-    group.userData = { score, material, cx, cz, biome, parts, colliders:[], animated:[] };
+    group.userData = { score, material, cx, cz, biome, parts, dynamic: Uint32Array.from(dynamic), colliders:[], animated:[] };
     createDecor(group, cx, cz, biome);
     createWfcRuins(group, cx, cz, biome);
     onChunk(group);
@@ -299,10 +325,11 @@ export function createWorld({ scene, state, player, onChunk }) {
 
   // Re-blend cached heights at the current shift; objects are re-seated on the new surface.
   function reshape(chunk) {
-    const { parts, animated } = chunk.userData;
+    const { parts, animated, dynamic } = chunk.userData;
+    if (!dynamic.length) return; // flat plain / calm plaza: nothing moves
     const geometry = chunk.children[0].geometry;
     const positions = geometry.attributes.position;
-    for (let i = 0; i < positions.count; i++) {
+    for (const i of dynamic) {
       const k = i * 5;
       const wx = chunk.position.x + positions.getX(i), wz = chunk.position.z + positions.getZ(i);
       positions.setY(i, landmarkTerrain(wx, wz, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4])));
@@ -338,7 +365,19 @@ export function createWorld({ scene, state, player, onChunk }) {
     get formed() { return formed; },
     get terrainVersion() { return terrainVersion; },
     get viewRadius() { return viewRadius; },
-    set viewRadius(value) { viewRadius = THREE.MathUtils.clamp(value, 1, 6); },
+    set viewRadius(value) {
+      const previous = viewRadius;
+      viewRadius = THREE.MathUtils.clamp(value, 0, 6); // 0 = only the player's chunk (stress-test floor)
+      // Chunks normally unload one ring late (no flicker at the edge); a deliberate shrink unloads now,
+      // otherwise radius 2 -> 1 would keep all 25 chunks and the stress test would show no change.
+      if (viewRadius < previous) {
+        const cx = Math.floor((player.position.x + CHUNK_SIZE / 2) / CHUNK_SIZE);
+        const cz = Math.floor((player.position.z + CHUNK_SIZE / 2) / CHUNK_SIZE);
+        for (const [key, chunk] of chunks) {
+          if (Math.abs(chunk.userData.cx - cx) > viewRadius || Math.abs(chunk.userData.cz - cz) > viewRadius) removeChunk(key, chunk);
+        }
+      }
+    },
     materialProfiles: [
       [trunkMat, { roughness: 0.95, metalness: 0 }],
       [leafMat, { roughness: 0.8, metalness: 0 }],

@@ -1,6 +1,7 @@
 import { SKY_LAKE, HEAVENLY_RIM } from '../models/skyIsland.js';
 import { createWaterSurface, createSoftDot } from './waterfall.js';
 import { loadModel } from './models.js';
+import { fitText } from './canvasText.js';
 
 // Heavenly Falls: the ground-level landmark where the Sky Garden's four falls land.
 // A walkable fountain rim, paved plaza, benches, lamps, a tiered centre fountain and an
@@ -142,7 +143,7 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
     g.textAlign = 'center'; g.fillStyle = '#f4ead0';
     lines.forEach((line, i) => {
       g.font = i === 0 ? `bold ${small ? 72 : 96}px serif` : `${small ? 46 : 44}px serif`;
-      g.fillText(line, 512, (small ? 105 : 120) + i * (small ? 112 : 90) - (i ? 0 : 10));
+      fitText(g, line, 512, (small ? 105 : 120) + i * (small ? 112 : 90) - (i ? 0 : 10), 940);
     });
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
     const material = new THREE.MeshBasicMaterial({ map: texture });

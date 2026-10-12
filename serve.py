@@ -3,6 +3,8 @@
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import os
+import sys
 import threading
 import webbrowser
 
@@ -24,8 +26,24 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
     }
 
 
+def open_browser(url):
+    # Exactly one attempt. webbrowser.open() walks a fallback list (Windows default, then Edge), so a
+    # default browser that opens the page but reports an error made a second window appear in Edge.
+    try:
+        if hasattr(os, "startfile"):
+            os.startfile(url)
+        elif not webbrowser.get().open(url):
+            raise webbrowser.Error
+    except (OSError, webbrowser.Error):
+        print(f"Open this address in your browser: {url}", flush=True)
+
+
 def main():
-    directory = Path(__file__).resolve().parent
+    # Optional folder argument, e.g. `python serve.py dist` to test the hosting build;
+    # --no-browser only starts the server.
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    root = Path(__file__).resolve().parent
+    directory = root / args[0] if args else root
     handler = partial(DemoRequestHandler, directory=str(directory))
     # An available port avoids conflicts with other development servers.
     with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
@@ -33,14 +51,8 @@ def main():
         print(f"Dreamscape: {url}", flush=True)
         print("Keep this window open while playing. Press Ctrl+C to stop.", flush=True)
 
-        def open_browser():
-            try:
-                if not webbrowser.open(url):
-                    print(f"Open this address in your browser: {url}", flush=True)
-            except webbrowser.Error:
-                print(f"Open this address in your browser: {url}", flush=True)
-
-        threading.Thread(target=open_browser, daemon=True).start()
+        if "--no-browser" not in sys.argv:
+            threading.Thread(target=open_browser, args=(url,), daemon=True).start()
         try:
             server.serve_forever()
         except KeyboardInterrupt:

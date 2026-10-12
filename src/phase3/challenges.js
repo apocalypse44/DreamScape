@@ -34,7 +34,7 @@ export function emberPositions(rng, terrainHeight, houndPos, spots = {}) {
 //   'keep' : otherwise
 export function houndEmberRule(playerPos, houndPos, chaos) {
   const d = Math.hypot(playerPos.x - houndPos.x, playerPos.z - houndPos.z);
-  if (d < 3 && chaos < CHAOS_CALM) return 'drop';
+  if (d < 4 && chaos < CHAOS_CALM) return 'drop'; // 4 m: forgiving, the hound stands still for a calm player
   if (d < 12 && chaos >= CHAOS_CALM) return 'flee';
   return 'keep';
 }

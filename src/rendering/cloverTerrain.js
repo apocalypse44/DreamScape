@@ -4,6 +4,7 @@ import { loadModel } from './models.js';
 import { createWaterSurface } from './waterfall.js';
 import { createCloverDressing, cloverGroundTexture } from './cloverDressing.js';
 import { createCloverSanctuary } from './cloverSanctuary.js';
+import { fitText } from './canvasText.js';
 
 export function createCloverTerrain({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover cliff terraces'; scene.add(root);
@@ -173,7 +174,7 @@ export function createCloverTerrain({ scene, world, onReady }) {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 256;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#304b37'; ctx.fillRect(0, 0, 1024, 256);
     ctx.fillStyle = '#e0eeb8'; ctx.textAlign = 'center'; ctx.font = 'bold 58px sans-serif';
-    ctx.fillText(text[0], 512, 93); ctx.font = '36px sans-serif'; ctx.fillText(text[1], 512, 176);
+    fitText(ctx, text[0], 512, 93, 960); ctx.font = '36px sans-serif'; fitText(ctx, text[1], 512, 176, 960);
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
     const material = new THREE.MeshBasicMaterial({ map: texture, side: readableBothSides ? THREE.FrontSide : THREE.DoubleSide });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, width / 4), material);

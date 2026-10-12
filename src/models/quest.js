@@ -61,13 +61,14 @@ function raiseEmber(world, ember) {
   return platforms;
 }
 
-export function createQuest({ world, state, player, onEmberPickup, onEmberPosition, onOfferEmbers }) {
+export function createQuest({ world, state, player, onEmberPickup, onEmberPosition, onOfferEmbers, onHoundDrop }) {
   const embers = placeEmbers(world);
   const platforms = raiseEmber(world, embers[0]);
   const emberStartPositions = embers.map(({ x, y, z }) => ({ x, y, z }));
   let stage = 'companion';
   let offering = false;
   let houndCarrying = false;
+  let houndDistance = Infinity; // player to hound, for the HUD hint
   const quest = {
     embers,
     platforms,
@@ -91,7 +92,8 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
       }
       if (stage === 'cursed') {
         for (const [i, ember] of embers.entries()) {
-          if (ember.taken) continue;
+          // The hound's ember is only takeable once it is dropped for a calm approach.
+          if (ember.taken || (ember.challenge === 'hound' && houndCarrying)) continue;
           // Player position is eye height (feet + 2.05); embers float 1.2 above the chaos peak.
           const reach = Math.hypot(player.position.x - ember.x, player.position.z - ember.z) < 2.2 &&
             Math.abs(player.position.y - 1 - ember.y) < 2.5;
@@ -123,7 +125,10 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
       const taken = embers.filter(ember => ember.taken).length;
       quest.goal = {
         companion: quest.restless ? 'THE HOUND GROWS RESTLESS…' : 'EXPLORE WITH YOUR COMPANION',
-        cursed: `EMBERS ${taken}/${EMBERS} · FOLLOW THE HOUND · STAY WILD`,
+        // The hound only drops its ember for a calm approach, so say so when the player is near it.
+        cursed: houndCarrying && (houndDistance < 25 || embers.every(e => e.taken || e.challenge === 'hound'))
+          ? `EMBERS ${taken}/${EMBERS} · THE HOUND HOLDS ONE · CALM DOWN AND WALK UP TO IT`
+          : `EMBERS ${taken}/${EMBERS} · FOLLOW THE HOUND · STAY WILD`,
         return: 'RETURN TO THE SHRINE · BE STILL',
         cured: 'THE HOUND IS SAVED'
       }[stage];
@@ -154,8 +159,12 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
       ember.y = houndPosition.y + 1.3;
       ember.z = houndPosition.z;
       onEmberPosition?.(index, ember);
+      houndDistance = Math.hypot(player.position.x - houndPosition.x, player.position.z - houndPosition.z);
       const rule = houndEmberRule(player.position, houndPosition, state.chaos);
-      if (rule === 'drop') houndCarrying = false;
+      if (rule === 'drop') {
+        houndCarrying = false;
+        onHoundDrop?.();
+      }
     },
 
     // The shrine beam shows which mode the current step needs.
@@ -165,6 +174,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
       stage = 'companion';
       offering = false;
       houndCarrying = false;
+      houndDistance = Infinity;
       embers.forEach((ember, index) => {
         Object.assign(ember, emberStartPositions[index], { taken: false });
       });

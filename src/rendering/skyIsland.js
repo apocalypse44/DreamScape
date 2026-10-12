@@ -4,6 +4,7 @@ import { loadModel } from './models.js';
 import { cloverGroundTexture } from './cloverDressing.js';
 import { createWaterSurface, createSoftDot } from './waterfall.js';
 import { createSkyGardenDetails, createStarlightTexture } from './skyGardenDetails.js';
+import { fitText } from './canvasText.js';
 
 export function createSkyIsland({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover floating sky garden'; scene.add(root);
@@ -165,7 +166,8 @@ export function createSkyIsland({ scene, world, onReady }) {
     const rimDist=Math.hypot(x-SKY_LAKE.x,z-SKY_LAKE.z),arc=Math.max(0.5,Math.min(3.5,26.5-rimDist));
     const geo=new THREE.PlaneGeometry(width,fallHeight,8,60),fp=geo.attributes.position;
     // Fans out and arcs away from the rim as it falls.
-    for(let i=0;i<fp.count;i++){const drop=(fallHeight/2-fp.getY(i))/fallHeight;
+    // Clamp: float32 rounding makes the top row slightly negative, and sqrt(<0) is NaN.
+    for(let i=0;i<fp.count;i++){const drop=Math.max(0,(fallHeight/2-fp.getY(i))/fallHeight);
       fp.setX(i,fp.getX(i)*(1+drop*1.6)); fp.setZ(i,Math.sqrt(drop)*arc);}
     const fall=mesh(geo,fallMat,x,SKY_LAKE.level+fallHeight/2,z);
     fall.rotation.y=Math.atan2(nx,nz); fall.castShadow=false; scene.add(fall); // not root: camera rays ignore water
@@ -235,7 +237,7 @@ export function createSkyIsland({ scene, world, onReady }) {
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;
     const ctx=canvas.getContext('2d');ctx.fillStyle='#163a35';ctx.fillRect(0,0,512,128);
     ctx.strokeStyle='#91cab0';ctx.lineWidth=6;ctx.strokeRect(4,4,504,120);
-    ctx.fillStyle='#e5f6d9';ctx.font='bold 24px sans-serif';ctx.textAlign='center';ctx.fillText(text,256,72);
+    ctx.fillStyle='#e5f6d9';ctx.font='bold 24px sans-serif';ctx.textAlign='center';fitText(ctx,text,256,72,480);
     const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
     // Two front-facing panels keep text readable on either approach. Rendering
     // the reverse of one textured plane mirrors its lettering.

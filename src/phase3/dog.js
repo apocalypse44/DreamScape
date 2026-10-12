@@ -110,7 +110,7 @@ export class DogBrain {
     return true;
   }
 
-  // info = { playerPos, sprinting, crouching, onCourse, stage, nextEmberPos }
+  // info = { playerPos, sprinting, crouching, onCourse, elevated, stage, nextEmberPos }
   // returns true when this brain controls the dog this frame
   update(dt, t, info) {
     this.timer += dt;
@@ -137,7 +137,8 @@ export class DogBrain {
           this.barkCooldown = BARK_COOLDOWN;
           this._go(S.BARK);
         } else if (info.onCourse && d < 30) this._go(S.WAIT);
-        else if (info.stage === 'cured' && this.fetchTimer <= 0 && d < 15) this._startFetch(p);
+        // The mote lands on base terrain, so no fetch while the player is up on terraces or the Sky Garden.
+        else if (info.stage === 'cured' && !info.elevated && this.fetchTimer <= 0 && d < 15) this._startFetch(p);
         break;
       }
       case S.SIT:

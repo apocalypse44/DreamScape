@@ -17,7 +17,7 @@ export function createHDRILighting({ scene, renderer, profiles, onStatus }) {
       transparent: original.transparent,
       opacity: original.opacity,
       side: original.side,
-      flatShading: original.flatShading,
+      flatShading: Boolean(original.flatShading), // Lambert/Basic originals have no flatShading
       ...surface
     });
     replacements.set(original, material);
@@ -61,7 +61,7 @@ export function createHDRILighting({ scene, renderer, profiles, onStatus }) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
   new THREE.EXRLoader().setDataType(THREE.HalfFloatType).load(
-    'assets/DaySkyHDRI066A_4K/DaySkyHDRI066A_4K_HDR.exr',
+    'assets/DaySkyHDRI066A_1K/DaySkyHDRI066A_1K_HDR.exr',
     texture => {
       try {
         environmentTarget = pmrem.fromEquirectangular(texture);

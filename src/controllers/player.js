@@ -27,7 +27,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     const playerRadius = 0.55;
     for (const colliders of [staticColliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]) {
       for (const collider of colliders) {
-        if (!colliderFilter(collider)) continue;
+        if (collider.off || !colliderFilter(collider)) continue; // off: prop dissolved by chaos
         const feet = player.position.y - MOVEMENT.eyeHeight;
         if (collider.minY !== undefined && feet + MOVEMENT.eyeHeight < collider.minY) continue;
         if (collider.maxY !== undefined && feet > collider.maxY) continue;
@@ -182,6 +182,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
       player.position.set(target.x, target.top + MOVEMENT.eyeHeight, target.z);
       state.yaw = target.yaw ?? state.yaw;
       state.pitch = 0;
+      state.interactionLock = 0; // a pet started before travel must not crouch the player on arrival
       this.reset();
     },
     reset() {

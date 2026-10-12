@@ -1,6 +1,7 @@
 import { WATERFALL } from '../models/waterfall.js';
 import { RIDGE_PATH } from '../models/ridge.js';
 import { CLOVER_ENTRANCE } from '../models/cloverTerrain.js';
+import { fitText } from './canvasText.js';
 
 // Text faces the approach to each marker; destinations use the landmark data.
 export function createWayfinding({ scene, world }) {
@@ -22,10 +23,10 @@ export function createWayfinding({ scene, world }) {
     ctx.strokeStyle = '#9f8961'; ctx.lineWidth = 10; ctx.strokeRect(8, 8, 1008, 240);
     ctx.fillStyle = route.color; ctx.textAlign = 'left';
     ctx.font = 'bold 108px sans-serif'; ctx.fillText(route.arrow, 28, 167);
-    ctx.font = 'bold 57px sans-serif'; ctx.fillText(route.name, 164, 102);
+    ctx.font = 'bold 57px sans-serif'; fitText(ctx, route.name, 164, 102, 830);
     const distance = Math.round(Math.hypot(route.target.x - x, route.target.z - z));
     ctx.font = '36px sans-serif';
-    ctx.fillText(`${route.direction} · ~${distance} m${route === routes[1] ? ' TO TRAIL' : ''}`, 164, 176);
+    fitText(ctx, `${route.direction} · ~${distance} m${route === routes[1] ? ' TO TRAIL' : ''}`, 164, 176, 830);
     const texture = new THREE.CanvasTexture(canvas);
     texture.encoding = THREE.sRGBEncoding;
     const panel = new THREE.Mesh(new THREE.BoxGeometry(width, width / 4, 0.12), wood);

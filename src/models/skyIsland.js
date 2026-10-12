@@ -53,6 +53,8 @@ export function createSkyJourney() {
     get cinematic() { return cinematic; },
     get awakened() { return awakened; },
     get secret() { return secret; },
+    // True where E belongs to the gateway (other E actions such as petting should yield).
+    atDoor(position) { return transition !== null || near(position, visiting ? SKY_DOOR : SUMMIT_DOOR); },
     update(dt, position, interact, locked) {
       const rising = interact && !pressed; pressed = interact;
       const door = visiting ? SKY_DOOR : SUMMIT_DOOR;

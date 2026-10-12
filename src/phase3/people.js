@@ -11,7 +11,7 @@ import {
 } from './config.js';
 
 // Place seeded, separated lore characters around the Crossing so they are easy to find.
-export function findCrossingHomes(rng, terrainHeight, themes) {
+export function findCrossingHomes(rng, terrainHeight, themes, blocked = () => false) {
   const homes = {};
   for (const theme of themes) {
     let home = null;
@@ -21,7 +21,7 @@ export function findCrossingHomes(rng, terrainHeight, themes) {
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       const separated = Object.values(homes).every((point) => Math.hypot(point.x - x, point.z - z) >= 16);
-      if (separated) {
+      if (separated && !blocked(x, z)) {
         home = new THREE.Vector3(x, terrainHeight(x, z), z);
       }
     }
@@ -54,9 +54,11 @@ function makeFallbackPerson(tint) {
 
 export class People {
   // assets = { mannequin: gltf, ual1: gltf, ual2: gltf }
-  constructor({ scene, assets, terrainHeight, seed }) {
+  // blocked(x, z): true inside the shrine, landmarks or props, so NPCs walk around them.
+  constructor({ scene, assets, terrainHeight, seed, blocked = () => false }) {
     this.scene = scene;
     this.terrainHeight = terrainHeight;
+    this.blocked = blocked;
     this.seed = seed;
     this.npcs = [];
     this.template = assets?.mannequin?.scene ?? null;
@@ -117,10 +119,20 @@ export class People {
     }
   }
 
+  // Step toward (x, z); returns 'arrived', 'blocked' (stays put) or 'moving'.
+  _move(n, x, z, speed, dt, arriveDist) {
+    const { x: ox, z: oz } = n.root.position;
+    if (stepTowards(n.root, x, z, speed, dt, (gx, gz) => this.terrainHeight(gx, gz), NPC_YAW_OFFSET, arriveDist)) return 'arrived';
+    // Already overlapping (a prop loaded on top of it): let it walk out instead of freezing.
+    if (!this.blocked(n.root.position.x, n.root.position.z) || this.blocked(ox, oz)) return 'moving';
+    n.root.position.x = ox;
+    n.root.position.z = oz;
+    return 'blocked';
+  }
+
   // info = { playerPos, sprinting, chaos, camera, renderer }
   update(dt, info) {
     const p = info.playerPos;
-    const ground = (x, z) => this.terrainHeight(x, z);
 
     for (const n of this.npcs) {
       const d = n.root.position.distanceTo(p);
@@ -128,6 +140,8 @@ export class People {
       const far = d > NPC_ACTIVE_RADIUS;
       n.root.visible = !far;
       if (far) { n.bubble.hide(); continue; }
+      // Chaos reshapes the terrain under standing NPCs too, so keep their feet on it every frame.
+      n.root.position.y = this.terrainHeight(n.root.position.x, n.root.position.z);
 
       n.mixer?.update(dt);
       n.timer -= dt;
@@ -155,7 +169,7 @@ export class People {
           // run directly away from the player
           const ax = n.root.position.x * 2 - p.x;
           const az = n.root.position.z * 2 - p.z;
-          stepTowards(n.root, ax, az, 3.5, dt, ground, NPC_YAW_OFFSET, 0);
+          if (this._move(n, ax, az, 3.5, dt, 0) === 'blocked') n.timer = 0; // cornered: cower here
         } else {
           n.player.play(this.clips.scared || this.clips.idle);
           turnTowards(n.root, p.x, p.z, dt, 4, NPC_YAW_OFFSET);
@@ -177,8 +191,20 @@ export class People {
       n.bubble.hide();
       if (n.state === 'talk') { n.state = 'idle'; n.timer = 1.5; n.player.play(this.clips.idle); }
 
-      // keeper stays put
-      if (n.kind === 'keeper') continue;
+      // keeper stays by the shrine, walking back if a scare pushed it away
+      if (n.kind === 'keeper') {
+        if (Math.hypot(n.home.x - n.root.position.x, n.home.z - n.root.position.z) > 0.5) {
+          if (n.state !== 'walk') { n.state = 'walk'; n.player.play(this.clips.walk || this.clips.idle); }
+          if (this._move(n, n.home.x, n.home.z, 1.4, dt, 0.5) === 'blocked') {
+            n.root.position.x = n.home.x; // home is known to be clear
+            n.root.position.z = n.home.z;
+          }
+        } else if (n.state === 'walk') {
+          n.state = 'idle';
+          n.player.play(this.clips.idle);
+        }
+        continue;
+      }
 
       // 3.10 wander: idle -> pick a point within WANDER_RADIUS of home -> walk -> idle
       if (n.state === 'idle' && n.timer <= 0) {
@@ -186,8 +212,8 @@ export class People {
         const r = 4 + n.rng() * (WANDER_RADIUS - 4);
         const x = n.home.x + Math.cos(a) * r;
         const z = n.home.z + Math.sin(a) * r;
-        // skip points that drop into a chasm
-        if (this.terrainHeight(x, z) > n.home.y - 3) {
+        // skip points that drop into a chasm (relative to home's current ground) or sit in an obstacle
+        if (this.terrainHeight(x, z) > this.terrainHeight(n.home.x, n.home.z) - 3 && !this.blocked(x, z)) {
           n.target = { x, z };
           n.state = 'walk';
           n.player.play(this.clips.walk || this.clips.idle);
@@ -196,7 +222,7 @@ export class People {
         }
       }
       if (n.state === 'walk') {
-        if (stepTowards(n.root, n.target.x, n.target.z, 1.4, dt, ground, NPC_YAW_OFFSET)) {
+        if (this._move(n, n.target.x, n.target.z, 1.4, dt, 0.4) !== 'moving') {
           n.state = 'idle';
           n.timer = 2 + n.rng() * 3;
           n.player.play(this.clips.idle);

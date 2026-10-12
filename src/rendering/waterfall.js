@@ -1,5 +1,6 @@
 import { WATERFALL, WATERFALL_CLIMB, WATERFALL_CHECKPOINT, createWaterfallCourseRecovery, waterfallArea } from '../models/waterfall.js';
 import { loadModel } from './models.js';
+import { fitText } from './canvasText.js';
 
 const noise = /* glsl */`
   float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -435,8 +436,8 @@ export function createWaterfall({ scene, world, onReady }) {
   ctx.fillStyle = '#344b3c'; ctx.fillRect(0, 0, 512, 192);
   ctx.strokeStyle = '#a5bba0'; ctx.lineWidth = 8; ctx.strokeRect(8, 8, 496, 176);
   ctx.fillStyle = '#eef0d5'; ctx.textAlign = 'center'; ctx.font = 'bold 40px sans-serif';
-  ctx.fillText('FALLS LOOKOUT ↑', 256, 77);
-  ctx.font = '30px sans-serif'; ctx.fillText('SPACE TO JUMP', 256, 137);
+  fitText(ctx, 'FALLS LOOKOUT ↑', 256, 77, 470);
+  ctx.font = '30px sans-serif'; fitText(ctx, 'SPACE TO JUMP', 256, 137, 470);
   const signTexture = new THREE.CanvasTexture(labelCanvas);
   signTexture.encoding = THREE.sRGBEncoding;
   const board = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.675),

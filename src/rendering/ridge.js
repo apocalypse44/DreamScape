@@ -1,5 +1,6 @@
 import { RIDGE, RIDGE_PATH, RIDGE_MARKERS, createRidgeExploration } from '../models/ridge.js';
 import { loadModel } from './models.js';
+import { fitText } from './canvasText.js';
 
 export function createRidge({ scene, world, onReady }) {
   const root = new THREE.Group();
@@ -52,10 +53,10 @@ export function createRidge({ scene, world, onReady }) {
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#344638'; ctx.fillRect(0, 0, 1024, 320);
   ctx.fillStyle = '#edf0cf'; ctx.textAlign = 'center'; ctx.font = 'bold 68px sans-serif';
-  ctx.fillText('GRIMOIRE RIDGE', 512, 90);
-  ctx.font = '42px sans-serif'; ctx.fillText('Follow the stone spiral to the summit', 512, 165);
-  ctx.fillText('Jump the terrace banks for a shortcut', 512, 222);
-  ctx.fillText('Discover 3 golden exploration crystals', 512, 282);
+  fitText(ctx, 'GRIMOIRE RIDGE', 512, 90, 960);
+  ctx.font = '42px sans-serif'; fitText(ctx, 'Follow the stone spiral to the summit', 512, 165, 960);
+  fitText(ctx, 'Jump the terrace banks for a shortcut', 512, 222, 960);
+  fitText(ctx, 'Discover 3 golden exploration crystals', 512, 282, 960);
   const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 1.25),
     new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));

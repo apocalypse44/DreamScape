@@ -19,7 +19,78 @@ const MODELS = [
   ...range('RockPath_Round_Small', 3), ...range('RockPath_Square_Small', 3)
 ];
 const SHADOW = /Tree|Pine|Rock_Medium/;
+const ALIGNED = /Rock|Pebble/; // stones lie flush on the surface normal; plants grow straight up
 const DRESSED = new Set(['hub', 'trees']); // Grimoire Tower + Clover Kingdom
+
+// Four trails leave the plaza toward N, E, S, W and meander more the further they go. Shared with the
+// kingdom gates, which stand where each trail crosses into its kingdom.
+export const ROADS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+export function trailOffset(noise, along, i) {
+  return (noise(along * 0.008 + i * 37, i * 11) - 0.5) * 30 * THREE.MathUtils.smoothstep(along, 20, 80);
+}
+// World position of trail i at `along` metres from the centre.
+export function trailPoint(noise, i, along) {
+  const [dx, dz] = ROADS[i], side = trailOffset(noise, along, i);
+  return { x: dx * along - dz * side, z: dz * along + dx * side };
+}
+
+// --- Chaos response: heightfield analysis -----------------------------------------------
+// Central differences give the gradient (slope) and the 5-point Laplacian (curvature) of the
+// terrain under a prop. "Strain" measures how far chaos has deformed the ground there compared
+// with the calm shape: change in gradient (the ground tilted) plus loss of curvature (it folded
+// into a ridge or peak tip). Thresholds come from sampling the warped terrain offline: at full
+// chaos the median hill prop sees strain ~1.0, the top quarter above 1.6.
+const PROBE = 1.5;
+const STRAIN_START = 1.0, STRAIN_GONE = 1.8;
+function analyse(height, x, z) {
+  const h = height(x, z);
+  const east = height(x + PROBE, z), west = height(x - PROBE, z);
+  const south = height(x, z + PROBE), north = height(x, z - PROBE);
+  return { h, gx: (east - west) / (2 * PROBE), gz: (south - north) / (2 * PROBE),
+    laplacian: (east + west + south + north - 4 * h) / (PROBE * PROBE) };
+}
+
+// --- Chaos response: GPU dissolve -------------------------------------------------------
+// Each instance carries a dissolve amount (0 = whole, 1 = gone). The vertex shader sinks the prop
+// into the ground; the fragment shader discards pixels where 3D value noise falls below the amount
+// and paints a glowing ember rim just above it. Patched into the stock material with onBeforeCompile.
+const DISSOLVE_ATTRIBUTE = 'instanceDissolve';
+const SINK_DEPTH = 1.2; // model units at full dissolve
+function addDissolve(material) {
+  if (material.userData.dissolve) return;
+  material.userData.dissolve = true;
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float ${DISSOLVE_ATTRIBUTE};
+varying float vDissolve;
+varying vec3 vDissolvePos;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vDissolve = ${DISSOLVE_ATTRIBUTE};
+vDissolvePos = position;
+transformed.y -= ${SINK_DEPTH.toFixed(2)} * ${DISSOLVE_ATTRIBUTE} * ${DISSOLVE_ATTRIBUTE};`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying float vDissolve;
+varying vec3 vDissolvePos;
+float dissolveHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float dissolveNoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(dissolveHash(i), dissolveHash(i + vec3(1, 0, 0)), f.x),
+                 mix(dissolveHash(i + vec3(0, 1, 0)), dissolveHash(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(dissolveHash(i + vec3(0, 0, 1)), dissolveHash(i + vec3(1, 0, 1)), f.x),
+                 mix(dissolveHash(i + vec3(0, 1, 1)), dissolveHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+if (vDissolve > 0.001) {
+  float n = 0.65 * dissolveNoise(vDissolvePos * 3.0) + 0.35 * dissolveNoise(vDissolvePos * 7.0);
+  if (n < vDissolve) discard;
+  totalEmissiveRadiance += vec3(1.0, 0.35, 0.08) * 2.5 * (1.0 - smoothstep(0.0, 0.07, n - vDissolve));
+}`);
+  };
+  material.needsUpdate = true;
+}
 
 export function createProps({ scene, world, blockers, onReady }) {
   const { hash, noise, heightAt, biomeAt, terrainHeight, chunks } = world;
@@ -42,9 +113,7 @@ export function createProps({ scene, world, blockers, onReady }) {
     return Math.hypot(heightAt(x + 1, z, CALM) - y, heightAt(x, z + 1, CALM) - y);
   };
 
-  // Four trails leave the plaza toward N, E, S, W and meander more the further they go.
-  const ROADS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-  const roadOffset = (along, i) => (noise(along * 0.008 + i * 37, i * 11) - 0.5) * 30 * smooth(along, 20, 80);
+  const roadOffset = (along, i) => trailOffset(noise, along, i);
   function roadDistance(x, z) {
     let best = Infinity;
     ROADS.forEach(([dx, dz], i) => {
@@ -105,13 +174,16 @@ export function createProps({ scene, world, blockers, onReady }) {
           if (x < minX || x >= minX + size || z < minZ || z >= minZ + size) continue;
           if (hash(x + li * 17, z) > layer.chance(x, z) || blocked(x, z, layer.clear)) continue;
           const scale = THREE.MathUtils.lerp(layer.scale[0], layer.scale[1], hash(z, x));
-          list.push({ model: layer.model(x, z), x, z, scale, sink: layer.sink * scale,
-            rot: hash(x * 0.7, z * 0.3) * Math.PI * 2, far: Boolean(layer.far) });
+          const prop = { model: layer.model(x, z), x, z, scale, sink: layer.sink * scale,
+            rot: hash(x * 0.7, z * 0.3) * Math.PI * 2, far: Boolean(layer.far) };
+          list.push(prop);
           if (layer.collide) {
-            const model = layer.model(x, z), sink = layer.sink * scale;
+            const { model, sink } = prop;
             // Rocks report their height once the model loads, so a high enough jump clears them.
-            chunk.userData.colliders.push({ x, z, radius: layer.collide * scale,
-              height: layer.jumpable ? () => heights[model] === undefined ? undefined : heights[model] * scale - sink : undefined });
+            // The prop keeps a reference so a dissolved prop stops blocking (collider.off).
+            prop.collider = { x, z, radius: layer.collide * scale,
+              height: layer.jumpable ? () => heights[model] === undefined ? undefined : heights[model] * scale - sink : undefined };
+            chunk.userData.colliders.push(prop.collider);
           }
         }
       }
@@ -136,6 +208,12 @@ export function createProps({ scene, world, blockers, onReady }) {
 
   // --- Shared instanced meshes, rebuilt when the player moves or the terrain reshapes ---
   const dummy = new THREE.Object3D();
+  const up = new THREE.Vector3(0, 1, 0), normal = new THREE.Vector3();
+  const tiltQuat = new THREE.Quaternion(), yawQuat = new THREE.Quaternion();
+  const calmHeight = (x, z) => heightAt(x, z, CALM);
+  function setDissolveCapacity(part) {
+    part.mesh.geometry.setAttribute(DISSOLVE_ATTRIBUTE, new THREE.InstancedBufferAttribute(new Float32Array(part.capacity), 1));
+  }
   function ensure(part, count) {
     if (count <= part.capacity) return;
     part.capacity = Math.max(count, part.capacity * 2);
@@ -144,11 +222,28 @@ export function createProps({ scene, world, blockers, onReady }) {
     part.mesh.castShadow = old.castShadow;
     part.mesh.receiveShadow = true;
     part.mesh.frustumCulled = false; // instances span the whole view
+    setDissolveCapacity(part);
     root.remove(old);
     old.dispose?.();
     root.add(part.mesh);
   }
 
+  // Strain-driven target per prop: 0 on calm ground, 1 where chaos folded the ground under it.
+  // Re-measured only when the terrain has reshaped since this prop was last analysed.
+  function chaosResponse(p) {
+    if (p.version === world.terrainVersion) return p.ground;
+    p.version = world.terrainVersion;
+    p.calm ||= analyse(calmHeight, p.x, p.z); // calm shape never changes, so measure it once
+    const now = p.ground = analyse(terrainHeight, p.x, p.z);
+    const tilt = Math.hypot(now.gx - p.calm.gx, now.gz - p.calm.gz);
+    const fold = Math.max(0, p.calm.laplacian - now.laplacian);
+    p.target = THREE.MathUtils.smoothstep(tilt + 0.5 * fold, STRAIN_START, STRAIN_GONE);
+    p.dissolve ??= p.target; // first sight: no fade-in from zero
+    if (p.collider) p.collider.off = p.target > 0.5;
+    return now;
+  }
+
+  let shown = {}; // model name -> props currently drawn, in instance order
   function rebuild(position) {
     const buckets = {};
     for (const chunk of chunks.values()) {
@@ -159,18 +254,54 @@ export function createProps({ scene, world, blockers, onReady }) {
     }
     for (const [name, modelParts] of Object.entries(parts)) {
       const list = buckets[name] || [];
+      const aligned = ALIGNED.test(name);
+      for (const p of list) {
+        const ground = chaosResponse(p);
+        // Stones: rotate +Y onto the surface normal (-gx, 1, -gz), then spin about it.
+        yawQuat.setFromAxisAngle(up, p.rot);
+        if (aligned) dummy.quaternion.copy(tiltQuat.setFromUnitVectors(up, normal.set(-ground.gx, 1, -ground.gz).normalize())).multiply(yawQuat);
+        else dummy.quaternion.copy(yawQuat);
+        dummy.position.set(p.x, ground.h - p.sink, p.z);
+        dummy.scale.setScalar(p.scale);
+        dummy.updateMatrix();
+        p.matrix = (p.matrix || new THREE.Matrix4()).copy(dummy.matrix);
+      }
       for (const part of modelParts) {
         ensure(part, list.length);
-        list.forEach((p, k) => {
-          dummy.position.set(p.x, terrainHeight(p.x, p.z) - p.sink, p.z);
-          dummy.rotation.set(0, p.rot, 0);
-          dummy.scale.setScalar(p.scale);
-          dummy.updateMatrix();
-          part.mesh.setMatrixAt(k, dummy.matrix);
-        });
+        list.forEach((p, k) => part.mesh.setMatrixAt(k, p.matrix));
         part.mesh.count = list.length;
         part.mesh.instanceMatrix.needsUpdate = true;
       }
+    }
+    shown = buckets;
+    for (const list of Object.values(shown)) for (const p of list) p.hidden = false; // matrices were just rewritten
+    writeDissolve(0);
+  }
+
+  // Ease each prop toward its target every frame (rebuilds are throttled) and upload to the GPU.
+  // The shadow pass does not run the dissolve shader, so a fully dissolved prop is also scaled to
+  // zero; otherwise its shadow would stay behind.
+  const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  function writeDissolve(ease) {
+    for (const [name, list] of Object.entries(shown)) {
+      if (!parts[name]) continue;
+      // Settled models need no upload (ease 0 means a rebuild just reordered instances).
+      if (ease > 0 && list.every(p => Math.abs(p.target - p.dissolve) < 1e-4)) continue;
+      for (const p of list) p.dissolve += (p.target - p.dissolve) * ease;
+      for (const part of parts[name]) {
+        const attribute = part.mesh.geometry.getAttribute(DISSOLVE_ATTRIBUTE);
+        let matricesChanged = false;
+        list.forEach((p, k) => {
+          attribute.array[k] = p.dissolve;
+          const hide = p.dissolve > 0.98;
+          if (hide === Boolean(p.hidden)) return;
+          part.mesh.setMatrixAt(k, hide ? hiddenMatrix : p.matrix);
+          matricesChanged = true;
+        });
+        attribute.needsUpdate = true;
+        if (matricesChanged) part.mesh.instanceMatrix.needsUpdate = true;
+      }
+      for (const p of list) p.hidden = p.dissolve > 0.98;
     }
   }
 
@@ -187,24 +318,32 @@ export function createProps({ scene, world, blockers, onReady }) {
       mesh.castShadow = SHADOW.test(name);
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
+      (Array.isArray(object.material) ? object.material : [object.material]).forEach(addDissolve);
       root.add(mesh);
-      parts[name].push({ mesh, capacity: 16 });
+      const part = { mesh, capacity: 16 };
+      setDissolveCapacity(part);
+      parts[name].push(part);
     });
     resolve();
   }, undefined, error => { console.warn(`Prop ${name} could not load.`, error); resolve(); }))))
     .then(() => { ready = true; builtKey = ''; onReady?.(root); });
 
+  let lastFrame = performance.now();
   return {
     decorate,
     update(position, terrainVersion) {
       if (!ready) return;
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - lastFrame) / 1000);
+      lastFrame = now;
       // ponytail: props lag terrain reshapes by up to 0.2 s; reseat per frame if it shows during chaos.
       const key = `${Math.round(position.x / 8)},${Math.round(position.z / 8)},${terrainVersion},${world.formed},${chunks.size}`;
-      const now = performance.now();
-      if (key === builtKey || now - builtAt < 200) return;
-      builtKey = key;
-      builtAt = now;
-      rebuild(position);
+      if (key !== builtKey && now - builtAt >= 200) {
+        builtKey = key;
+        builtAt = now;
+        rebuild(position);
+      }
+      writeDissolve(1 - Math.exp(-2.5 * dt)); // ~1 s to dissolve or regrow
     }
   };
 }

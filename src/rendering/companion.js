@@ -1,4 +1,5 @@
 import { loadModel, makeGlow } from './models.js';
+import { findPath } from '../models/pathfinding.js';
 
 const FIRE_COUNT = 90;
 // [right, behind] offsets in metres, tried in order: beside, tighter beside, other side, behind.
@@ -88,14 +89,46 @@ function animateFallback(body, dt) {
   fallback.tail.rotation.z = Math.sin(fallback.time * 7) * 0.25;
 }
 
-export function createCompanion({ scene, state, player, quest, surfaceAt }) {
+// navigation (optional): { height(x, z), obstacles(): [{x, z, radius}], version() } for A* leading.
+export function createCompanion({ scene, state, player, quest, surfaceAt, navigation = null }) {
   // Climbs onto Clover terraces / Sky Garden instead of staying in the ravine below.
   const groundAt = (x, z) => surfaceAt(x, z, player.position.y - 2.05 + 1);
   const dog = createBody(scene, 'assets/animals/ShibaInu.gltf', 0.9, false);
   const hound = createBody(scene, 'assets/animals/Wolf.gltf', 1.5, true);
   let activeBody = dog;
+  let houndGuarding = false;
   const position = new THREE.Vector3();
   const goal = new THREE.Vector3();
+
+  // Leading uses an A* route (models/pathfinding.js) around obstacles and cliffs. It is replanned when
+  // the target ember changes, when chaos has reshaped the terrain (at most every 4 s), or when the hound
+  // has strayed from it; between plans the hound walks waypoint to waypoint.
+  const route = { result: null, target: null, version: -1, age: 0, next: 1, plans: 0 };
+  function planRoute(ember) {
+    const started = performance.now();
+    route.result = navigation ? findPath(position, ember, {
+      height: navigation.height, obstacles: navigation.obstacles(), maxGrade: 1.6,
+    }) : null;
+    route.target = ember;
+    route.version = navigation?.version() ?? 0;
+    route.age = 0;
+    route.next = 1;
+    route.plans++;
+    route.ms = performance.now() - started;
+  }
+  function routeGoal(ember, dt) {
+    route.age += dt;
+    const stale = route.version !== (navigation?.version() ?? 0) && route.age > 4;
+    const path = route.result?.path;
+    const lost = path && Math.hypot(path[route.next - 1].x - position.x, path[route.next - 1].z - position.z) > 12 &&
+      Math.hypot(path[route.next].x - position.x, path[route.next].z - position.z) > 12;
+    if (route.target !== ember || stale || lost || (!route.result && route.age > 2)) planRoute(ember);
+    if (!route.result) return null; // no route: fall back to heading straight for the ember
+    const points = route.result.path;
+    while (route.next < points.length - 1 &&
+      Math.hypot(points[route.next].x - position.x, points[route.next].z - position.z) < 2.5) route.next++;
+    return points[route.next];
+  }
   let yaw = 0;
   let slot = SLOTS[0]; // kept while the player is airborne, so jumps don't reshuffle it
 
@@ -147,6 +180,7 @@ export function createCompanion({ scene, state, player, quest, surfaceAt }) {
   const companion = {
     phase3Dog,
     get position() { return position; },
+    route,
     update(dt, updatePhase3Dog = () => false) {
       const cursed = quest.stage === 'cursed' || quest.stage === 'return';
       const body = cursed ? hound : dog;
@@ -157,7 +191,11 @@ export function createCompanion({ scene, state, player, quest, surfaceAt }) {
 
       // Cursed: lead the player to the next ember. Otherwise: walk at the player's right side.
       const ember = quest.stage === 'cursed' ? quest.nextEmber() : null;
-      if (quest.stage === 'cursed' && quest.houndCarrying) {
+      // Carrying its ember, the hound keeps away from a nearby player (flees in chaos, waits when
+      // calm so it can be approached); farther away it leads as usual. 12/18 m hysteresis avoids jitter.
+      const playerDistance = Math.hypot(position.x - player.position.x, position.z - player.position.z);
+      houndGuarding = quest.stage === 'cursed' && quest.houndCarrying && playerDistance < (houndGuarding ? 18 : 12);
+      if (houndGuarding) {
         if (state.chaos >= 0.4) {
           let dx = position.x - player.position.x;
           let dz = position.z - player.position.z;
@@ -169,8 +207,12 @@ export function createCompanion({ scene, state, player, quest, surfaceAt }) {
           goal.set(position.x, 0, position.z);
         }
       } else if (ember) {
-        const away = Math.atan2(player.position.x - ember.x, player.position.z - ember.z);
-        goal.set(ember.x + Math.sin(away) * 3, 0, ember.z + Math.cos(away) * 3);
+        const waypoint = Math.hypot(ember.x - position.x, ember.z - position.z) > 6 ? routeGoal(ember, dt) : null;
+        if (waypoint) goal.set(waypoint.x, 0, waypoint.z);
+        else { // last few metres: stand just short of the ember, on the player's side
+          const away = Math.atan2(player.position.x - ember.x, player.position.z - ember.z);
+          goal.set(ember.x + Math.sin(away) * 3, 0, ember.z + Math.cos(away) * 3);
+        }
       } else {
         // Player right = (cos yaw, -sin yaw); see player.js movement basis. On narrow bridges
         // and ledges the side slot can hang over a drop, so pull it in or swap sides until the
@@ -188,9 +230,10 @@ export function createCompanion({ scene, state, player, quest, surfaceAt }) {
       // ponytail: no collision with trees or ruins; add the player's collider check if it clips badly.
       if (!ember && distance > 70) position.set(goal.x, 0, goal.z); // never lose the companion
       // Following: match the player's velocity plus a spring toward the side slot, so it
-      // keeps pace instead of chasing a moving point. Leading: plain seek to the ember.
+      // keeps pace instead of chasing a moving point. Leading and guarding: plain seek to the goal
+      // (guarding must not inherit the player's velocity, or a calm approach pushes the hound away).
       let vx, vz;
-      if (ember) {
+      if (ember || houndGuarding) {
         const seek = distance > 1 ? Math.min(22, distance * 2.5 + 1) / distance : 0;
         vx = dx * seek; vz = dz * seek;
       } else {

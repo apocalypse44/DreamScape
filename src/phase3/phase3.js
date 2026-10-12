@@ -109,7 +109,8 @@ export const Phase3 = {
       playerPos: pl.position,
       sprinting: pl.sprinting,
       crouching: pl.crouching,
-      onCourse: pl.position.y - 2.05 - ctx.terrainHeight(pl.position.x, pl.position.z) > 1.5,
+      onCourse: pl.onCourse,
+      elevated: pl.elevated,
       stage: ctx.questStage(),
       nextEmberPos: ctx.nextEmberPos?.() ?? null,
     });
@@ -143,7 +144,7 @@ export const Phase3 = {
     hidePrompt();
     embers?.setEmbers(lastEmberPositions);
     dogBrain?.reset(makeRng(subSeed(seed, 101)));
-    spawnPeople();
+    if (assets) spawnPeople(); // before assets load, init() spawns them once loading finishes
   },
 
   toast,
@@ -151,13 +152,16 @@ export const Phase3 = {
 
 function spawnPeople() {
   people?.dispose();
-  people = new People({ scene: ctx.scene, assets, terrainHeight: ctx.terrainHeight, seed });
-  // keeper 3.5 m beside the shrine, facing outward
+  const blocked = ctx.npcBlocked ?? (() => false);
+  people = new People({ scene: ctx.scene, assets, terrainHeight: ctx.terrainHeight, seed, blocked });
+  // keeper just outside the shrine tower (east side), facing outward
   const s = ctx.shrinePos;
-  const kp = new THREE.Vector3(s.x + 3.5, 0, s.z);
+  let offset = 3.5;
+  while (offset < 12 && blocked(s.x + offset, s.z)) offset += 0.5;
+  const kp = new THREE.Vector3(s.x + offset, 0, s.z);
   kp.y = ctx.terrainHeight(kp.x, kp.z);
   people.spawnKeeper(kp, ctx.shrineLine, Math.PI / 2);
-  const homes = findCrossingHomes(makeRng(subSeed(seed, 202)), ctx.terrainHeight, BIOMES);
+  const homes = findCrossingHomes(makeRng(subSeed(seed, 202)), ctx.terrainHeight, BIOMES, blocked);
   people.spawnWanderers(homes, HINTS);
 }
 

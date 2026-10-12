@@ -1,0 +1,6 @@
+// Cloudflare deploy config: serves the static build in dist/ (made by tools/build_dist.py).
+{
+  "name": "dreamscape-v1",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" }
+}
