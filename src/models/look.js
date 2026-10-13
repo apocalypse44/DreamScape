@@ -1,16 +1,15 @@
-// Phase 4 look table (4.4 / 4.5 / 4.8): what the world should look like at 0 / 0.5 / 1.
-const THREE = window.THREE; // the game loads three.js r128 as a global <script>
+// Chaos look table: what the world should look like at score 0 / 0.5 / 1 (controllers/chaosLook.js).
 
 export const LOOK_STOPS = [
-  { at: 0.0, fogColor: 0xbcd2e6, fogDensity: 0.006, fogNear: 60, fogFar: 420, exposure: 1.0,
+  { at: 0.0, fogColor: 0xbcd2e6, fogDensity: 0.006, exposure: 1.0,
     sunColor: 0xfff2dc, sunIntensity: 1.3, hemiSky: 0xcfe3ff, hemiGround: 0x5a6b45, hemiIntensity: 0.7,
     skyMix: 0.0, skyTint: 0xffffff, skySaturation: 1.05, skyBrightness: 1.0, skyFog: 0.15,
     groundTint: 0xffffff, groundTintAmount: 0.0 },
-  { at: 0.5, fogColor: 0xc9a08c, fogDensity: 0.011, fogNear: 40, fogFar: 300, exposure: 0.9,
+  { at: 0.5, fogColor: 0xc9a08c, fogDensity: 0.011, exposure: 0.9,
     sunColor: 0xffb070, sunIntensity: 1.0, hemiSky: 0xd8b0a0, hemiGround: 0x4a3a30, hemiIntensity: 0.55,
     skyMix: 0.35, skyTint: 0xffd6c0, skySaturation: 0.95, skyBrightness: 0.85, skyFog: 0.4,
     groundTint: 0xb07a5a, groundTintAmount: 0.25 },
-  { at: 1.0, fogColor: 0x7a1d12, fogDensity: 0.022, fogNear: 15, fogFar: 180, exposure: 0.75,
+  { at: 1.0, fogColor: 0x7a1d12, fogDensity: 0.022, exposure: 0.75,
     sunColor: 0xff5528, sunIntensity: 0.6, hemiSky: 0x8a2a1c, hemiGround: 0x1e0d08, hemiIntensity: 0.4,
     skyMix: 1.0, skyTint: 0xff8a70, skySaturation: 0.75, skyBrightness: 0.6, skyFog: 0.7,
     groundTint: 0x6b3a2c, groundTintAmount: 0.6 },

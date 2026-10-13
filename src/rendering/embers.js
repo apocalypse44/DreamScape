@@ -1,41 +1,10 @@
-// Ember shards: look (3.1), pickup moment (3.2), carrying + offering (3.3).
-import { THREE } from './deps.js';
+// Ember shards: glowing crystals with a light beam, picked up, carried in orbit, then offered.
 import { Burst, addShake, sfx } from './fx.js';
-import { toast } from './hud.js';
-import { EMBER_LIGHT_RANGE } from './config.js';
-
-// Build the glowing material once and share it (cheap).
-function emberMaterial() {
-  return new THREE.MeshStandardMaterial({
-    color: 0xff7a2a, emissive: 0xff4a10, emissiveIntensity: 2,
-    roughness: 0.25, metalness: 0.1,
-  });
-}
-
-// Turn a crystal GLB scene into a ~0.7 m tall template with the ember material.
-export function makeCrystalTemplate(gltfScene) {
-  const t = gltfScene.clone(true);
-  const box = new THREE.Box3().setFromObject(t);
-  const h = box.max.y - box.min.y || 1;
-  t.scale.multiplyScalar(0.7 / h);
-  const box2 = new THREE.Box3().setFromObject(t);
-  const c = box2.getCenter(new THREE.Vector3());
-  t.position.sub(c); // centre on origin so it spins in place
-  const holder = new THREE.Group();
-  holder.add(t);
-  return holder;
-}
-
-function codeCrystal() {
-  const geo = new THREE.OctahedronGeometry(0.35, 0);
-  geo.scale(1, 1.8, 1);
-  return new THREE.Mesh(geo);
-}
+import { EMBER_LIGHT_RANGE } from '../models/encounterConfig.js';
 
 export class EmberSystem {
-  constructor({ scene, crystalTemplate = null }) {
+  constructor(scene) {
     this.scene = scene;
-    this.template = crystalTemplate;
     this.embers = []; // { group, crystal, beam, mat, phase, state: 'world'|'carried'|'flying'|'gone', fly }
     this.burst = new Burst(scene, { color: 0xffaa44 });
     this.offerBurst = new Burst(scene, { color: 0xffe6a0, count: 140, speed: [1, 5], up: [3, 9], life: 1.6 });
@@ -58,15 +27,12 @@ export class EmberSystem {
 
   _createShard(pos, index) {
     const group = new THREE.Group();
-    const mat = emberMaterial();
-    let crystal;
-    if (this.template) {
-      crystal = this.template.clone(true);
-      crystal.traverse((o) => { if (o.isMesh) o.material = mat; });
-    } else {
-      crystal = codeCrystal();
-      crystal.material = mat;
-    }
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xff7a2a, emissive: 0xff4a10, emissiveIntensity: 2, roughness: 0.25, metalness: 0.1,
+    });
+    const crystalGeometry = new THREE.OctahedronGeometry(0.35, 0);
+    crystalGeometry.scale(1, 1.8, 1);
+    const crystal = new THREE.Mesh(crystalGeometry, mat);
     const beamMat = new THREE.MeshBasicMaterial({
       color: 0xffa040, transparent: true, opacity: 0.2,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
@@ -89,8 +55,7 @@ export class EmberSystem {
     return this.embers.filter((e) => e.state === 'carried').length;
   }
 
-  // 3.2 pickup moment. count/total are for the toast text.
-  pickup(i, count, total) {
+  pickup(i) {
     const e = this.embers[i];
     if (!e || e.state !== 'world') return;
     const at = e.group.position.clone();
@@ -98,14 +63,13 @@ export class EmberSystem {
     this.burst.fire(at);
     addShake(0.35);
     sfx.pickup();
-    toast(`EMBER ${count}/${total}`);
     e.state = 'carried';
     e.beam.visible = false;
     e.group.scale.setScalar(0.5);
   }
 
-  // 3.3 offering: carried embers fly into `target` one after another.
-  // onDone runs once the last one lands (call your existing cure there).
+  // Offering: carried embers fly into `target` one after another.
+  // onDone runs once the last one lands (the quest cures the hound there).
   startOffering(target, onDone) {
     const carried = this.embers.filter((e) => e.state === 'carried');
     if (!carried.length) { onDone?.(); return; }
@@ -130,7 +94,6 @@ export class EmberSystem {
     for (const e of this.embers) {
       if (e.state === 'gone') continue;
 
-      // spin + pulse for every visible ember
       e.crystal.rotation.y = t * 0.8 + e.phase;
       const pulse = 0.5 + 0.5 * Math.sin(t * 3 + e.phase);
       e.mat.emissiveIntensity = 1.5 + pulse + chaos * 2;
@@ -164,7 +127,6 @@ export class EmberSystem {
       this.light.intensity = 0;
     }
 
-    // offering finished?
     if (this.offering) {
       const flying = this.embers.filter((e) => e.state === 'flying');
       if (flying.every((e) => e.fly.k >= 1)) {
@@ -185,10 +147,9 @@ export class EmberSystem {
   clearEmbers() {
     for (const e of this.embers) {
       this.scene.remove(e.group);
-      e.group.traverse((o) => {
-        if (o.geometry && (!this.template || o.geometry === e.beam.geometry)) o.geometry.dispose();
-        if (o === e.beam) { o.geometry.dispose(); o.material.dispose(); }
-      });
+      e.crystal.geometry.dispose();
+      e.beam.geometry.dispose();
+      e.beam.material.dispose();
       e.mat.dispose();
     }
     this.embers = [];

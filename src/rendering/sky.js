@@ -1,11 +1,7 @@
-// rendering/sky.js  - Phase 4, DEV_PHASES 4.1 / 4.2 / 4.3
 // Sky dome that replaces `scene.background = skyTexture`.
 // - samples two equirect HDRIs (calm + chaos) and blends them with uMix
 // - tint / saturation / brightness uniforms
 // - blends the fog color into the horizon so red chaos fog is actually seen
-//
-// Three.js r128.
-const THREE = window.THREE; // the game loads three.js r128 as a global <script>
 
 const vertexShader = /* glsl */`
   varying vec3 vDir;
@@ -57,7 +53,7 @@ const fragmentShader = /* glsl */`
 
 /**
  * @param {THREE.Texture} calm   the day HDRI texture hdri.js already loads
- * @param {THREE.Texture} [chaos] stormy / sunset HDRI (Phase 1). Defaults to calm.
+ * @param {THREE.Texture} [chaos] stormy / sunset HDRI. Defaults to calm.
  */
 export function createSky({ calm, chaos = calm, rotation = 0 } = {}) {
   const uniforms = {
@@ -94,18 +90,5 @@ export function createSky({ calm, chaos = calm, rotation = 0 } = {}) {
     /** call every frame before render */
     update(camera) { mesh.position.copy(camera.position); },
     dispose() { mesh.geometry.dispose(); material.dispose(); },
-  };
-}
-
-/**
- * 4.2: swap the PMREM environment (reflections) at mix > 0.5, with hysteresis.
- * calmEnv / chaosEnv = pmremGenerator.fromEquirectangular(tex).texture
- */
-export function createEnvSwitcher(scene, calmEnv, chaosEnv) {
-  let chaosOn = false;
-  return (mix) => {
-    if (!chaosEnv) return;
-    if (!chaosOn && mix > 0.55) { scene.environment = chaosEnv; chaosOn = true; }
-    else if (chaosOn && mix < 0.45) { scene.environment = calmEnv; chaosOn = false; }
   };
 }

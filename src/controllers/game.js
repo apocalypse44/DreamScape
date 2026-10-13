@@ -24,7 +24,10 @@ import { createSkyIsland } from '../rendering/skyIsland.js';
 import { createKingdomBorder } from '../rendering/kingdomBorder.js';
 import { createHeavenlyFalls } from '../rendering/heavenlyFalls.js';
 import { createKingdomGates } from '../rendering/kingdomGates.js';
-import { Phase3 } from '../phase3/phase3.js';
+import { createEncounters } from './encounters.js';
+import { createChaosLook } from './chaosLook.js';
+import { applyCameraShake } from '../rendering/fx.js';
+import { toast } from '../views/overlay.js';
 import { createKamui } from '../rendering/kamui.js';
 import { createNavigation } from '../rendering/navigation.js';
 import { createResolutionGovernor } from '../rendering/resolution.js';
@@ -38,30 +41,19 @@ export function startGame(ui) {
   let props = null;
   const world = createWorld({ scene, state, player, onChunk: chunk => { props?.decorate(chunk); atmosphere?.prepare?.(chunk); } });
   const { chunks, hash, biomeAt, terrainHeight, updateChunks } = world;
-  const phase3BiomeAt = (x, z) => {
-    const b = world.biomeAt(x, z);
-    const biomeIds = {
-      hub: 'hub',
-      trees: 'north',
-      crystals: 'east',
-      pillars: 'south',
-      wisps: 'west',
-    };
-
-    return biomeIds[b.kind];
-  };
   ui.seedEl.textContent = `DS-${world.seed}`;
   const { moteMat, updateMotes, animateEnvironment } = createEnvironment({ scene, state, player, chunks });
   const swarm = new DreamSwarm(scene, terrainHeight);
   const { swarmPanelEl, swarmStatusEl } = ui;
+  let encounters = null; // created below; the quest only calls these during play
   const quest = createQuest({
     world,
     state,
     player,
-    onEmberPickup: (index, count, total) => Phase3.pickupEmber(index, count, total),
-    onEmberPosition: (index, position) => Phase3.setEmberPosition(index, position),
-    onOfferEmbers: onDone => Phase3.startOffering(onDone),
-    onHoundDrop: () => Phase3.toast('THE HOUND DROPS ITS EMBER — PICK IT UP', 3000),
+    onEmberPickup: (index, count, total) => encounters.pickupEmber(index, count, total),
+    onEmberPosition: (index, position) => encounters.setEmberPosition(index, position),
+    onOfferEmbers: onDone => encounters.startOffering(onDone),
+    onHoundDrop: () => toast('THE HOUND DROPS ITS EMBER — PICK IT UP', 3000),
   });
   const shrine = createShrine({ scene, terrainHeight, quest });
   const waterfall = createWaterfall({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
@@ -108,7 +100,8 @@ export function startGame(ui) {
     movement.reset();
     updateChunks();
     quest.reset();
-    Phase3.reset(world.seed);
+    encounters.reset();
+    chaosLook.reset();
     companion.reset();
     navigation.reset();
     npcs.reset();
@@ -123,7 +116,7 @@ export function startGame(ui) {
   function stress(step) {
     world.viewRadius += step;
     const side = 2 * world.viewRadius + 1;
-    Phase3.toast(`VIEW RADIUS ${world.viewRadius} · ${side * side} CHUNKS`, 1800);
+    toast(`VIEW RADIUS ${world.viewRadius} · ${side * side} CHUNKS`, 1800);
   }
   bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset: reset, onStress: stress });
   atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles: world.materialProfiles });
@@ -134,65 +127,15 @@ export function startGame(ui) {
   const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root] });
   const character = createCharacter({ scene, state, player, surfaceAt });
-  const phase3Ready = Phase3.init({
-    scene,
-    camera,
-    renderer,
-    seed: world.seed,
-
-    getPlayer: () => {
-      const elevated = player.position.y - 2.05 - terrainHeight(player.position.x, player.position.z) > 1.5;
-      return {
-        position: player.position,
-        sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'),
-        crouching: state.crouching,
-        elevated,
-        // Only the ember slab climb is a course; Clover terraces and the Sky Garden are also elevated.
-        onCourse: elevated && quest.platforms.some(slab =>
-          Math.hypot(player.position.x - slab.x, player.position.z - slab.z) < 4),
-      };
-    },
+  encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !skyIsland.journey.atDoor(player.position),
-
-    getChaos: () => state.chaos,
-
-    addChaos: (d) => {
-      state.chaos = THREE.MathUtils.clamp(state.chaos + d, 0.025, 0.98);
-    },
-
-    terrainHeight: (x, z) => world.terrainHeight(x, z),
-
-    biomeAt: phase3BiomeAt,
-
-    questStage: () => (
-      quest.stage === 'cursed' || quest.stage === 'return' ? 'cursed'
-      : quest.stage === 'cured' ? 'cured'
-      : 'dog'
-    ),
-
-    nextEmberPos: () => quest.nextEmber(),
-
     // NPCs keep out of landmarks and anything the player collides with (shrine tower, trees, rocks).
-    npcBlocked: (x, z) => world.isLandmarkArea(x, z) ||
+    blocked: (x, z) => world.isLandmarkArea(x, z) ||
       [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
         .some(colliders => colliders.some(c => !c.off && c.minY === undefined && Math.hypot(x - c.x, z - c.z) < c.radius + 0.5)),
-
-    shrinePos: new THREE.Vector3(SHRINE.x, terrainHeight(SHRINE.x, SHRINE.z), SHRINE.z),
-    shrineTarget: () => shrine.crystalWorldPosition,
-
-    shrineLine: () => quest.shrineText,
-
-    dog: companion.phase3Dog,
-
-    character: {
-      lockMovement: (sec) => {
-        state.interactionLock = sec;
-      },
-    },
   });
-  Phase3.setEmbers(quest.embers);
-  phase3Ready.catch(error => console.error('Phase 3 could not initialize.', error));
+  const chaosLook = createChaosLook({ renderer, scene, sun, hemi, chunks });
   const chaosFog = new THREE.Color(0x2a0809);
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
@@ -228,7 +171,7 @@ export function startGame(ui) {
     }
     lastMode = state.mode;
     if (tapped('KeyK')) kamui.pulse(null, 2.2, { full: true });
-    if (tapped('KeyG')) Phase3.toast(navigation.toggle() ? 'ROUTE ON' : 'ROUTE HIDDEN · ARROW STAYS', 2000);
+    if (tapped('KeyG')) toast(navigation.toggle() ? 'ROUTE ON' : 'ROUTE HIDDEN · ARROW STAYS', 2000);
     // Gateway travel: swirl in while charging, ease off in flight, swirl out on arrival.
     const flight = skyIsland.journey.cinematic;
     if (flight) {
@@ -258,7 +201,7 @@ export function startGame(ui) {
       movement.teleport({ x, z, top: terrainHeight(x, z), yaw });
       companion.reset();
       kamui.pulse(null, 1.4, { full: true });
-      Phase3.toast(`DEMO · ${gate ? `${gate.name} GATE` : 'GRIMOIRE TOWER'}`, 2200);
+      toast(`DEMO · ${gate ? `${gate.name} GATE` : 'GRIMOIRE TOWER'}`, 2200);
     },
   });
   // Stress-test radius below the default (0 or 1): hide landmarks outside the loaded square of chunks,
@@ -307,7 +250,7 @@ export function startGame(ui) {
     if (!skyIsland.journey.blocked) movement.update(dt);
     props.update(player.position, world.terrainVersion);
     quest.update();
-    companion.update(dt, () => Phase3.updateDog(dt, state.elapsed));
+    companion.update(dt, dt => encounters.updateDog(dt, state.elapsed));
     quest.updateHoundEmber(companion.position);
     kingdomBorder.update(dt);
     gates.update(dt);
@@ -329,7 +272,7 @@ export function startGame(ui) {
     cullLandmarks();
     updateHUD(ui, state, player, biomeAt);
     updateQuestHUD(ui, quest);
-    Phase3.update(dt, state.elapsed);
+    encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
     updateSwarm(dt);
     updateMotes(dt);
@@ -357,7 +300,8 @@ export function startGame(ui) {
       scene.fog.density = Math.min(scene.fog.density, 0.006);
     }
     grass.update(Boolean(atmosphere.isEnabled?.()));
-    Phase3.applyCameraShake(camera, dt);
+    applyCameraShake(camera, dt);
+    chaosLook.update(dt, state, camera, atmosphere.isPreviewing?.() ? visualScore : null);
     updateKamui();
     kamui.render(scene, camera, dt);
   }

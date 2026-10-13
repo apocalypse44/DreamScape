@@ -208,7 +208,8 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
     fireGeometry.attributes.aAge.needsUpdate = true;
   }
 
-  const phase3Dog = {
+  // What the dog's mood brain (rendering/dog.js) drives: the active body and its clips per mood.
+  const dogHandle = {
     get object() { return activeBody.root; },
     play(name) {
       const clips = {
@@ -227,10 +228,10 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
   };
 
   const companion = {
-    phase3Dog,
+    dogHandle,
     get position() { return position; },
     route,
-    update(dt, updatePhase3Dog = () => false) {
+    update(dt, updateMoods) {
       const cursed = quest.stage === 'cursed' || quest.stage === 'return';
       const body = cursed ? hound : dog;
       activeBody = body;
@@ -309,7 +310,7 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
       animateFallback(body, dt);
       if (cursed) updateFire(dt);
 
-      if (updatePhase3Dog(dt)) {
+      if (updateMoods(dt)) {
         position.copy(body.root.position);
         yaw = body.root.rotation.y;
       }

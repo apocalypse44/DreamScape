@@ -1,4 +1,4 @@
-// Shared dimensions for player collision, safe-ground checks and future courses.
+// Shared dimensions for player collision, safe-ground checks and courses.
 export const MOVEMENT = Object.freeze({
   eyeHeight: 2.05,
   stepHeight: 0.6,

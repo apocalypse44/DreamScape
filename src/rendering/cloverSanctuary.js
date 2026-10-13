@@ -32,7 +32,6 @@ export function createCloverSanctuary({ root, world, onReady }) {
     new THREE.MeshStandardMaterial({ color: 0x92ddc2, emissive: 0x3d987b, emissiveIntensity: 0.7, roughness: 0.25 }));
   crystal.scale.y = 1.6; crystal.position.set(6, floor + 2.55, -505); root.add(crystal);
   const glow = new THREE.PointLight(0x7ddab2, 0.6, 10); glow.position.copy(crystal.position); root.add(glow);
-  // The gateway owns its courtyard. No stepping-stone overlays cross it.
   const placements = [];
   for (const [x, z, model, height] of [[-6, -534, 'CommonTree_2', 5.5], [9, -533, 'CommonTree_3', 6],
     [-7, -506, 'CommonTree_1', 5], [10, -488, 'CommonTree_2', 5.5], [-5, -488, 'Pine_2', 5],

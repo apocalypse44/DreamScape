@@ -7,7 +7,7 @@ import { CLOVER_ENTRANCE } from '../models/cloverTerrain.js';
 import { trailPoint } from './props.js';
 import { fitText } from './canvasText.js';
 
-// --- suit shapes (about 1 unit tall, centred) --------------------------------------------------------
+// Suit shapes (about 1 unit tall, centred)
 function heartShape(s = 1) {
   const h = new THREE.Shape();
   h.moveTo(0, -0.5 * s);
@@ -119,7 +119,7 @@ export function createKingdomGates({ scene, world, onReady }) {
     gates.push({ group, name, x, z });
   }
 
-  // --- Clover Kingdom: the grand arch -----------------------------------------------------------------
+  // Clover Kingdom: the grand arch
   {
     const gate = new THREE.Group();
     const stone = new THREE.MeshStandardMaterial({ color: 0x5d6a5a, roughness: 0.95, flatShading: true });
@@ -169,7 +169,7 @@ export function createKingdomGates({ scene, world, onReady }) {
     place(gate, 'CLOVER KINGDOM', at.x, at.z, span, 1.1);
   }
 
-  // --- Heart, Diamond, Spade: minimal obelisk gates --------------------------------------------------
+  // Heart, Diamond, Spade: minimal obelisk gates
   const MINIMAL = [
     { road: 1, name: 'HEART KINGDOM', shapes: () => heartShape(1.6), colour: 0xff6b6b, glow: 0xd8262b, stone: 0x5e2a2a, ink: '#ffd7d2', ground: '#3a1416' },
     { road: 2, name: 'DIAMOND KINGDOM', shapes: () => diamondShape(1.6), colour: 0xffd36b, glow: 0xd89a1a, stone: 0x8a7550, ink: '#fff1c6', ground: '#3d2e12' },

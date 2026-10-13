@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-globalThis.window = { THREE: { GLTFLoader: class {} } };
-
 const cache = new Map();
 function moduleUrl(file) {
   const key = file.href;

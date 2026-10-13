@@ -277,7 +277,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     // Per-vertex ground colour so kingdom borders follow the real 350 m circle, not chunk squares.
     const colors = new Float32Array(positions.count * 3), tint = new THREE.Color();
     for (let i = 0; i < positions.count; i++) {
-      // Hex is the on-screen colour (sRGB); vertex colours are linear, like the old sRGB grass texture.
+      // Hex is the on-screen colour (sRGB); vertex colours are linear.
       tint.set(biomeAt(cx * CHUNK_SIZE + positions.getX(i), cz * CHUNK_SIZE + positions.getZ(i)).ground).convertSRGBToLinear().toArray(colors, i * 3);
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));

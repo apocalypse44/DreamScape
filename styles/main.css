@@ -59,3 +59,12 @@ h1 em { color:var(--acid); font-family:Georgia,serif; font-weight:400; }
 .shrine-panel.drowned { border-color:rgba(255,112,93,.4); }
 .shrine-panel.drowned small { color:#ff705d; }
 .shrine-panel.drowned p { color:var(--muted); font-style:italic; }
+
+/* World overlay: toast, interaction prompt, NPC speech bubbles (views/overlay.js), chaos readout. */
+#overlay { position:fixed; inset:0; z-index:20; pointer-events:none; font-family:system-ui,sans-serif; }
+#toast { position:absolute; top:18%; left:50%; transform:translate(-50%,-12px); opacity:0; transition:opacity .3s,transform .3s; font-weight:700; font-size:26px; letter-spacing:.08em; color:#ffe0b0; text-shadow:0 0 14px #ff6a20,0 2px 4px #000; }
+#toast.show { opacity:1; transform:translate(-50%,0); }
+#worldPrompt { position:absolute; display:none; transform:translate(-50%,-100%); padding:4px 10px; border-radius:8px; background:rgba(15,12,25,.8); color:#fff; font-size:14px; font-weight:600; white-space:nowrap; }
+.bubble { position:absolute; display:none; transform:translate(-50%,-100%); max-width:240px; padding:8px 12px; border-radius:12px; background:rgba(20,16,30,.88); color:#fff; font-size:14px; line-height:1.35; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+.bubble::after { content:''; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); border:7px solid transparent; border-bottom:0; border-top-color:rgba(20,16,30,.88); }
+#chaosReadout { position:fixed; left:12px; bottom:12px; z-index:9999; font:600 13px/1.2 system-ui,sans-serif; color:#fff; background:rgba(0,0,0,.45); padding:6px 10px; border-radius:6px; pointer-events:none; }

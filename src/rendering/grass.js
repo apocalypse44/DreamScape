@@ -1,4 +1,4 @@
-/* Procedural ground detail for Theatre mode. Blade models were removed; props.js dresses the land. */
+/* Procedural ground detail for Theatre mode; props.js dresses the land. */
 // The texture is near-white grain multiplied by each chunk's per-vertex kingdom colour,
 // so every kingdom keeps its own ground and borders stay on the real 350 m circle.
 export function createGrass({ hash, chunks }) {

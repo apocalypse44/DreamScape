@@ -27,7 +27,7 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
   // Faces the fountain centre from (x, z): local +z points inward.
   const facing = (x, z) => Math.atan2(C.x - x, C.z - z);
 
-  // --- Fountain rim (matches HEAVENLY_RIM collision) and paved plaza ----------------
+  // Fountain rim (matches HEAVENLY_RIM collision) and paved plaza
   const rimShape = new THREE.Shape(); rimShape.absarc(0, 0, HEAVENLY_RIM.outer, 0, Math.PI * 2);
   const hole = new THREE.Path(); hole.absarc(0, 0, HEAVENLY_RIM.inner, 0, Math.PI * 2, true); rimShape.holes.push(hole);
   // Bevel grows the extrusion by its thickness at both ends, so shorten it to keep the
@@ -56,7 +56,7 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
   plaza.rotation.x = -Math.PI / 2; plaza.position.set(C.x, PLAZA + 0.03, C.z); plaza.receiveShadow = true;
   root.add(plaza);
 
-  // --- Centre fountain: three tiers, a spilling curtain and an arcing jet ----------------
+  // Centre fountain: three tiers, a spilling curtain and an arcing jet
   add(new THREE.CylinderGeometry(3.2, 3.6, 1.4, 32), darkStone, C.x, 0.3, C.z);
   add(new THREE.CylinderGeometry(0.55, 0.75, 3, 16), stone, C.x, 2.4, C.z);
   add(new THREE.CylinderGeometry(2.1, 1.2, 0.5, 32), stone, C.x, 3.9, C.z);
@@ -74,7 +74,7 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
   const jet = new THREE.Points(jetGeo, new THREE.PointsMaterial({ color: 0xe8f7f4, map: createSoftDot(), size: 0.3, transparent: true, opacity: 0.85, depthWrite: false }));
   jet.frustumCulled = false; scene.add(jet);
 
-  // --- Entrance arch facing the way ground explorers arrive (from Grimoire Tower) -------
+  // Entrance arch facing the way ground explorers arrive (from Grimoire Tower)
   const entrance = Math.atan2(-C.z, -C.x); // world angle pointing back toward the centre of the map
   const [ax, az] = at(36.5, entrance), archYaw = facing(ax, az);
   const side = [Math.cos(archYaw), -Math.sin(archYaw)];
@@ -93,7 +93,7 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
     'and meet in this basin. Toss a wish into the', 'water; the Sky Garden hears it.'], lx, PLAZA + 1.45, lz, facing(lx, lz) + Math.PI, 2.4, true);
   colliders.push({ x: lx, z: lz, radius: 0.5 });
 
-  // --- Benches, lamps, flowers and the orange couch ---------------------------------------
+  // Benches, lamps, flowers and the orange couch
   for (let i = 0; i < 10; i++) {
     const a = entrance + 0.45 + i * Math.PI * 2 / 10;
     const [x, z] = at(34.3, a), ry = facing(x, z);

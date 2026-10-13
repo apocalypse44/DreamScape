@@ -89,6 +89,7 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
   return {
     prepare: hdri.prepare,
     isEnabled: () => enabled,
+    isPreviewing: () => previewTime !== null,
     // Called before original rendering so both looks receive the same preview score.
     score(dt, chaos) {
       if (previewTime === null) return chaos;

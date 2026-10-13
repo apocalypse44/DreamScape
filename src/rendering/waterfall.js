@@ -141,6 +141,18 @@ export function createSoftDot() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 32);
   return new THREE.CanvasTexture(canvas);
 }
+// Round dot with a quadratic falloff, sharper-edged than createSoftDot.
+function createFoamTexture() {
+  const size = 32, pixels = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const i = (y * size + x) * 4;
+    const alpha = Math.max(0, 1 - Math.hypot(x - 15.5, y - 15.5) / 15.5);
+    pixels.set([255, 255, 255, Math.round(alpha * alpha * 255)], i);
+  }
+  const texture = new THREE.DataTexture(pixels, size, size, THREE.RGBAFormat);
+  texture.needsUpdate = true;
+  return texture;
+}
 export function createWaterSurface(kind) {
   if (kind === 'lake') return waterMaterial(lakeFragment);
   return waterMaterial(kind === 'fall' ? flowFragment : poolFragment, kind === 'fall');
@@ -316,17 +328,7 @@ export function createWaterfall({ scene, world, onReady }) {
   creek.position.set(0, WATERFALL.height + 0.08, -6.5);
   root.add(creek);
 
-  const foamTexture = (() => {
-    const size = 32, pixels = new Uint8Array(size * size * 4);
-    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-      const i = (y * size + x) * 4;
-      const alpha = Math.max(0, 1 - Math.hypot(x - 15.5, y - 15.5) / 15.5);
-      pixels.set([255, 255, 255, Math.round(alpha * alpha * 255)], i);
-    }
-    const texture = new THREE.DataTexture(pixels, size, size, THREE.RGBAFormat);
-    texture.needsUpdate = true;
-    return texture;
-  })();
+  const foamTexture = createFoamTexture();
   const mistCount = 96;
   const mistGeo = new THREE.BufferGeometry();
   const mistPositions = new Float32Array(mistCount * 3);

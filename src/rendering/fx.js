@@ -1,8 +1,7 @@
 // Visual + sound effects: particle bursts, camera shake, synthesized sounds.
 // These are purely cosmetic, so Math.random() is fine here.
-import { THREE } from './deps.js';
 
-// ---------------------------------------------------------------- particles
+// Particles
 // A small pool of THREE.Points. fire(pos) throws particles out of pos; they
 // fall with gravity and fade. Several systems rotate so bursts can overlap.
 export class Burst {
@@ -77,12 +76,12 @@ export class Burst {
   }
 }
 
-// ------------------------------------------------------------- camera shake
+// Camera shake
 const shake = { amount: 0 };
 export function addShake(amount) {
   shake.amount = Math.max(shake.amount, amount);
 }
-// Call AFTER your camera controller has positioned the camera each frame.
+// Call after the camera has been positioned for the frame.
 export function applyCameraShake(camera, dt) {
   if (shake.amount <= 0) return;
   camera.position.x += (Math.random() - 0.5) * shake.amount;
@@ -90,7 +89,7 @@ export function applyCameraShake(camera, dt) {
   shake.amount = Math.max(0, shake.amount - dt * 1.5);
 }
 
-// ------------------------------------------------------------------- sounds
+// Sounds
 // Recorded samples from assets/sounds/<name>.mp3 when present (see SOUNDS), otherwise the
 // synthesized WebAudio fallback below. Browsers only allow audio after the first key press or
 // click; unlockAudio() is called on keydown and also starts loading the samples.
@@ -98,7 +97,6 @@ const SOUNDS = ['bark', 'howl', 'pet', 'pickup', 'whoosh', 'cure'];
 const samples = {}; // name -> AudioBuffer, or null if the file is missing
 let ac = null;
 function ctx() {
-  if (typeof window === 'undefined') return null;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   if (!ac) {

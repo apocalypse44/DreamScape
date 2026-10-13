@@ -1,8 +1,10 @@
 // The Ember Hound: chaos curses the dog, embers on chaos-only peaks cure it at the shrine.
-import { EMBER_DEFS, houndEmberRule } from '../phase3/challenges.js';
+import { CHAOS_CALM } from './encounterConfig.js';
 
 export const SHRINE = { x: 0, z: -11 }; // straight ahead of the spawn point, inside talk range
-const EMBERS = 3;
+// One challenge per ember: the parkour spiral, a chaos-only peak, and the one the hound carries.
+const CHALLENGES = ['course', 'chasm', 'hound'];
+const EMBERS = CHALLENGES.length;
 const TALK_RADIUS = 14;
 const OFFER_RADIUS = 8;
 const PEAK_CHAOS = 0.88; // a sustained sprint settles near this score
@@ -36,8 +38,13 @@ function placeEmbers(world) {
   }
   return picked.map(({ x, z, peak, gain }, index) => ({
     x, y: peak + 1.2, z, gain, taken: false,
-    challenge: EMBER_DEFS[index].type,
+    challenge: CHALLENGES[index],
   }));
+}
+
+// The hound drops its ember for a calm player within 4 m (forgiving: it stands still for them).
+function houndDrops(playerPos, houndPos, chaos) {
+  return chaos < CHAOS_CALM && Math.hypot(playerPos.x - houndPos.x, playerPos.z - houndPos.z) < 4;
 }
 
 // Parkour: the strongest ember is lifted onto a spiral of floating slabs around its peak.
@@ -160,8 +167,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
       ember.z = houndPosition.z;
       onEmberPosition?.(index, ember);
       houndDistance = Math.hypot(player.position.x - houndPosition.x, player.position.z - houndPosition.z);
-      const rule = houndEmberRule(player.position, houndPosition, state.chaos);
-      if (rule === 'drop') {
+      if (houndDrops(player.position, houndPosition, state.chaos)) {
         houndCarrying = false;
         onHoundDrop?.();
       }

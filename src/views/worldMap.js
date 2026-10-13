@@ -128,7 +128,7 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
 
   let open = false, relief = null, size = 0, lastDraw = 0;
 
-  // --- relief layer: generated once from the calm height field -------------------------------------
+  // Relief layer: generated once from the calm height field
   function buildRelief() {
     const cell = (HALF * 2) / RES;
     const heights = new Float32Array(RES * RES);
@@ -165,7 +165,7 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
     relief.getContext('2d').putImageData(image, 0, 0);
   }
 
-  // --- drawing ------------------------------------------------------------------------------------------
+  // Drawing
   const toMap = (x, z) => [((x - CENTER.x + HALF) / (2 * HALF)) * size, ((z - CENTER.z + HALF) / (2 * HALF)) * size];
 
   function resize() {

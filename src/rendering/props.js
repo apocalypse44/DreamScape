@@ -34,7 +34,7 @@ export function trailPoint(noise, i, along) {
   return { x: dx * along - dz * side, z: dz * along + dx * side };
 }
 
-// --- Chaos response: heightfield analysis -----------------------------------------------
+// Chaos response: heightfield analysis
 // Central differences give the gradient (slope) and the 5-point Laplacian (curvature) of the
 // terrain under a prop. "Strain" measures how far chaos has deformed the ground there compared
 // with the calm shape: change in gradient (the ground tilted) plus loss of curvature (it folded
@@ -50,7 +50,7 @@ function analyse(height, x, z) {
     laplacian: (east + west + south + north - 4 * h) / (PROBE * PROBE) };
 }
 
-// --- Chaos response: GPU dissolve -------------------------------------------------------
+// Chaos response: GPU dissolve
 // Each instance carries a dissolve amount (0 = whole, 1 = gone). The vertex shader sinks the prop
 // into the ground; the fragment shader discards pixels where 3D value noise falls below the amount
 // and paints a glowing ember rim just above it. Patched into the stock material with onBeforeCompile.
@@ -103,7 +103,7 @@ export function createProps({ scene, world, blockers, onReady }) {
   let builtKey = '';
   let builtAt = 0;
 
-  // --- Landscape fields (all 0..1) -------------------------------------------------
+  // Landscape fields (all 0..1)
   const forest = (x, z) => smooth(noise(x * 0.011 + 13, z * 0.011 - 7), 0.5, 0.66);
   const pines = (x, z) => noise(x * 0.02 + 90, z * 0.02) > 0.55;
   const outcrop = (x, z) => smooth(noise(x * 0.03 + 50, z * 0.03 + 50), 0.6, 0.75);
@@ -124,7 +124,7 @@ export function createProps({ scene, world, blockers, onReady }) {
     return Math.min(best, Math.abs(Math.hypot(x, z) - 16)); // plaza ring
   }
 
-  // --- Placement layers ---------------------------------------------------------------
+  // Placement layers
   // chance(x, z) is the probability that a jittered grid cell gets a prop.
   const pick = (list, x, z) => list[Math.floor(hash(x * 3.1, z * 1.7) * list.length)];
   const LAYERS = [
@@ -206,7 +206,7 @@ export function createProps({ scene, world, blockers, onReady }) {
     chunk.userData.props = list;
   }
 
-  // --- Shared instanced meshes, rebuilt when the player moves or the terrain reshapes ---
+  // Shared instanced meshes, rebuilt when the player moves or the terrain reshapes
   const dummy = new THREE.Object3D();
   const up = new THREE.Vector3(0, 1, 0), normal = new THREE.Vector3();
   const tiltQuat = new THREE.Quaternion(), yawQuat = new THREE.Quaternion();

@@ -1,7 +1,5 @@
-// rendering/chaosWeather.js  - Phase 4, DEV_PHASES 4.6
 // Ember rain + ash that fade in with chaos, and lightning flashes above 0.8.
 // Particles are wrapped around the player on the GPU (no per-frame CPU loop).
-const THREE = window.THREE; // the game loads three.js r128 as a global <script>
 
 const vert = /* glsl */`
   uniform vec3 uCenter;
@@ -61,11 +59,6 @@ function makeLayer({ count, color, size, fall, wind, additive, box = 70, height 
   return pts;
 }
 
-/**
- * const weather = createChaosWeather(scene);
- * each frame: const flash = weather.update(dt, visualScore, player.position);
- * then pass `flash` to applyLook(...).
- */
 export function createChaosWeather(scene, opts = {}) {
   const embers = makeLayer({ count: opts.embers ?? 900, color: 0xff7a2a, size: 0.9, fall: 1.2, wind: 0.6, additive: true });
   const ash = makeLayer({ count: opts.ash ?? 1400, color: 0x5a524c, size: 0.7, fall: 0.6, wind: 1.0, additive: false });
@@ -100,7 +93,6 @@ export function createChaosWeather(scene, opts = {}) {
       embers.visible = embers.material.uniforms.uOpacity.value > 0.001;
       ash.visible = ash.material.uniforms.uOpacity.value > 0.001;
 
-      // lightning above 0.8
       if (score < 0.8) { nextFlash = Math.max(nextFlash, time + 1); }
       else if (flashT < 0 && time >= nextFlash) { flashT = 0; nextFlash = time + 4 + Math.random() * 6; }
       let flash = 0;
@@ -111,7 +103,6 @@ export function createChaosWeather(scene, opts = {}) {
       }
       return flash;
     },
-    /** R reset */
     reset() { time = 0; nextFlash = 3; flashT = -1; },
   };
 }

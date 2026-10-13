@@ -48,7 +48,7 @@ const CSS = `
 body.playing #nav-arrow.on { display: flex; }`;
 
 export function createNavigation({ scene, camera, player, quest, companion, terrainHeight, obstacles, version, shrine }) {
-  // ---------------------------------------------------------------- HUD arrow
+  // HUD arrow
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.appendChild(style);
@@ -60,7 +60,7 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
   const head = hud.querySelector('#nav-arrow-head');
   const label = hud.querySelector('#nav-arrow-label');
 
-  // ---------------------------------------------------------------- ribbon
+  // Ribbon
   const positions = new Float32Array(MAX_POINTS * 2 * 3);
   const uvs = new Float32Array(MAX_POINTS * 2 * 2);
   const along = new Float32Array(MAX_POINTS * 2);
@@ -86,7 +86,7 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
   ribbon.renderOrder = 1;
   scene.add(ribbon);
 
-  // ---------------------------------------------------------------- route state
+  // Route state
   let route = null;   // { points: [{x, z, stop?}], stops, signature }
   let job = null;     // planning in progress, one leg per frame
   let lastPlan = -Infinity, plannedVersion = -1, ribbonKey = '', ribbonAt = -Infinity, time = 0, shown = true;

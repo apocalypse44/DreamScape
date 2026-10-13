@@ -1,17 +1,16 @@
-// NPCs: shrine keeper (3.9), one wanderer per biome (3.10),
-// chaos reactions (3.11), speech bubbles (3.12).
+// Lore NPCs: the shrine keeper and one wanderer per theme. A finite state machine per NPC
+// (idle / walk / talk / scared) with speech bubbles; they flee a sprinting player in chaos.
 // Bodies = UAL Female Mannequin; clips = UAL1 + UAL2 (same skeleton).
-import { THREE } from './deps.js';
-import { cloneSkinned, makeActionPlayer, resolveClips, turnTowards, stepTowards, normalizeHeight } from './anim.js';
-import { Bubble } from './hud.js';
-import { makeRng, subSeed } from './rng.js';
+import { cloneSkinned, makeActionPlayer, resolveClips, turnTowards, stepTowards } from './anim.js';
+import { Bubble } from '../views/overlay.js';
+import { makeRng, subSeed } from '../models/rng.js';
 import {
-  NPC_CLIPS, NPC_TINTS, NPC_YAW_OFFSET, NPC_HEIGHT, TALK_DISTANCE, SCARE_DISTANCE,
+  NPC_CLIPS, NPC_TINTS, NPC_HEIGHT, TALK_DISTANCE, SCARE_DISTANCE,
   NPC_ACTIVE_RADIUS, WANDER_RADIUS, CHAOS_ENTER, CHAOS_CALM,
-} from './config.js';
+} from '../models/encounterConfig.js';
 
 // Place seeded, separated lore characters around the Crossing so they are easy to find.
-export function findCrossingHomes(rng, terrainHeight, themes, blocked = () => false) {
+export function findCrossingHomes(rng, terrainHeight, themes, blocked) {
   const homes = {};
   for (const theme of themes) {
     let home = null;
@@ -53,23 +52,18 @@ function makeFallbackPerson(tint) {
 }
 
 export class People {
-  // assets = { mannequin: gltf, ual1: gltf, ual2: gltf }
+  // assets = { mannequin, ual1, ual2 } from loadModel (null if missing); the mannequin is NPC_HEIGHT tall.
   // blocked(x, z): true inside the shrine, landmarks or props, so NPCs walk around them.
-  constructor({ scene, assets, terrainHeight, seed, blocked = () => false }) {
+  constructor({ scene, assets, terrainHeight, seed, blocked }) {
     this.scene = scene;
     this.terrainHeight = terrainHeight;
     this.blocked = blocked;
     this.seed = seed;
     this.npcs = [];
-    this.template = assets?.mannequin?.scene ?? null;
-    const clips = [
-      ...(assets?.ual1?.animations || []),
-      ...(assets?.ual2?.animations || []),
-      ...(assets?.mannequin?.animations || []),
-    ];
-    this.clips = resolveClips('npc', clips, NPC_CLIPS);
-    if (!this.template) console.warn('[phase3] NPC model assets unavailable; using procedural character fallbacks.');
-    else if (!this.clips.idle) console.warn('[phase3] No idle clip found for NPCs; edit NPC_CLIPS in config.js');
+    this.template = assets.mannequin?.object ?? null;
+    const clips = [assets.ual1, assets.ual2, assets.mannequin].flatMap((asset) => asset?.animations ?? []);
+    this.clips = resolveClips(clips, NPC_CLIPS);
+    if (!this.template) console.warn('NPC model assets unavailable; using procedural character fallbacks.');
   }
 
   _create({ kind, home, tint, line, yaw = 0 }) {
@@ -85,7 +79,6 @@ export class People {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         mats.forEach((m) => m.color && m.color.set(tint));
       });
-      normalizeHeight(model, NPC_HEIGHT);
     }
     const root = new THREE.Group();
     root.add(model);
@@ -122,7 +115,7 @@ export class People {
   // Step toward (x, z); returns 'arrived', 'blocked' (stays put) or 'moving'.
   _move(n, x, z, speed, dt, arriveDist) {
     const { x: ox, z: oz } = n.root.position;
-    if (stepTowards(n.root, x, z, speed, dt, (gx, gz) => this.terrainHeight(gx, gz), NPC_YAW_OFFSET, arriveDist)) return 'arrived';
+    if (stepTowards(n.root, x, z, speed, dt, (gx, gz) => this.terrainHeight(gx, gz), arriveDist)) return 'arrived';
     // Already overlapping (a prop loaded on top of it): let it walk out instead of freezing.
     if (!this.blocked(n.root.position.x, n.root.position.z) || this.blocked(ox, oz)) return 'moving';
     n.root.position.x = ox;
@@ -157,7 +150,7 @@ export class People {
         n.fallbackParts.torso.rotation.z = n.state === 'talk' ? Math.sin(n.animationTime * 3) * 0.04 : 0;
       }
 
-      // 3.11 scared: high chaos and the player sprints close by
+      // scared: high chaos and the player sprints close by
       if (n.state !== 'scared' && info.chaos > CHAOS_ENTER && info.sprinting && d < SCARE_DISTANCE) {
         n.state = 'scared';
         n.timer = 1.5; // run for 1.5 s, then cower
@@ -166,13 +159,12 @@ export class People {
       if (n.state === 'scared') {
         n.bubble.hide();
         if (n.timer > 0) {
-          // run directly away from the player
           const ax = n.root.position.x * 2 - p.x;
           const az = n.root.position.z * 2 - p.z;
           if (this._move(n, ax, az, 3.5, dt, 0) === 'blocked') n.timer = 0; // cornered: cower here
         } else {
           n.player.play(this.clips.scared || this.clips.idle);
-          turnTowards(n.root, p.x, p.z, dt, 4, NPC_YAW_OFFSET);
+          turnTowards(n.root, p.x, p.z, dt, 4);
         }
         if (info.chaos < CHAOS_CALM) { n.state = 'idle'; n.timer = 1; n.player.play(this.clips.idle); }
         continue;
@@ -181,7 +173,7 @@ export class People {
       // talk: player close and calm
       if (d < TALK_DISTANCE && info.chaos < CHAOS_CALM) {
         if (n.state !== 'talk') { n.state = 'talk'; n.player.play(this.clips.talk || this.clips.idle); }
-        turnTowards(n.root, p.x, p.z, dt, 5, NPC_YAW_OFFSET);
+        turnTowards(n.root, p.x, p.z, dt, 5);
         n.bubble.setText(n.line());
         const head = n.root.position.clone();
         head.y += NPC_HEIGHT + 0.35;
@@ -206,7 +198,7 @@ export class People {
         continue;
       }
 
-      // 3.10 wander: idle -> pick a point within WANDER_RADIUS of home -> walk -> idle
+      // wander: idle -> pick a point within WANDER_RADIUS of home -> walk -> idle
       if (n.state === 'idle' && n.timer <= 0) {
         const a = n.rng() * Math.PI * 2;
         const r = 4 + n.rng() * (WANDER_RADIUS - 4);

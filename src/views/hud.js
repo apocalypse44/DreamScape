@@ -68,3 +68,9 @@ export function updateHUD(ui, state, player, biomeAt) {
   document.documentElement.style.setProperty("--acid", chaos > 0.62 ? "#ff705d" : "#c6ff65");
   if (hintTimer > 5) document.querySelector("#movementHint").classList.add("fade");
 }
+
+// Bottom-left score readout, e.g. "CHAOS 0.42 ▲".
+export function updateChaosReadout(label, score, trend) {
+  const arrow = trend > 0 ? '▲' : trend < 0 ? '▼' : '–';
+  document.querySelector('#chaosReadout').textContent = `${label} ${score.toFixed(2)} ${arrow}`;
+}

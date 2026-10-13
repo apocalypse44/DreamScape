@@ -18,7 +18,7 @@ export function createSkyGardenDetails({root,world,onReady}) {
   function add(g,m,x,y,z){const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return mesh;}
   function ring(x,y,z,radius,material=runeMaterial){const m=add(new THREE.RingGeometry(radius-.035,radius+.035,64),material,x,y,z);m.rotation.x=-Math.PI/2;return m;}
   function rune(x,y,z,size=.3){const m=add(new THREE.RingGeometry(size*.5,size,4),runeMaterial,x,y,z);m.rotation.x=-Math.PI/2;runes.push(m);return m;}
-  // An inset courtyard replaces the unwanted loose summit stepping stones.
+  // An inset stone courtyard in front of the summit gateway.
   const courtyard=add(new THREE.CircleGeometry(5.5,24),paving,SUMMIT_DOOR.x,24.08,SUMMIT_DOOR.z);
   courtyard.rotation.x=-Math.PI/2;
   for(let i=0;i<16;i++){
