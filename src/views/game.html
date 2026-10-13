@@ -17,6 +17,7 @@
   <div class="world-state"><i></i> <span id="experienceState">NEUTRAL DREAMSCAPE</span></div>
 </header>
 
+<div class="hud-right">
 <aside class="behavior-card">
   <div class="card-heading"><span>BEHAVIOR SIGNAL</span><strong id="signalLabel">CALM</strong></div>
   <div class="meter"><div id="meterFill"></div><i id="meterNotch"></i></div>
@@ -31,6 +32,17 @@
     <div><span>LOAD [ / ]</span><strong id="load">R2 · 25 CHUNKS</strong></div>
   </div>
 </aside>
+
+<aside class="atmosphere-demo" aria-label="Atmosphere comparison">
+  <strong>ATMOSPHERE STUDY</strong>
+  <p id="atmosphereStatus" aria-live="polite">Loading atmosphere controls...</p>
+  <button id="atmosphereToggle" type="button" aria-pressed="true" disabled>T · THEATRE ON</button>
+  <button id="atmospherePreview" type="button" disabled>P · PREVIEW 8s</button>
+  <small>Compare with T · Preview with P</small>
+  <small id="grassStatus" role="status">Loading grass...</small>
+  <small id="characterStatus" role="status">TPP · V to switch · Loading character...</small>
+</aside>
+</div>
 
 <aside class="shrine-panel" id="shrinePanel" aria-label="The shrine">
   <small>THE SHRINE</small>
@@ -53,12 +65,3 @@
 </div>
 <button class="escape-menu" type="button">ESC &nbsp; RELEASE MOUSE</button>
 <div class="grain" aria-hidden="true"></div>
-<aside class="atmosphere-demo" aria-label="Atmosphere comparison">
-  <strong>ATMOSPHERE STUDY</strong>
-  <p id="atmosphereStatus" aria-live="polite">Loading atmosphere controls...</p>
-  <button id="atmosphereToggle" type="button" aria-pressed="true" disabled>T · THEATRE ON</button>
-  <button id="atmospherePreview" type="button" disabled>P · PREVIEW 8s</button>
-  <small>Compare with T · Preview with P</small>
-  <small id="grassStatus" role="status">Loading grass...</small>
-  <small id="characterStatus" role="status">TPP · V to switch · Loading character...</small>
-</aside>
