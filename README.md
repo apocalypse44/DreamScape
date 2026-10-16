@@ -5,6 +5,18 @@ a calm-to-chaos score that reshapes the terrain and the world around you.
 
 **Play it live: https://dreamscape-v1.hro24.workers.dev/** (desktop browser with keyboard and mouse)
 
+## World time
+
+The atmosphere has a shared world clock starting at **09:00**, with a full day lasting **20 minutes
+of simulation time**. During gameplay, the top-left clock replaces the Dreamscape branding.
+R resets it to morning. Theatre toggles, kingdom travel and the P chaos preview do not restart it.
+Theatre mode uses a procedural sky with moving sun and moon, sunrise/sunset, stars and drifting
+clouds. Lighting, shadows, fog and sky reflections follow the clock; no HDRI download is needed.
+Spade suppresses daylight at every hour. Its snowfall and the other kingdom climates are the next stage.
+
+For demos, `dreamscape.clock.setHour(18)` sets the time and
+`dreamscape.clock.setPaused(true)` holds it. Use `setPaused(false)` to resume.
+
 ## Requirements
 
 - **Python 3.8 or newer**, for the local launcher. It uses the standard library only.
@@ -24,15 +36,13 @@ cd DreamScape
 
 ## 2. Add the assets
 
-The models, animations and skies are **not stored in Git**. Download them and place them at the exact paths
+The models and animations are **not stored in Git**. Download them and place them at the exact paths
 below, relative to the folder that contains `index.html`. Paths are case-sensitive on macOS and Linux.
 The game still starts if some are missing. Those objects are skipped (the dog and NPCs fall back to simple
-shapes), and the sky falls back to a plain colour.
+shapes). The sky is generated in code.
 
 | Path | Source |
 | --- | --- |
-| `assets/DaySkyHDRI066A_1K/DaySkyHDRI066A_1K_HDR.exr` | [Day Sky HDRI 066 A](https://ambientcg.com/a/DaySkyHDRI066A) (ambientCG, CC0). Download the **1K** package and keep only the `.exr` |
-| `assets/hdri/chaos_2k.hdr` | Any 2K equirectangular `.hdr` sky for the chaos look (optional) |
 | `assets/Stylized Nature MegaKit[Standard]/glTF/` | [Stylized Nature MegaKit](https://quaternius.itch.io/stylized-nature-megakit) (Quaternius, CC0), **Standard** pack |
 | `assets/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb` | [Universal Animation Library](https://quaternius.itch.io/universal-animation-library) (Quaternius, CC0), **Standard** pack |
 | `assets/universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb` | [Universal Animation Library 2](https://quaternius.com/packs/universalanimationlibrary.html) (Quaternius, CC0), **Standard** pack |

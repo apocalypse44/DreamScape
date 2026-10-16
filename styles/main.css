@@ -23,6 +23,11 @@ h1 em { color:var(--acid); font-family:Georgia,serif; font-weight:400; }
 .hud-top { position:fixed; z-index:3; left:0; top:0; right:0; height:70px; display:flex; justify-content:space-between; align-items:center; padding:0 3vw; border-bottom:1px solid var(--line); pointer-events:none; }
 .brand { display:flex; gap:12px; align-items:center; font:500 11px "DM Mono"; letter-spacing:.2em; }
 .brand b { width:29px;height:29px;display:grid;place-items:center;border:1px solid rgba(198,255,101,.55);border-radius:50%;color:var(--acid);font-weight:500; }
+.world-clock { display:none; flex-direction:column; gap:3px; min-width:108px; padding:7px 12px; border:1px solid var(--line); border-radius:5px; background:rgba(7,15,22,.58); font-family:"DM Mono",monospace; }
+.world-clock span { color:rgba(235,243,230,.75); font-size:9px; letter-spacing:.18em; }
+.world-clock time { color:#eef5e9; font-size:23px; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:.06em; }
+.playing .hud-top .brand { display:none; }
+.playing .world-clock { display:flex; }
 .world-state { color:var(--muted);font:8px "DM Mono";letter-spacing:.16em; }
 .world-state i { display:inline-block;width:5px;height:5px;margin-right:8px;border-radius:50%;background:var(--acid);box-shadow:0 0 10px var(--acid); }
 .facing { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;font-family:"DM Mono";letter-spacing:.15em;text-align:center }.facing small{color:var(--muted);font-size:7px}.facing small b{color:var(--acid);font-weight:500}

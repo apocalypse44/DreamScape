@@ -1,15 +1,46 @@
-import { createHDRILighting } from './hdri.js';
+import { createWorldClock } from '../models/worldClock.js';
+import { createAtmosphereEffects } from './atmosphereEffects.js';
 
 /* A small Theatre.js sequence sampled by movement score, or an 8-second preview. */
-export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles }) {
+export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles, chunks }) {
   const toggle = document.querySelector('#atmosphereToggle');
   const preview = document.querySelector('#atmospherePreview');
   const status = document.querySelector('#atmosphereStatus');
+  const timeStatus = document.querySelector('#worldTime');
+  const clock = createWorldClock();
+  let enabled = Boolean(window.Theatre?.core);
+  let currentBiome = null;
+  const effects = createAtmosphereEffects({ scene, renderer, sun, hemi, chunks, materialProfiles });
+  const refreshTime = () => {
+    const text = clock.label;
+    if (timeStatus && timeStatus.textContent !== text) {
+      timeStatus.textContent = text;
+      timeStatus.setAttribute('datetime', text);
+    }
+  };
+  const advanceTime = dt => { clock.advance(dt); refreshTime(); };
+  // A single atmosphere owner exposes the final rendering pass and world clock.
+  // Keep these available even if the Theatre library fails to load.
+  const lifecycle = {
+    clock,
+    prepare: effects.prepare,
+    finish: (dt, visualScore, camera) => effects.update(dt, visualScore, camera, {
+      enabled, hour: clock.hour, biome: currentBiome,
+    }),
+    reset() { clock.reset(); effects.reset(); refreshTime(); },
+  };
+  refreshTime();
   if (!window.Theatre?.core) {
     status.textContent = 'Original atmosphere · Theatre could not load';
     toggle.textContent = 'THEATRE UNAVAILABLE';
     toggle.setAttribute('aria-pressed', 'false');
-    return { update() {} };
+    return {
+      ...lifecycle,
+      isEnabled: () => false,
+      isPreviewing: () => false,
+      score(dt, chaos) { advanceTime(dt); return chaos; },
+      update() {},
+    };
   }
 
   // Positions 0, 5 and 10 represent calm, unsettled and chaotic conditions.
@@ -21,7 +52,6 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
     exposure: [1.15, 1.05, 0.9],
     particleSize: [0.16, 0.35, 0.85],
     particleOpacity: [0.3, 0.65, 0.95],
-    environmentIntensity: [1.4, 0.9, 0.35]
   };
   const trackData = {};
   const trackIdByPropPath = {};
@@ -57,9 +87,7 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
   const warmLight = new THREE.Color(0xff7655);
   const coolLight = new THREE.Color(0xd8fff1);
   const coolParticles = new THREE.Color(0x92ffe3);
-  let enabled = true;
   let previewTime = null;
-  let hdriStatus = 'Loading HDRI';
   const refresh = () => {
     toggle.textContent = enabled ? 'T · THEATRE ON' : 'T · ORIGINAL';
     toggle.setAttribute('aria-pressed', String(enabled));
@@ -67,12 +95,8 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
     status.textContent = previewTime !== null
       ? `${enabled ? 'Theatre' : 'Original'} · calm → chaos → calm`
       : enabled ? 'Theatre · responds to your movement' : 'Original · responds to your movement';
-    if (enabled) status.textContent += ` · ${hdriStatus}`;
+    if (enabled) status.textContent += ' · procedural day / night';
   };
-  const hdri = createHDRILighting({
-    scene, renderer, profiles: materialProfiles,
-    onStatus(message) { hdriStatus = message; refresh(); }
-  });
   toggle.disabled = preview.disabled = false;
   toggle.addEventListener('click', () => { enabled = !enabled; refresh(); });
   preview.addEventListener('click', () => {
@@ -87,11 +111,12 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
   });
   refresh();
   return {
-    prepare: hdri.prepare,
+    ...lifecycle,
     isEnabled: () => enabled,
     isPreviewing: () => previewTime !== null,
     // Called before original rendering so both looks receive the same preview score.
     score(dt, chaos) {
+      advanceTime(dt);
       if (previewTime === null) return chaos;
       previewTime += dt;
       if (previewTime >= 8) {
@@ -101,13 +126,18 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
       }
       return (1 - Math.cos(previewTime / 8 * Math.PI * 2)) / 2;
     },
+    reset() {
+      lifecycle.reset();
+      previewTime = null;
+      refresh();
+    },
     update(score, biome) {
+      currentBiome = biome;
       // Restore every property that the original renderer doesn't reset itself.
       sun.intensity = 1.7;
       hemi.intensity = 1.35;
       renderer.toneMappingExposure = 1.05;
       if (!enabled) {
-        hdri.update(false, 0);
         return;
       }
       sheet.sequence.position = score * 10;
@@ -115,7 +145,6 @@ export function createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, mate
       scene.fog.density = value.fog;
       scene.fog.color.set(biome.fog).lerp(warmFog, value.warmth);
       scene.background = scene.fog.color;
-      hdri.update(true, value.environmentIntensity);
       sun.color.copy(coolLight).lerp(warmLight, value.warmth);
       hemi.color.set(biome.sky).lerp(warmLight, value.warmth * 0.6);
       sun.intensity = value.sunlight;

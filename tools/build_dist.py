@@ -15,8 +15,6 @@ ASSETS = [
     'animals/License.txt',
     'crystals',
     'shrine',
-    'DaySkyHDRI066A_1K/DaySkyHDRI066A_1K_HDR.exr',  # keep in sync with src/rendering/hdri.js
-    'hdri/chaos_2k.hdr',
     'character',
     'Stylized Nature MegaKit[Standard]/glTF',
     'Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb',

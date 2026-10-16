@@ -1,9 +1,6 @@
 // Chaos pacing and look settings (controllers/chaosLook.js).
 
 export const CONFIG = {
-  // Second HDRI for chaos, relative to index.html. Missing file = calm sky + red tint only.
-  chaosHdri: 'assets/hdri/chaos_2k.hdr',
-
   // Score pacing
   // The game still computes chaos its own way; pacing scales each frame's change.
   // 0.32/s * 0.25 = 0.08/s, jump +0.08 * 0.25 = +0.02, turn 0.014 * 0.25 ≈ 0.0035

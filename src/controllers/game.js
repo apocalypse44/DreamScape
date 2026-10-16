@@ -102,6 +102,7 @@ export function startGame(ui) {
     quest.reset();
     encounters.reset();
     chaosLook.reset();
+    atmosphere.reset();
     companion.reset();
     navigation.reset();
     npcs.reset();
@@ -119,7 +120,7 @@ export function startGame(ui) {
     toast(`VIEW RADIUS ${world.viewRadius} · ${side * side} CHUNKS`, 1800);
   }
   bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset: reset, onStress: stress });
-  atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, materialProfiles: world.materialProfiles });
+  atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, chunks, materialProfiles: world.materialProfiles });
   atmosphere.prepare?.(wayfinding.root);
   atmosphere.prepare?.(plaza.root);
   atmosphere.prepare?.(clover.root);
@@ -135,7 +136,7 @@ export function startGame(ui) {
       [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
         .some(colliders => colliders.some(c => !c.off && c.minY === undefined && Math.hypot(x - c.x, z - c.z) < c.radius + 0.5)),
   });
-  const chaosLook = createChaosLook({ renderer, scene, sun, hemi, chunks });
+  const chaosLook = createChaosLook();
   const chaosFog = new THREE.Color(0x2a0809);
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
@@ -183,7 +184,7 @@ export function startGame(ui) {
   }
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
-  window.dreamscape = { kamui, navigation, state, quest };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock };
 
   // Demo spawns (Theatre mode, keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -301,7 +302,8 @@ export function startGame(ui) {
     }
     grass.update(Boolean(atmosphere.isEnabled?.()));
     applyCameraShake(camera, dt);
-    chaosLook.update(dt, state, camera, atmosphere.isPreviewing?.() ? visualScore : null);
+    const chaosScore = chaosLook.update(dt, state, atmosphere.isPreviewing?.() ? visualScore : null);
+    atmosphere.finish(dt, chaosScore, camera);
     updateKamui();
     kamui.render(scene, camera, dt);
   }
