@@ -22,7 +22,7 @@ export function createSurfaceAt(platforms, terrainHeight) {
 // player who stepped off a ledge dropped inside the wall's blocking band and could not move.
 const EDGE = 0.55;
 
-export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, isMovementBlocked = () => false, colliderFilter = () => true }) {
+export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, allowFallRecovery, isMovementBlocked = () => false, colliderFilter = () => true }) {
   function collidesAt(x, z) {
     const playerRadius = 0.55;
     for (const colliders of [staticColliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]) {
@@ -47,7 +47,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     return false;
   }
 
-  const recovery = createRecovery({ player, terrainHeight, collidesAt, isUnsafe });
+  const recovery = createRecovery({ player, terrainHeight, collidesAt, isUnsafe, allowFallRecovery });
   const topAt = (p, x, z) => p.topAt ? p.topAt(x, z) : p.top;
   const contains = (p, x, z, pad) => p.contains ? p.contains(x, z, pad) :
     Math.abs(x - p.x) < (p.width ?? SLAB_SIZE) / 2 + pad && Math.abs(z - p.z) < (p.depth ?? SLAB_SIZE) / 2 + pad;

@@ -82,10 +82,18 @@ python3 serve.py
 
 1. The launcher prints an address like `http://127.0.0.1:<port>/index.html` and opens it. If no browser opens,
    copy that address into one.
-2. Click **Enter the Dream** to capture the mouse and start playing. Press **Esc** to release the mouse.
+2. Browse the world stories on the title screen while the game loads. When the message says
+   **Your dream is ready**, click **Enter the Dream** to
+   capture the mouse and start playing. The starting terrain, trees, characters, audio and rendering
+   warmup finish before entry becomes available. Press **Esc** to release the mouse.
 3. Keep the terminal open while playing. Press **Ctrl+C** in it to stop the server.
 
 The world seed is kept in the URL (`?seed=1234`), so reloading or sharing the address recreates the same world.
+
+Press **M** to show the full world map as the grimoire's cover. Click **Open quests →**
+to turn the cover and reveal quest hints and clover seals for completed discoveries.
+The **← World map** arrow closes it back to the map. Press **M** again to leave the atlas
+and resume; **Esc** closes it with a resume prompt.
 
 ## Troubleshooting
 

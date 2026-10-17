@@ -1,3 +1,5 @@
+import { cloneSkinned } from './anim.js';
+
 // Villagers of the Grimoire Tower: Quaternius mannequins + Universal Animation Library clips (CC0).
 // They share the library's own skeleton, so every clip plays without retargeting.
 // Each NPC reacts to the behavior score: calm visitors get a greeting, chaotic ones a refusal.
@@ -61,13 +63,17 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
     npc.collider.z = z;
   }
 
-  Promise.all([fetchBuffer(UAL1), fetchBuffer(UAL2), fetchBuffer(FEMALE)]).then(async ([male, extra, female]) => {
-    for (const buffer of [male, extra]) {
-      for (const clip of (await parse(buffer)).animations) clips[clip.name] = stripRootMotion(clip);
-    }
+  const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const ready = Promise.all([fetchBuffer(UAL1), fetchBuffer(UAL2), fetchBuffer(FEMALE)]).then(async ([male, extra, female]) => {
+    const maleAsset = await parse(male);
+    for (const clip of maleAsset.animations) clips[clip.name] = stripRootMotion(clip);
+    await nextFrame();
+    for (const clip of (await parse(extra)).animations) clips[clip.name] = stripRootMotion(clip);
+    await nextFrame();
+    const femaleAsset = await parse(female);
     for (const def of VILLAGERS) {
-      const gltf = await parse(def.body === 'F' ? female : male); // a fresh parse = an independent skeleton
-      const model = gltf.scene;
+      await nextFrame();
+      const model = cloneSkinned((def.body === 'F' ? femaleAsset : maleAsset).scene);
       model.traverse(object => {
         if (!object.isMesh) return;
         object.castShadow = true;
@@ -91,6 +97,7 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
   }).catch(error => console.warn('NPCs could not load.', error));
 
   return {
+    ready,
     update(dt) {
       for (const npc of npcs) {
         const { def, group } = npc;

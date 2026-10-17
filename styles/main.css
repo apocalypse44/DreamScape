@@ -14,7 +14,9 @@ h1 { margin:0; font-size:clamp(54px,7vw,106px); font-weight:400; line-height:.91
 h1 em { color:var(--acid); font-family:Georgia,serif; font-weight:400; }
 .lede { max-width:500px; margin:30px 0; color:var(--muted); font-size:13px; line-height:1.75; }
 #enterWorld { min-width:230px; display:flex; justify-content:space-between; align-items:center; padding:16px 18px; border:1px solid var(--acid); background:rgba(198,255,101,.08); color:var(--acid); cursor:pointer; font:500 9px "DM Mono"; letter-spacing:.17em; transition:.2s; }
-#enterWorld:hover { background:var(--acid); color:#101a0d; box-shadow:0 0 35px rgba(198,255,101,.22); }
+#enterWorld:hover:not(:disabled) { background:var(--acid); color:#101a0d; box-shadow:0 0 35px rgba(198,255,101,.22); }
+#enterWorld:disabled { opacity:.6; cursor:wait; }
+.startup-status { min-height:1.5em; margin:12px 0 0; color:rgba(240,243,223,.65); font:10px "DM Mono"; }
 #enterWorld i { font-size:17px; font-style:normal; }
 .intro-controls { margin-top:24px; color:rgba(240,243,223,.38); font:8px "DM Mono"; letter-spacing:.12em; }
 .intro-controls span { color:rgba(240,243,223,.8); margin-right:4px; }

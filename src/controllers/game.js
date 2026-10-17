@@ -27,15 +27,23 @@ import { createKingdomGates } from '../rendering/kingdomGates.js';
 import { createSpade } from '../rendering/spade.js';
 import { createEncounters } from './encounters.js';
 import { createChaosLook } from './chaosLook.js';
-import { applyCameraShake } from '../rendering/fx.js';
+import { applyCameraShake, prepareAudio } from '../rendering/fx.js';
 import { toast } from '../views/overlay.js';
 import { createKamui } from '../rendering/kamui.js';
 import { createNavigation } from '../rendering/navigation.js';
 import { createResolutionGovernor } from '../rendering/resolution.js';
 import { createWorldMap } from '../views/worldMap.js';
 import { createDemoSpawns } from '../views/demoSpawns.js';
+import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
 
 export function startGame(ui) {
+  const startup = createStartupReadiness();
+  const stopObservingLoads = observeStartupLoading(THREE.DefaultLoadingManager, startup);
+  const startupStatus = document.querySelector('#startupStatus');
+  const enterLabel = ui.enterButton.querySelector('span');
+  ui.enterButton.disabled = true;
+  startup.begin(performance.now());
+  prepareAudio().finally(() => startup.end(performance.now()));
   const { state, keys, pointerButtons, player } = createGameState();
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
   let atmosphere = null;
@@ -79,15 +87,19 @@ export function startGame(ui) {
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
+  const worldMap = createWorldMap({ world, player, state, quest, spade, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
+  // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
+  startup.begin(performance.now());
+  npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders,
     platforms,
     isMovementBlocked: () => skyIsland.journey.blocked,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
+    allowFallRecovery: player => !spade.isInsideCastle(player.position),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
-      : spade.courseRecovery(player) || waterfall.courseRecovery(player) || clover.courseRecovery(player) });
+      : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
@@ -188,7 +200,7 @@ export function startGame(ui) {
   }
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup };
 
   // Demo spawns (Theatre mode, keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -234,14 +246,14 @@ export function startGame(ui) {
   }
   const resolution = createResolutionGovernor(renderer);
   const clock = new THREE.Clock();
-  let shadersWarmed=false,warmupQueued=false;
   let fpsFrames = 0;
   let fpsTime = 0;
   function frame() {
     requestAnimationFrame(frame);
     const rawDt = clock.getDelta();
     const dt = Math.min(rawDt, 0.04);
-    resolution.update(rawDt);
+    // Startup work is not a useful measurement of sustained rendering speed.
+    if (startup.ready || (!startup.pending && props.prepared && !world.pendingChunks)) resolution.update(rawDt);
     fpsFrames++;
     fpsTime += rawDt;
     if (fpsTime >= 0.5) {
@@ -249,11 +261,11 @@ export function startGame(ui) {
       ui.loadEl.textContent = `R${world.viewRadius} · ${chunks.size} CHUNKS`;
       fpsFrames = fpsTime = 0;
     }
-    state.elapsed += dt;
+    if (startup.ready) state.elapsed += dt;
     updateChunks();
     world.updateTerrain(dt);
     skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
-    if (!skyIsland.journey.blocked) movement.update(dt);
+    if (!skyIsland.journey.blocked) movement.update(startup.ready ? dt : 0);
     props.update(player.position, world.terrainVersion);
     quest.update();
     companion.update(dt, dt => encounters.updateDog(dt, state.elapsed));
@@ -312,13 +324,25 @@ export function startGame(ui) {
     atmosphere.finish(dt, chaosScore, camera);
     updateKamui();
     kamui.render(scene, camera, dt);
-    // compile() includes hidden meshes, so the swarm's first appearance does
-    // not compile its lighting program while crossing the kingdom boundary.
-    // Run once with the final sky/light setup, while the intro is still open.
-    if(!shadersWarmed&&!warmupQueued&&!state.locked){
-      warmupQueued=true;
-      const warm=()=>{warmupQueued=false;if(state.locked)return;renderer.compile(scene,camera);shadersWarmed=true;};
-      if(globalThis.requestIdleCallback)requestIdleCallback(warm,{timeout:1500});else setTimeout(warm,0);
+    if (!startup.ready) {
+      const phase = startup.update({ now: performance.now(), frameMs: rawDt * 1000,
+        prepared: !world.pendingChunks && props.prepared });
+      if (phase === 'warmup') {
+        // All startup assets are now installed; compile their final lighting
+        // variants behind the intro, then wait for real render/upload frames.
+        renderer.compile(scene, camera);
+      }
+      if (ui.introEl.dataset.loadPhase !== phase) ui.introEl.dataset.loadPhase = phase;
+      const text = phase === 'loading' ? 'Gathering the world…'
+        : phase === 'preparing' ? 'Dreaming the landscape…'
+        : phase === 'ready' ? 'Your dream is ready.' : 'Lighting the way…';
+      if (startupStatus.textContent !== text) startupStatus.textContent = text;
+      if (phase === 'ready') {
+        stopObservingLoads();
+        enterLabel.textContent = 'ENTER THE DREAM';
+        ui.enterButton.disabled = false;
+        fpsFrames = fpsTime = 0;
+      }
     }
   }
 

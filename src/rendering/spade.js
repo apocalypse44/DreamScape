@@ -1,9 +1,10 @@
 import { SPADE_HOUSES, SPADE_WALLS, SPADE_TOWERS, SPADE_WINGS, SPADE_FIXTURES, SPADE_MOUNTAINS, SPADE_CURTAIN_MODULES, SPADE_RETAINING, spadePosition, spadeHeight, spadeVolumes, spadeColliders } from '../models/spade.js';
 import { spadeClimateAt } from '../models/climate.js';
 import { buildCastleInterior } from './spadeCastle.js';
-import { createCastleRecovery } from '../models/spadeCastle.js';
+import { isInsideSpadeCastle } from '../models/spadeCastle.js';
 import { createFrameQueue } from '../models/streaming.js';
 import { buildSpadeStory } from './spadeStory.js';
+import { buildCastleEcho } from './castleEcho.js';
 
 // Large forms are procedural and available immediately. Ten curated modules stream
 // on approach, then render in batches (one draw per source mesh, not per building).
@@ -12,7 +13,6 @@ export function createSpade({ scene, world, onReady, notify }) {
   const details = new THREE.Group(); root.add(details);
   const obstacles = new THREE.Group(); root.add(obstacles);
   const platforms = spadeVolumes();
-  const recovery = createCastleRecovery();
   const colliders = spadeColliders(platforms);
   const batches = new Map(), modules = new Map();
   const box = new THREE.BoxGeometry(1, 1, 1), cone = new THREE.ConeGeometry(1, 1, 5);
@@ -159,7 +159,9 @@ export function createSpade({ scene, world, onReady, notify }) {
   label('SPADE KINGDOM · THE SWARM REMEMBERS', -1.6, 13.9, 0, 16);
   label('LANTERN REFUGE', 22,5.9,-17.75,8,0);
   label('LANTERN ATRIUM · ARCHIVE ABOVE', 121.9, 25, 0, 10);
-  const castle = buildCastleInterior({root,add,block,module,label,notify});
+  const echo = buildCastleEcho({root,obstacles,notify});
+  platforms.push(...echo.model.platforms);
+  const castle = buildCastleInterior({root,add,block,module,label,notify,echo:echo.model});
   const story=buildSpadeStory({root,add,block,label,height:spadeHeight});
   // Flush after interior construction so its repeated steps, shelves and rails
   // join the same batches instead of adding a draw call for every object.
@@ -214,14 +216,14 @@ export function createSpade({ scene, world, onReady, notify }) {
     await worker(); status = errors.length ? 'partial' : 'ready';
   }
   return {
-    root, obstacles, platforms, colliders, castle, story,
+    root, obstacles, platforms, colliders, castle, story, echo:echo.model,
     get streaming(){return {pending:preparation.pending,prepared:preparation.completed};},
-    courseRecovery: player => recovery.update(player),
+    isInsideCastle: isInsideSpadeCastle,
     get status() { return status; }, get errors() { return [...errors]; },
     update(dt, player, state) {
       const distance = Math.hypot(player.position.x + 460, player.position.z);
       root.visible = distance < 520; details.visible = root.visible;
-      if(!loading&&(distance<380||state.elapsed>1.5)){
+      if(!loading&&distance<380){
         loading=true;status='queued';
         if(globalThis.requestIdleCallback)requestIdleCallback(()=>loadDetails(),{timeout:1200});
         else setTimeout(()=>loadDetails(),0);
@@ -229,6 +231,7 @@ export function createSpade({ scene, world, onReady, notify }) {
       preparation.run();
       const climate = spadeClimateAt(player.position.x, player.position.z);
       const inHall = player.position.x < -467 && player.position.x > -521 && Math.abs(player.position.z) < 15;
+      echo.update(dt,player,state);
       castle.update(dt,player,state,inHall);
       story.update(dt,player,state,notify);
       // Keep the light count constant. Toggling visibility changes shader
@@ -249,7 +252,7 @@ export function createSpade({ scene, world, onReady, notify }) {
       visit('hall', inHall && player.position.x > -490,
         'MEMORY HALL · Clover reveals the true binding. Heart restores the stolen current. Diamond turns the chains.');
     },
-    reset() { memories.clear(); castle.reset(); recovery.reset(); story.reset(); },
+    reset() { memories.clear(); castle.reset(); echo.reset(); story.reset(); },
   };
 }
 

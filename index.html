@@ -10,9 +10,63 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles/main.css" />
+    <link rel="stylesheet" href="styles/loading.css" />
+    <link rel="stylesheet" href="styles/grimoire.css" />
   </head>
   <body>
-    <main id="app"></main>
+    <main id="app">
+      <section class="intro-screen" id="intro" data-load-phase="loading" aria-label="Welcome to Dreamscape">
+        <div class="dream-stars" aria-hidden="true"></div>
+        <header class="intro-masthead"><span class="intro-wordmark">D / S</span><span>A BLACK CLOVER INSPIRED WORLD</span><span class="intro-edition">THE GRIMOIRE AWAKENING</span></header>
+        <div class="intro-body">
+          <div class="intro-copy">
+            <p class="eyebrow"><span></span> YOUR MAGIC. YOUR KINGDOM. YOUR STORY.</p>
+            <h1>Dreamscape<span>Your grimoire is waiting.</span></h1>
+            <p class="lede">Four kingdoms. A world of magic.<br />Choose a seal. Gather mana. Awaken your grimoire.</p>
+            <article class="lore-card" aria-label="Stories from the world">
+              <div class="lore-heading"><span id="loreRealm">THE CLOVER KINGDOM</span><span id="loreNumber">01 / 04</span></div>
+              <h2 id="loreTitle">A little courage. Limitless possibility.</h2>
+              <p id="loreText">Green terraces rise toward gardens above the clouds. Let curiosity be your compass, and find the magic hidden in the climb.</p>
+              <div class="lore-navigation"><span id="loreHint">Walk gently to keep the world calm.</span><button id="lorePrevious" type="button" aria-label="Previous world story">←</button><button id="loreNext" type="button" aria-label="Next world story">→</button></div>
+            </article>
+          </div>
+          <div class="dream-sigil" data-kingdom="clover" aria-label="Interactive grimoire and kingdom seals">
+            <div class="sigil-halo" aria-hidden="true"></div><div class="sigil-orbit orbit-outer" aria-hidden="true"></div><div class="sigil-orbit orbit-inner" aria-hidden="true"></div>
+            <div role="group" aria-label="Explore a kingdom">
+              <button type="button" data-kingdom="clover" aria-pressed="true" class="kingdom-mark mark-north">♣<small>CLOVER</small></button>
+              <button type="button" data-kingdom="heart" aria-pressed="false" class="kingdom-mark mark-east">♥<small>HEART</small></button>
+              <button type="button" data-kingdom="diamond" aria-pressed="false" class="kingdom-mark mark-south">♦<small>DIAMOND</small></button>
+              <button type="button" data-kingdom="spade" aria-pressed="false" class="kingdom-mark mark-west">♠<small>SPADE</small></button>
+            </div>
+            <div class="grimoire-wrap">
+              <button id="grimoireBook" type="button" class="grimoire-book" aria-expanded="false" aria-label="Open your grimoire">
+                <span class="book-pages"><span class="page-heading">CLOVER</span><span class="page-symbol">♣</span><span class="page-spell">Let your magic take root.</span><span class="page-footnote">CLICK TO CLOSE</span></span>
+                <span class="book-cover"><span class="book-corner corner-tl"></span><span class="book-corner corner-tr"></span><span class="book-corner corner-bl"></span><span class="book-corner corner-br"></span><span class="book-heading">GRIMOIRE</span><span class="book-crest">♣</span><span class="book-inscription">THE MAGIC WITHIN</span><span class="book-spine"></span></span>
+              </button>
+            </div>
+            <div class="mana-runes" role="group" aria-label="Collect four mana runes while the world loads">
+              <button type="button" class="mana-rune rune-one" data-rune="0" aria-label="Collect the wind rune">ᛉ</button>
+              <button type="button" class="mana-rune rune-two" data-rune="1" aria-label="Collect the flame rune">ᛟ</button>
+              <button type="button" class="mana-rune rune-three" data-rune="2" aria-label="Collect the tide rune">ᛜ</button>
+              <button type="button" class="mana-rune rune-four" data-rune="3" aria-label="Collect the earth rune">ᚷ</button>
+            </div>
+            <div class="mana-particles" aria-hidden="true"></div>
+            <div class="mana-particles" aria-hidden="true"></div>
+            <div class="sigil-caption"><span id="grimoirePrompt">CLICK THE GRIMOIRE TO OPEN</span><small>SELECT A KINGDOM SEAL TO EXPLORE</small></div>
+            <div class="mana-game"><div class="mana-heading"><span>MANA RESONANCE</span><span id="manaCount">0 / 4</span></div><div class="mana-pips" aria-hidden="true"><i></i><i></i><i></i><i></i></div><p id="manaStatus" role="status">Catch the four glowing runes to awaken the seal.</p><button id="resetMana" type="button" hidden>CAST AGAIN ↺</button></div>
+          </div>
+        </div>
+        <footer class="intro-footer">
+          <div class="intro-controls"><span>WASD</span> MOVE <span>MOUSE</span> LOOK <span>SHIFT</span> SPRINT <span>SPACE</span> JUMP <span>V</span> CHANGE VIEW</div>
+          <div class="loading-panel">
+            <div class="loading-heading"><span class="loading-spark" aria-hidden="true"></span><p id="startupStatus" class="startup-status" role="status" aria-live="polite">Gathering the world…</p></div>
+            <ol class="loading-stages" aria-label="World preparation"><li data-stage="1" aria-current="step"><span></span>WORLD</li><li data-stage="2"><span></span>LANDSCAPE</li><li data-stage="3"><span></span>AWAKENING</li></ol>
+            <button id="enterWorld" type="button" disabled aria-describedby="startupStatus"><span>YOUR DREAM IS TAKING SHAPE</span><i>→</i></button>
+          </div>
+        </footer>
+      </section>
+    </main>
+    <script src="src/views/loadingScreen.js"></script>
     <noscript>Enable JavaScript to play Dreamscape.</noscript>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@theatre/browser-bundles@0.7.2/dist/core-only.min.js"></script>

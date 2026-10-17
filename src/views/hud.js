@@ -3,7 +3,8 @@ import { landmarkHintLines } from '../models/landmarkHints.js';
 export async function mountView() {
   const response = await fetch(new URL('./game.html', import.meta.url));
   if (!response.ok) throw new Error(`Could not load game view (${response.status})`);
-  document.querySelector('#app').innerHTML = await response.text();
+  // Keep the title screen visible while the engine and world are prepared.
+  document.querySelector('#app').insertAdjacentHTML('beforeend', await response.text());
   const worldEl = document.querySelector("#world");
   const introEl = document.querySelector("#intro");
   const enterButton = document.querySelector("#enterWorld");

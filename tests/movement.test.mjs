@@ -50,9 +50,8 @@ test('castle curtain modules block walking from both sides above the retaining w
 
 test('both castle stairs and archive balconies can be walked up and down with real colliders', async () => {
   const { spadeGround, spadeVolumes, spadeColliders }=await import(moduleUrl(new URL('../src/models/spade.js',import.meta.url)));
-  const {CASTLE_ROUTE,createCastleRecovery}=await import(moduleUrl(new URL('../src/models/spadeCastle.js',import.meta.url)));
-  const recovery=createCastleRecovery();
-  const platforms=spadeVolumes(), f=fixture((x,z)=>spadeGround(x,z,1.5),platforms,{staticColliders:spadeColliders(platforms),courseRecovery:p=>recovery.update(p)});
+  const {CASTLE_ROUTE,isInsideSpadeCastle}=await import(moduleUrl(new URL('../src/models/spadeCastle.js',import.meta.url)));
+  const platforms=spadeVolumes(), f=fixture((x,z)=>spadeGround(x,z,1.5),platforms,{staticColliders:spadeColliders(platforms),allowFallRecovery:p=>!isInsideSpadeCastle(p.position)});
   f.controller.teleport({x:-472,z:0,top:16.12});f.keys.add('KeyW');
   const walk=(u,v,top)=>{
     const x=-344-u,z=v;let count=0;
@@ -84,6 +83,60 @@ test('Spade avenue climbs to the castle hall and returns without jumping or cros
   }
   f.controller.teleport({x:-480,z:0,top:16}); f.state.yaw=Math.PI; frames(f,480);
   assert.ok(f.player.position.z < 15, 'hall wall blocks movement');
+});
+
+test('every erased-castle jump is reachable with normal movement and actual castle collision',async()=>{
+  const {createCastleEcho,ECHO_ENTRY,ECHO_FRAGMENTS}=await import(moduleUrl(new URL('../src/models/castleEcho.js',import.meta.url)));
+  const {spadeGround,spadeVolumes,spadeColliders}=await import(moduleUrl(new URL('../src/models/spade.js',import.meta.url)));
+  for(const fps of [30,60,120]){
+  const echo=createCastleEcho(),base=spadeVolumes();
+  const f=fixture((x,z)=>spadeGround(x,z,1.5),[...base,...echo.platforms],{staticColliders:spadeColliders(base)});
+  f.controller.teleport(ECHO_ENTRY);echo.update(f.player,.8);
+  for(const target of ECHO_FRAGMENTS){
+    f.player.jumpBuffer=.15;let landed=false;
+    for(let tick=0;tick<240;tick++){
+      const dx=target.x-f.player.position.x,dz=target.z-f.player.position.z;
+      if(Math.hypot(dx,dz)>.12){f.keys.add('KeyW');f.state.yaw=Math.atan2(-dx,-dz);}else f.keys.clear();
+      f.controller.update(1/fps);echo.update(f.player,.8);
+      if(f.player.grounded&&Math.abs(f.player.position.y-2.05-target.top)<.05&&Math.hypot(dx,dz)<.4){landed=true;break;}
+    }
+    assert.equal(landed,true,`${target.name} unreachable at ${fps} FPS; at ${JSON.stringify(f.player.position)}`);
+    f.keys.clear();
+  }
+  assert.equal(echo.progress,5);
+  }
+});
+
+test('castle stairs, upper atrium and chaos ledges fall onto lower floors without teleporting',async()=>{
+  const {createCastleEcho,ECHO_ENTRY,ECHO_FRAGMENTS}=await import(moduleUrl(new URL('../src/models/castleEcho.js',import.meta.url)));
+  const {spadeGround,spadeVolumes,spadeColliders}=await import(moduleUrl(new URL('../src/models/spade.js',import.meta.url)));
+  const {isInsideSpadeCastle}=await import(moduleUrl(new URL('../src/models/spadeCastle.js',import.meta.url)));
+  for(const start of [
+    {name:'stair edge',x:-487,z:8.2,top:21},
+    {name:'upper atrium',x:-499,z:0,top:30.12},
+    {name:'chaos ledge',x:-499,z:0,top:29.3},
+  ])for(const fps of [30,60,120]){
+    const echo=createCastleEcho(),base=spadeVolumes();
+    const f=fixture((x,z)=>spadeGround(x,z,1.5),[...base,...echo.platforms],{
+      staticColliders:spadeColliders(base),allowFallRecovery:p=>!isInsideSpadeCastle(p.position),
+    });
+    f.controller.teleport(ECHO_ENTRY);
+    if(start.name==='chaos ledge'){
+      echo.update(f.player,.8);
+      for(const p of ECHO_FRAGMENTS){f.player.position.set(p.x,p.top+2.05,p.z);echo.update(f.player,.8);}
+    }
+    f.player.position.set(start.x,start.top+2.05,start.z);f.player.grounded=false;f.player.coyote=0;
+    let previous=f.player.position.y;
+    for(let tick=0;tick<fps*3;tick++){
+      f.controller.update(1/fps);echo.update(f.player,.1);
+      assert.equal(f.player.position.x,start.x,`${start.name}: x teleported at ${fps} FPS`);
+      assert.equal(f.player.position.z,start.z,`${start.name}: z teleported at ${fps} FPS`);
+      assert.ok(f.player.position.y<=previous+.001,`${start.name}: snapped up to a checkpoint`);
+      previous=f.player.position.y;
+    }
+    assert.equal(f.player.grounded,true);
+    assert.ok(Math.abs(f.player.position.y-2.05-16.12)<.05,`${start.name}: did not land on the hall floor`);
+  }
 });
 
 test('Spade mountains block entry from every approach and the chest blocks walking', async () => {

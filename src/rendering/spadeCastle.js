@@ -2,8 +2,8 @@ import { CASTLE_FLOORS, CASTLE_STAIRS, CASTLE_RAILS, CASTLE_PROPS, CASTLE_RECORD
 
 // Render through the settlement's existing instance batches; no new model or
 // texture downloads. The ward is a small procedural fragment-shader surface.
-export function buildCastleInterior({root,add,block,module,label,notify}) {
-  const discovery=createCastleDiscovery();
+export function buildCastleInterior({root,add,block,module,label,notify,echo}) {
+  const discovery=createCastleDiscovery({hasEcho:()=>!echo||echo.recovered});
   for(const p of CASTLE_FLOORS) block(p.u,p.v,p.width,p.depth,p.top-p.bottom,p.bottom,'trim');
   for(const p of CASTLE_RAILS) {
     block(p.u,p.v,p.width,p.depth,.18,p.top-.18,'trim');
@@ -44,8 +44,8 @@ export function buildCastleInterior({root,add,block,module,label,notify}) {
     }
   }
   for(const r of CASTLE_RECORDS)label(r.title,r.u,r.top+3.3,-12.7,7,0);
-  label('LANTERN ATRIUM · GATHER BEFORE YOU STRIKE',126,20.7,0,11);
-  label('TESTIMONY ARCHIVE · WALK QUIETLY TO READ',174.5,26.4,0,16);
+  label('LANTERN ATRIUM · EXPLORE IN STILLNESS. DISCOVER IN CHAOS.',126,20.7,0,11);
+  label('TESTIMONY ARCHIVE · CHAOS REVEALS THE ERASED PATH',174.5,26.4,0,16);
   // Stained-glass light panels are emissive geometry, not extra shadow lights.
   for(const u of [137,153,169])for(const v of [-14.92,14.92]) {
     block(u,v,3,.035,3.8,26.5,'roof');
@@ -62,7 +62,8 @@ export function buildCastleInterior({root,add,block,module,label,notify}) {
       const event=discovery.update(player.position,state.chaos);
       if(event)notify?.(`${event.title} · ${event.text}`,8000);
       const feet=player.position.y-2.05,level=CASTLE_LEVELS[feet>29?2:feet>22?1:0];
-      const text=`${level.name}\nTESTIMONIES ${discovery.count}/3\n${state.chaos>.4?'Be still to hear the memories.':discovery.objective}`;
+      const echoText=echo?`\nERASED WITNESS ${echo.recovered?'RESTORED':echo.active?'REVEALED':'HIDDEN'}\n${echo.objective}`:'';
+      const text=`${level.name}\nTESTIMONIES ${discovery.count}/3${echoText}\n${state.chaos>.4?'Chaos exposes what the Triad erased.':discovery.objective}`;
       if(text!==last){panel.textContent=text;panel.style.whiteSpace='pre-line';last=text;}
     },
     reset(){discovery.reset();last='';panel.style.display='none';},

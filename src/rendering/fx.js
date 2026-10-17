@@ -91,26 +91,37 @@ export function applyCameraShake(camera, dt) {
 
 // Sounds
 // Recorded samples from assets/sounds/<name>.mp3 when present (see SOUNDS), otherwise the
-// synthesized WebAudio fallback below. Browsers only allow audio after the first key press or
-// click; unlockAudio() is called on keydown and also starts loading the samples.
+// synthesized WebAudio fallback below. Prepare the suspended context and decode
+// samples behind the intro; the first movement key must not initialize audio.
 const SOUNDS = ['bark', 'howl', 'pet', 'pickup', 'whoosh', 'cure'];
 const samples = {}; // name -> AudioBuffer, or null if the file is missing
 let ac = null;
-function ctx() {
+let audioPreparation = null;
+export function prepareAudio() {
+  if (audioPreparation) return audioPreparation;
   const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return null;
-  if (!ac) {
+  if (!AC) return audioPreparation = Promise.resolve();
+  try {
     ac = new AC();
-    for (const name of SOUNDS) {
+    const suspended = ac.state === 'running' ? ac.suspend().catch(() => {}) : Promise.resolve();
+    audioPreparation = Promise.all([suspended, ...SOUNDS.map(name => {
       samples[name] = null;
-      fetch(`assets/sounds/${name}.mp3`)
+      return fetch(`assets/sounds/${name}.mp3`)
         .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
         .then(data => ac.decodeAudioData(data))
         .then(buffer => { samples[name] = buffer; })
         .catch(() => {}); // no file: keep the synthesized version
-    }
+    })]);
+  } catch (error) {
+    console.warn('Audio unavailable; continuing without sound.', error);
+    ac = null;
+    audioPreparation = Promise.resolve();
   }
-  if (ac.state === 'suspended') ac.resume();
+  return audioPreparation;
+}
+function ctx() {
+  if (!audioPreparation) prepareAudio();
+  if (ac?.state === 'suspended') ac.resume().catch(() => {});
   return ac;
 }
 export function unlockAudio() { ctx(); }
@@ -130,7 +141,7 @@ function sample(name, vol = 0.8) {
 }
 
 function tone({ type = 'sine', f0 = 440, f1 = f0, dur = 0.4, vol = 0.2, delay = 0 }) {
-  // Only unlockAudio() creates the context; creating it here before a key press triggers autoplay warnings.
+  // Only unlockAudio() resumes playback, in response to a user gesture.
   const a = ac;
   if (!a || a.state !== 'running') return;
   const t = a.currentTime + delay;

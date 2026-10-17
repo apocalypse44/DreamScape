@@ -50,11 +50,12 @@ export function castleVolumes() {
     ...CASTLE_PROPS.map(p=>({...p,top:p.bottom+p.height,solid:true}))]
     .map(p=>({...p,x:-344-p.u,z:p.v}));
 }
-export function createCastleDiscovery() {
+export function createCastleDiscovery({hasEcho=()=>true}={}) {
   const found = new Set(); let inspected=false;
   return {
     get count(){return found.size;}, get complete(){return found.size===3&&inspected;},
     get objective(){return found.size<3?'Read the three testimonies in the first-floor archive.'
+      :!hasEcho()?'Expose the erased castle in chaos. Recover the witness above the archive.'
       :!inspected?'Climb to the observatory and inspect the three bindings.'
       :'Return to Neris. The border anchor must fall before the journey north.';},
     update(position,chaos){
@@ -63,7 +64,7 @@ export function createCastleDiscovery() {
       for(const record of CASTLE_RECORDS) if(!found.has(record.id)&&Math.abs(feet-record.top)<1&&Math.hypot(position.x+344+record.u,position.z-record.v)<2.8){
         found.add(record.id);return {title:record.title,text:record.text};
       }
-      if(found.size===3&&!inspected&&Math.abs(feet-30.12)<1&&Math.hypot(position.x+516,position.z)<4){
+      if(found.size===3&&hasEcho()&&!inspected&&Math.abs(feet-30.12)<1&&Math.hypot(position.x+516,position.z)<4){
         inspected=true;return {title:'THE HOLLOW CROWN',text:'Veyr hides the true anchors. Sile feeds the shield. Morcant seals the armor. The swarm needs all three openings. First, free the border settlement with Neris.'};
       }
       return null;
@@ -72,28 +73,5 @@ export function createCastleDiscovery() {
   };
 }
 
-export function createCastleRecovery() {
-  let checkpoint=null;
-  return {
-    update(player){
-      const {x,y,z}=player.position,feet=y-2.05;
-      const inside=x<-468&&x>-522&&Math.abs(z)<16;
-      if(!inside){checkpoint=null;return null;}
-      if(player.grounded)for(const floor of CASTLE_FLOORS){
-        if(Math.abs(feet-floor.top)<.2&&Math.abs(-344-x-floor.u)<floor.width/2&&Math.abs(z-floor.v)<floor.depth/2)
-          checkpoint={x:-344-(floor.top>29?172:148),z:11,top:floor.top};
-      }
-      // Descending a staircase briefly marks the player airborne. A nearby
-      // support below the feet is an intentional descent, not an atrium fall.
-      const supported=[...CASTLE_FLOORS,...CASTLE_STAIRS].some(p=>{
-        if(Math.abs(-344-x-p.u)>p.width/2+.55||Math.abs(z-p.v)>p.depth/2+.55)return false;
-        const top=p.topAt?p.topAt(x,z):p.top;
-        return feet-top<.8&&feet-top>-.2;
-      });
-      if(supported)return null;
-      if(checkpoint&&!player.grounded&&player.velocity.y<0&&feet<checkpoint.top-5)return {...checkpoint};
-      return null;
-    },
-    reset(){checkpoint=null;},
-  };
-}
+// Falls inside the castle resolve against the lower floors, never a checkpoint.
+export const isInsideSpadeCastle = position => position.x < -466 && position.x > -524 && Math.abs(position.z) < 17;

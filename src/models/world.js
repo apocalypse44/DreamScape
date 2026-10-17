@@ -11,6 +11,7 @@ export function createWorld({ scene, state, player, onChunk }) {
   const CHUNK_SIZE = 64;
   const SEGMENTS = 36;
   let viewRadius = 2;
+  let pendingChunks = 0;
   // ?seed= in the URL recreates the same world; a random seed is written back so reloads match.
   const params = new URLSearchParams(location.search);
   const seed = Number.parseInt(params.get('seed'), 10) || Math.floor(Math.random() * 8999) + 1000;
@@ -307,18 +308,24 @@ export function createWorld({ scene, state, player, onChunk }) {
   function updateChunks() {
     const cx = Math.floor((player.position.x + CHUNK_SIZE / 2) / CHUNK_SIZE);
     const cz = Math.floor((player.position.z + CHUNK_SIZE / 2) / CHUNK_SIZE);
+    const missing = [];
     for (let x = cx - viewRadius; x <= cx + viewRadius; x++) {
       for (let z = cz - viewRadius; z <= cz + viewRadius; z++) {
-        if (!chunks.has(chunkKey(x, z))) createChunk(x, z);
+        if (!chunks.has(chunkKey(x, z))) missing.push({ x, z });
       }
     }
+    // Spawn/teleport preparation is spread over frames, nearest ground first.
+    // Normal walking still benefits from the existing speculative prefetch.
+    missing.sort((a, b) => (a.x - cx) ** 2 + (a.z - cz) ** 2 - (b.x - cx) ** 2 - (b.z - cz) ** 2);
+    if (missing.length) createChunk(missing[0].x, missing[0].z);
+    pendingChunks = Math.max(0, missing.length - 1);
     for (const [key, chunk] of chunks) {
       if (Math.abs(chunk.userData.cx - cx) > viewRadius + 1 || Math.abs(chunk.userData.cz - cz) > viewRadius + 1) {
         removeChunk(key, chunk);
       }
     }
     const ahead=nextChunkPrefetch(cx,cz,player.position.x,player.position.z,viewRadius,(x,z)=>chunks.has(chunkKey(x,z)));
-    if(ahead)createChunk(ahead.x,ahead.z); // at most one speculative chunk per frame
+    if(!missing.length && ahead)createChunk(ahead.x,ahead.z); // one chunk total per frame
   }
 
   function removeChunk(key, chunk) {
@@ -368,6 +375,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
     isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6),
     get formed() { return formed; },
+    get pendingChunks() { return pendingChunks; },
     get terrainVersion() { return terrainVersion; },
     get viewRadius() { return viewRadius; },
     set viewRadius(value) {

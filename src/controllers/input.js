@@ -11,7 +11,9 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clearInput();
   });
-  enterButton.addEventListener("click", () => renderer.domElement.requestPointerLock());
+  enterButton.addEventListener("click", () => {
+    if (!enterButton.disabled) renderer.domElement.requestPointerLock();
+  });
   document.addEventListener("pointerlockchange", () => {
     state.locked = document.pointerLockElement === renderer.domElement;
     clearInput();
