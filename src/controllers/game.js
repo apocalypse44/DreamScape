@@ -24,6 +24,7 @@ import { createSkyIsland } from '../rendering/skyIsland.js';
 import { createKingdomBorder } from '../rendering/kingdomBorder.js';
 import { createHeavenlyFalls } from '../rendering/heavenlyFalls.js';
 import { createKingdomGates } from '../rendering/kingdomGates.js';
+import { createSpade } from '../rendering/spade.js';
 import { createEncounters } from './encounters.js';
 import { createChaosLook } from './chaosLook.js';
 import { applyCameraShake } from '../rendering/fx.js';
@@ -65,8 +66,9 @@ export function startGame(ui) {
   shrine.colliders.push(...waterfall.colliders, ...wayfinding.colliders, ...ridge.colliders, ...plaza.colliders, ...clover.colliders);
   const heavenly = createHeavenlyFalls({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
-  shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders);
-  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms];
+  const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast });
+  shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
+  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
   const surfaceAt = createSurfaceAt(platforms, terrainHeight);
   // Ground-level obstacles the hound's A* routes around: landmark and prop colliders that still stand.
@@ -85,7 +87,7 @@ export function startGame(ui) {
     isMovementBlocked: () => skyIsland.journey.blocked,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
-      : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
+      : spade.courseRecovery(player) || waterfall.courseRecovery(player) || clover.courseRecovery(player) });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
@@ -112,6 +114,7 @@ export function startGame(ui) {
     plaza.reset();
     clover.reset();
     skyIsland.reset();
+    spade.reset();
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -125,8 +128,9 @@ export function startGame(ui) {
   atmosphere.prepare?.(plaza.root);
   atmosphere.prepare?.(clover.root);
   atmosphere.prepare?.(skyIsland.root);
+  atmosphere.prepare?.(spade.root);
   const grass = createGrass({ hash, chunks });
-  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root] });
+  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root, spade.obstacles] });
   const character = createCharacter({ scene, state, player, surfaceAt });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
@@ -184,7 +188,7 @@ export function startGame(ui) {
   }
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade };
 
   // Demo spawns (Theatre mode, keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -230,6 +234,7 @@ export function startGame(ui) {
   }
   const resolution = createResolutionGovernor(renderer);
   const clock = new THREE.Clock();
+  let shadersWarmed=false,warmupQueued=false;
   let fpsFrames = 0;
   let fpsTime = 0;
   function frame() {
@@ -255,6 +260,7 @@ export function startGame(ui) {
     quest.updateHoundEmber(companion.position);
     kingdomBorder.update(dt);
     gates.update(dt);
+    spade.update(dt, player, state);
     heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
@@ -306,6 +312,14 @@ export function startGame(ui) {
     atmosphere.finish(dt, chaosScore, camera);
     updateKamui();
     kamui.render(scene, camera, dt);
+    // compile() includes hidden meshes, so the swarm's first appearance does
+    // not compile its lighting program while crossing the kingdom boundary.
+    // Run once with the final sky/light setup, while the intro is still open.
+    if(!shadersWarmed&&!warmupQueued&&!state.locked){
+      warmupQueued=true;
+      const warm=()=>{warmupQueued=false;if(state.locked)return;renderer.compile(scene,camera);shadersWarmed=true;};
+      if(globalThis.requestIdleCallback)requestIdleCallback(warm,{timeout:1500});else setTimeout(warm,0);
+    }
   }
 
   reset();

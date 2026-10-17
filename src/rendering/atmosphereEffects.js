@@ -2,6 +2,7 @@
 import { CONFIG } from '../models/chaosLookConfig.js';
 import { sampleLook } from '../models/look.js';
 import { sampleDaylight } from '../models/daylight.js';
+import { spadeClimateAt } from '../models/climate.js';
 import { createSky } from './sky.js';
 import { createChaosWeather } from './chaosWeather.js';
 import { createEnvironmentLighting } from './environmentLighting.js';
@@ -39,6 +40,7 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
       time += dt;
       const look = sampleLook(visual);
       const flash = weather.update(dt, visual, camera.position);
+      const climate = spadeClimateAt(camera.position.x, camera.position.z);
       sky.mesh.visible = enabled;
       if (!enabled) {
         moon.intensity = 0;
@@ -55,12 +57,16 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
         hemi.color.lerp(look.hemiSky, k);
         hemi.groundColor.lerp(look.hemiGround, k);
         hemi.intensity += (look.hemiIntensity - hemi.intensity) * k + flash * 3;
+        sun.intensity *= 1 - climate;
+        hemi.intensity += (0.3 - hemi.intensity) * climate;
+        hemi.color.lerp(skyNight, climate);
+        hemi.groundColor.lerp(groundNight, climate);
+        scene.fog.color.lerp(fogNight, climate);
         lighting.update(false, 0, dt, '');
         wasEnabled = false;
       } else {
         // Spade cannot become sunny while its full snow climate is being added.
-        const permanentNight = biome?.kind === 'wisps';
-        const day = sampleDaylight(hour, permanentNight);
+        const day = sampleDaylight(hour, climate);
         const storm = visual * 0.8;
         const u = sky.uniforms;
         u.uZenith.value.copy(zenithNight).lerp(zenithDay, day.daylight).lerp(stormSky, storm * 0.65);
@@ -70,7 +76,7 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
         u.uTwilight.value = day.twilight;
         u.uStars.value = day.stars * (1 - storm);
         u.uTime.value = time;
-        u.uCloudCover.value = permanentNight ? 0.95 : 0.38 + storm * 0.6;
+        u.uCloudCover.value = THREE.MathUtils.lerp(0.38 + storm * 0.6, 0.95, climate);
         u.uStorm.value = storm;
         u.uFlash.value = flash;
         sky.update(camera);
@@ -78,6 +84,7 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
         scene.fog.color.copy(fogNight).lerp(fogDay, day.daylight).lerp(fogDusk, day.twilight * 0.6).lerp(fogStorm, storm * day.daylight);
         // Preserve the landmark passes' reduced fog density.
         scene.fog.density = Math.min(scene.fog.density, 0.006 + storm * 0.014);
+        scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, Math.min(scene.fog.density, 0.0048 + visual * 0.0015), climate);
         u.uFogColor.value.copy(scene.fog.color);
         sun.target.position.copy(camera.position);
         sun.position.copy(camera.position).addScaledVector(u.uSunDirection.value, 100);
@@ -90,7 +97,7 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
         hemi.groundColor.copy(groundNight).lerp(groundDay, day.daylight);
         hemi.intensity = day.ambientIntensity * (1 - storm * 0.4) + flash * 1.2;
         renderer.toneMappingExposure = 1.05 - storm * 0.13;
-        const signature = [Math.floor(hour * 2), Math.round(day.daylight * 20), Math.round(day.twilight * 10), Math.round(storm * 10), permanentNight].join(':');
+        const signature = [Math.floor(hour * 2), Math.round(day.daylight * 20), Math.round(day.twilight * 10), Math.round(storm * 10), Math.round(climate * 10)].join(':');
         const jumped = lastHour !== null && Math.abs(hour - lastHour) > 0.25;
         lighting.update(true, 0.28 + day.daylight * 0.52, dt, signature, jumped || !wasEnabled);
         lastHour = hour;

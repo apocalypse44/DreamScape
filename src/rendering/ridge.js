@@ -89,6 +89,7 @@ export function createRidge({ scene, world, onReady }) {
       }).catch(error => console.warn(`Ridge ${name} dressing unavailable.`, error));
   }
   const hint = document.createElement('small');
+  hint.dataset.kingdom = 'GRIMOIRE TOWER';
   document.querySelector('.compass').appendChild(hint);
   let terrainVersion = -1;
   function update(player) {

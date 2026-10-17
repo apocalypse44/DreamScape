@@ -10,6 +10,7 @@ import { RIDGE } from '../models/ridge.js';
 import { CLOVER_ENTRANCE } from '../models/cloverTerrain.js';
 import { SKY, SUMMIT_DOOR } from '../models/skyIsland.js';
 import { SHRINE } from '../models/quest.js';
+import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 
 const CENTER = { x: 0, z: -90 }; // shifted north so the Clover terraces and Sky Garden fit
 const HALF = 650;                // metres from the centre to the map edge
@@ -29,6 +30,7 @@ const LANDMARKS = [
   { name: 'CLOVER TERRACES', x: CLOVER_ENTRANCE.x, z: CLOVER_ENTRANCE.z, side: 1 },
   { name: 'CLOVER SUMMIT', note: 'Sky gateway', x: SUMMIT_DOOR.x, z: SUMMIT_DOOR.z, side: -1 },
   { name: 'SKY GARDEN', note: 'Heavenly Falls below', x: SKY.x, z: SKY.z, side: 1, floating: true },
+  ...SPADE_MAP_LOCATIONS.map(p=>({...p,side:1,color:'#c5afff',callout:true})),
 ];
 
 const CSS = `
@@ -58,6 +60,10 @@ const CSS = `
   background: none; color: ${GOLD}; font: 16px Georgia, serif; cursor: pointer; }
 #worldMap header button:hover { background: rgba(216,178,90,.15); }
 #worldMap canvas { display: block; border: 1px solid rgba(216,178,90,.45); border-radius: 3px; }
+#worldMap .spade-destinations { display:flex;flex-wrap:wrap;gap:6px; }
+#worldMap .spade-destinations button { background:#191426;border:1px solid #746386;color:#e2d4ff;padding:7px 9px;cursor:pointer;font:10px 'DM Mono',monospace; }
+#worldMap .spade-destinations button:focus-visible,#worldMap .spade-destinations button[aria-pressed="true"] { outline:2px solid #c5afff;outline-offset:1px; }
+#worldMap .map-location-detail { max-width:860px;margin:0;color:#dbd2bf;font:11px/1.5 'DM Mono',monospace;min-height:3em; }
 #worldMap footer { display: flex; flex-wrap: wrap; gap: 16px; color: rgba(240,230,200,.75); font: 9px 'DM Mono', monospace; letter-spacing: .12em; }
 #worldMap footer i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; border-radius: 50%; }
 #worldMap footer .hint { margin-left: auto; color: rgba(216,178,90,.6); }`;
@@ -109,6 +115,8 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
       <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
       <button type="button" aria-label="Close map">✕</button></header>
     <canvas class="map"></canvas>
+    <nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
+    <p class="map-location-detail" aria-live="polite">Choose a Spade location to show its route and directions.</p>
     <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span><span class="hint">M / ESC · CLOSE</span></footer></div>`;
@@ -127,6 +135,20 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
   drawClover(sealCanvas.getContext('2d'), 22, 24, 21, '#0b0a07', GOLD);
 
   let open = false, relief = null, size = 0, lastDraw = 0;
+  let selected=null;
+  const locationDetail=overlay.querySelector('.map-location-detail');
+  overlay.querySelector('.spade-destinations').addEventListener('click',event=>{
+    const target=event.target.closest('button');if(!target)return;
+    if(target.hasAttribute('data-quest-route')){
+      selected=null;navigation.clearDestination?.();locationDetail.textContent='Quest navigation restored.';
+    }else{
+      selected=SPADE_MAP_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
+      navigation.setDestination?.({...selected.destination,id:selected.id});
+      locationDetail.textContent=`${selected.name} · X ${Math.round(selected.x)} / Z ${selected.z}. ${selected.directions}`;
+    }
+    overlay.querySelectorAll('[data-spade]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.spade===selected?.id)));
+    draw(performance.now()/1000);
+  });
 
   // Relief layer: generated once from the calm height field
   function buildRelief() {
@@ -169,9 +191,10 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
   const toMap = (x, z) => [((x - CENTER.x + HALF) / (2 * HALF)) * size, ((z - CENTER.z + HALF) / (2 * HALF)) * size];
 
   function resize() {
-    const css = Math.floor(Math.min(innerHeight - 170, innerWidth - 120, 860));
+    const css = Math.max(180,Math.floor(Math.min(innerHeight - 280, innerWidth - 120, 860)));
     const dpr = Math.min(devicePixelRatio, 2);
     canvas.style.width = canvas.style.height = `${css}px`;
+    overlay.querySelector('.atlas').style.width=`${css+46}px`; // include border-box padding around the canvas
     canvas.width = canvas.height = Math.round(css * dpr);
     size = canvas.width;
   }
@@ -280,15 +303,19 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
       ctx.fillStyle = '#0f0c07';
       ctx.fill();
       ctx.lineWidth = 3 * u;
-      ctx.strokeStyle = GOLD;
+      ctx.strokeStyle = l.color||GOLD;
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(x, y, 3 * u, 0, Math.PI * 2);
-      ctx.fillStyle = GOLD;
+      ctx.fillStyle = l.color||GOLD;
       ctx.fill();
-      const lx = x + l.side * 16 * u, align = l.side > 0 ? 'left' : 'right';
-      label(l.name, lx, y - (l.note ? 6 * u : 0), { font: `bold ${17 * u}px Georgia, serif`, color: '#f3e3b5', align });
-      if (l.note) label(l.note, lx, y + 13 * u, { font: `italic ${13 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align });
+      const lx = l.callout?size*.04:x+l.side*16*u,ly=l.callout?size*l.labelY:y,align=l.callout?'left':l.side>0?'left':'right';
+      if(l.callout){
+        ctx.strokeStyle=l.color;ctx.lineWidth=u;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,ly+24*u);ctx.lineTo(lx,ly+24*u);ctx.stroke();
+        if(selected?.id===l.id){ctx.beginPath();ctx.arc(x,y,14*u,0,Math.PI*2);ctx.stroke();}
+      }
+      label(l.name, lx, ly - (l.note ? 6 * u : 0), { font: `bold ${17 * u}px Georgia, serif`, color: l.color||'#f3e3b5', align });
+      if (l.note) label(l.note, lx, ly + 13 * u, { font: `italic ${13 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align });
     }
 
     // Embers, the hound / dog.

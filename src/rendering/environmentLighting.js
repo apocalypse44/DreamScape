@@ -10,6 +10,15 @@ export function createEnvironmentLighting({ scene, renderer, profiles, sky }) {
   captureSky.visible = true;
   captureScene.add(captureSky);
   const pmrem = new THREE.PMREMGenerator(renderer);
+  // fromScene() captures a 256px cube in r128. The stylized sky needs only a
+  // small radiance map: 64px cuts capture pixels sixteenfold and shrinks the
+  // PMREM filtering work when the climate changes along a kingdom approach.
+  const skyCube = new THREE.WebGLCubeRenderTarget(64, {
+    type: THREE.HalfFloatType, format: THREE.RGBAFormat,
+    generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  });
+  skyCube.texture.encoding = THREE.LinearEncoding;
+  const captureCamera = new THREE.CubeCamera(0.1, 100, skyCube);
 
   for (const [original, surface] of profiles) {
     const material = new THREE.MeshStandardMaterial({
@@ -51,11 +60,15 @@ export function createEnvironmentLighting({ scene, renderer, profiles, sky }) {
       if (active && (!target || force || (elapsed >= 5 && signature !== lastSignature))) {
         const previous = target;
         const flash = sky.uniforms.uFlash.value;
+        const toneMapping = renderer.toneMapping;
         sky.uniforms.uCapture.value = 1;
         sky.uniforms.uFlash.value = 0;
         try {
-          target = pmrem.fromScene(captureScene, 0, 0.1, 100);
+          renderer.toneMapping = THREE.NoToneMapping;
+          captureCamera.update(renderer, captureScene);
+          target = pmrem.fromCubemap(skyCube.texture);
         } finally {
+          renderer.toneMapping = toneMapping;
           sky.uniforms.uCapture.value = 0;
           sky.uniforms.uFlash.value = flash;
         }

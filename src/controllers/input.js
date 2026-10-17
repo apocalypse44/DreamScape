@@ -33,6 +33,10 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
   document.addEventListener("keydown", event => {
     if (!state.locked || !document.hasFocus()) return;
     keys.add(event.code);
+    if (event.code === 'KeyI' && !event.repeat) {
+      document.body.classList.toggle('right-panels-hidden');
+      event.preventDefault();
+    }
     if (event.code === 'KeyV' && !event.repeat) {
       state.perspective = state.perspective === 'third' ? 'first' : 'third';
       document.body.classList.toggle("tpp", state.perspective === 'third');

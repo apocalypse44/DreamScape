@@ -15,6 +15,7 @@ ASSETS = [
     'animals/License.txt',
     'crystals',
     'shrine',
+    'spade',
     'character',
     'Stylized Nature MegaKit[Standard]/glTF',
     'Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb',

@@ -1,3 +1,5 @@
+import { landmarkHintLines } from '../models/landmarkHints.js';
+
 export async function mountView() {
   const response = await fetch(new URL('./game.html', import.meta.url));
   if (!response.ok) throw new Error(`Could not load game view (${response.status})`);
@@ -25,8 +27,11 @@ export async function mountView() {
   const questGoalEl = document.querySelector("#questGoal");
   const shrinePanelEl = document.querySelector("#shrinePanel");
   const shrineTextEl = document.querySelector("#shrineText");
+  const localLandmarksEl = document.createElement('div');
+  document.querySelector('.compass').appendChild(localLandmarksEl);
+  const landmarkRows = [];
 
-  return { kingdomEl, worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl, shrinePanelEl, shrineTextEl };
+  return { localLandmarksEl, landmarkRows, kingdomEl, worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl, shrinePanelEl, shrineTextEl };
 }
 
 // Text is only written when it changes, so the aria-live panel isn't re-announced every frame.
@@ -61,6 +66,20 @@ export function updateHUD(ui, state, player, biomeAt) {
   }
   compassDirectionEl.textContent = currentWorld.route;
   compassWorldEl.textContent = currentWorld.name;
+  // Keep renderer-owned discovery/progress messages, but only in their own kingdom.
+  for (const hint of document.querySelectorAll('.compass [data-kingdom]')) {
+    hint.hidden = hint.dataset.kingdom !== currentWorld.name;
+  }
+  const lines = landmarkHintLines(currentWorld.name, player.position);
+  while (ui.landmarkRows.length < lines.length) {
+    const row = document.createElement('small');
+    ui.localLandmarksEl.appendChild(row);
+    ui.landmarkRows.push(row);
+  }
+  ui.landmarkRows.forEach((row, i) => {
+    row.hidden = i >= lines.length;
+    if (i < lines.length && row.textContent !== lines[i]) row.textContent = lines[i];
+  });
   compassCoordinatesEl.textContent = `X ${Math.round(player.position.x)} · Z ${Math.round(player.position.z)}`;
   const bearing = ((-yaw * 180 / Math.PI) % 360 + 360) % 360;
   const directions = ["N · NORTH","NE · NORTH-EAST","E · EAST","SE · SOUTH-EAST","S · SOUTH","SW · SOUTH-WEST","W · WEST","NW · NORTH-WEST"];
