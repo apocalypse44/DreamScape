@@ -122,10 +122,10 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
       <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
       <button type="button" aria-label="Close map">✕</button></header>
     <div class="book-spread"><section class="map-page" aria-label="World atlas">
-    <p class="page-kicker">I · THE KNOWN WORLD</p><div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas></div><p class="map-loading" role="status">The atlas is tracing the land…</p>
-    <nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
+    <div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></div>
+    <div class="map-toolbar"><details class="map-destinations"><summary>DESTINATIONS</summary><div class="destination-panel"><nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
     <p class="map-location-detail" aria-live="polite">Choose a Spade location to show its route and directions.</p>
-    <button type="button" class="page-turn" data-book-page="quests" aria-label="Open the grimoire to your quests">OPEN QUESTS <span aria-hidden="true">➜</span></button>
+    </div></details><button type="button" class="page-turn" data-book-page="quests" aria-label="Open the grimoire to your quests">OPEN QUESTS <span aria-hidden="true">➜</span></button></div>
     <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
@@ -262,6 +262,8 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
 
   function resize() {
     const frame=overlay.querySelector('.map-frame');
+    // Keep the atlas scale from dc3b219, independently of journal controls.
+    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 170, innerWidth - 120, 860)))}px`);
     const css=Math.max(1,Math.floor(Math.min(frame.clientWidth,frame.clientHeight)));
     const dpr = Math.min(devicePixelRatio, 2);
     if(canvas.width===Math.round(css*dpr)&&canvas.style.width===`${css}px`)return;
@@ -508,7 +510,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
     if (event.code === 'KeyM' && !event.repeat) {event.preventDefault();setOpen(!open);}
     else if (event.code === 'Escape' && open) {event.preventDefault();setOpen(false, false);}
     else if(event.code==='Tab'&&open){
-      const focusable=[...overlay.querySelectorAll('button:not(:disabled)')].filter(b=>!b.closest('[inert]')&&b.getClientRects().length);
+      const focusable=[...overlay.querySelectorAll('button:not(:disabled), summary')].filter(b=>!b.closest('[inert]')&&b.getClientRects().length);
       const first=focusable[0],last=focusable.at(-1);
       if(event.shiftKey&&(document.activeElement===first||!overlay.contains(document.activeElement))){event.preventDefault();last?.focus();}
       else if(!event.shiftKey&&(document.activeElement===last||!overlay.contains(document.activeElement))){event.preventDefault();first?.focus();}

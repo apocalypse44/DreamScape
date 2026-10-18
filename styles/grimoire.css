@@ -1,12 +1,12 @@
-#worldMap { perspective: 1800px; padding: 24px; }
-#worldMap .atlas { width: min(1180px, calc(100vw - 48px)); height: min(860px, calc(100dvh - 48px)); max-height: calc(100dvh - 48px); padding: 19px 20px 12px; gap: 13px; overflow: hidden; perspective: 1400px; }
+#worldMap { perspective: 1800px; padding: 12px; }
+#worldMap .atlas { width: calc(var(--map-size) + 46px); padding: 18px 22px 16px; gap: 10px; perspective: 1400px; }
 #worldMap header { flex-shrink: 0; }
 #worldMap header h2 { font-size: 21px; letter-spacing: .19em; }
 #worldMap header button { flex-shrink: 0; }
-#worldMap .book-spread { position: relative; flex: 1; min-height: 0; perspective: 1600px; border: 1px solid #b59b6040; background: #16120c; }
-#worldMap .map-page { position: relative; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; transform-origin: 100% 50%; background: linear-gradient(90deg, #17130c, #241e12 92%, #090805); }
+#worldMap .book-spread { position: relative; height: calc(var(--map-size) + 60px); perspective: 1600px; background: #16120c; }
+#worldMap .map-page { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; transform-origin: 100% 50%; background: linear-gradient(90deg, #17130c, #241e12 92%, #090805); }
 #worldMap .map-page > * { flex-shrink: 0; }
-#worldMap .map-page .map-frame { position: relative; flex: 1 1 0; width: 100%; min-height: 0; overflow: hidden; display: grid; place-items: center; }
+#worldMap .map-page .map-frame { position: relative; flex: none; width: var(--map-size); height: var(--map-size); overflow: hidden; display: grid; place-items: center; }
 #worldMap .map-frame canvas { position: absolute; max-width: 100%; max-height: 100%; }
 #worldMap .quest-page { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 19px 22px 16px; color: #332d21; background: linear-gradient(90deg, #9d8e69 0, #d2c29b 4%, #e0d3b2 14%, #d8c9a6 96%, #b09e73 100%); box-shadow: inset 12px 0 14px #44341735; }
 #worldMap .page-kicker { align-self: stretch; margin: 0; color: #b69a5e; font: 7px/1.5 'DM Mono', monospace; letter-spacing: .18em; }
@@ -32,14 +32,20 @@
 #worldMap .quest-card[data-status='complete'] h4 { color: #365b3d; }
 #worldMap .quest-card[data-status='complete'] .quest-state { color: #315d43; border-color: #446d4560; }
 #worldMap .quest-colophon { margin: 13px 0 0; color: #7c6740; text-align: center; font: italic 10px/1.5 Georgia, serif; }
-#worldMap .map-loading { margin: 0; align-self: stretch; color: #bda673; font: italic 11px Georgia, serif; }
+#worldMap .map-loading { position: absolute; margin: 0; color: #bda673; font: italic 11px Georgia, serif; }
 #worldMap .map-loading[hidden] { display: none; }
 #worldMap .map-location-detail { font-size: 10px; min-height: 3em; align-self: stretch; }
 #worldMap .spade-destinations { align-self: stretch; }
 #worldMap .spade-destinations button { font-size: 8px; padding: 7px 8px; }
 #worldMap .map-page footer { align-self: stretch; gap: 9px; font-size: 7px; }
 #worldMap .map-page footer i { width: 6px; height: 6px; margin-right: 3px; }
-#worldMap .book-bottom { display: flex; justify-content: space-between; gap: 12px; color: #a58c55; font: 7px 'DM Mono', monospace; letter-spacing: .12em; }
+#worldMap .book-bottom { display: none; }
+#worldMap .map-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
+#worldMap .map-destinations { position: relative; }
+#worldMap .map-destinations summary { color: #dfc786; cursor: pointer; font: 9px 'DM Mono', monospace; }
+#worldMap .destination-panel { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 3; width: min(360px, var(--map-size)); padding: 12px; border: 1px solid #b59b6060; background: #16120cf5; box-shadow: 0 4px 20px #0008; }
+#worldMap .map-toolbar .page-turn { padding: 3px 8px; font-size: 8px; gap: 8px; }
+#worldMap .map-toolbar .page-turn span { font-size: 18px; }
 body.grimoire-open #chaosReadout { visibility: hidden; }
 #worldMap .map-page, #worldMap .quest-page { position: absolute; inset: 0; transform-origin: 0 50%; backface-visibility: hidden; transition: transform .7s cubic-bezier(.25,.65,.2,1), opacity .7s; }
 #worldMap .map-page { z-index: 2; transform: rotateY(0); }
@@ -56,16 +62,28 @@ body.grimoire-open #chaosReadout { visibility: hidden; }
 @keyframes grimoire-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(15px) scale(.96); } }
 @keyframes grimoire-seal { from { opacity: 0; transform: rotate(-24deg) scale(1.5); } 65% { opacity: 1; transform: rotate(-7deg) scale(.95); } to { opacity: 1; transform: rotate(-9deg) scale(1); } }
 @media (max-width: 800px) {
-  #worldMap { padding: 16px; }
-  #worldMap .atlas { height: min(860px, calc(100dvh - 32px)); padding: 14px 12px 11px; gap: 10px; max-height: calc(100dvh - 32px); }
+  #worldMap .atlas { padding: 14px 22px 11px; }
   #worldMap header h2 { font-size: 16px; letter-spacing: .12em; }
   #worldMap header small { font-size: 6px; letter-spacing: .08em; }
   #worldMap header .seal { width: 30px; height: 30px; }
-  #worldMap .map-page { padding: 11px; }
+  #worldMap .book-spread { height: calc(var(--map-size) + 78px); }
   #worldMap .quest-page { padding: 17px; }
   #worldMap .quest-list { max-height: calc(100dvh - 330px); }
   #worldMap .book-bottom { font-size: 6px; letter-spacing: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   #worldMap *, #worldMap *::before, #worldMap *::after { animation: none !important; transition: none !important; }
+}
+@media (max-height: 500px) {
+  #worldMap .atlas { padding: 8px 22px; gap: 6px; }
+  #worldMap header h2 { font-size: 12px; letter-spacing: .08em; }
+  #worldMap header small { font-size: 6px; letter-spacing: 0; }
+  #worldMap header .seal { width: 24px; height: 24px; }
+  #worldMap .book-spread { height: calc(var(--map-size) + 78px); }
+  #worldMap .quest-list { max-height: none; }
+  #worldMap .quest-page { padding: 12px; }
+  #worldMap .quest-page .page-turn { margin-bottom: 4px; padding: 3px 8px; }
+  #worldMap .quest-page h3 { margin: 5px 0; font-size: 22px; }
+  #worldMap .quest-intro, #worldMap .quest-colophon { display: none; }
+  #worldMap .journal-summary { margin: 6px 0; padding-bottom: 6px; }
 }
