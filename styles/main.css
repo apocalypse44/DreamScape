@@ -2,9 +2,15 @@
 /* In-world story scenes: the world remains live behind the letterbox and subtitles. */
 #houndScene { position:fixed; inset:0; z-index:28; color:#fff0da; background:linear-gradient(#0009,transparent 23%,transparent 55%,#080706d9); }
 #houndScene[hidden] { display:none; }
-#houndScene::before, #houndScene::after { content:''; position:absolute; left:0; right:0; height:7vh; background:#080706; pointer-events:none; }
-#houndScene::before { top:0; }
-#houndScene::after { bottom:0; }
+#houndScene::before, #houndScene::after { content:''; position:absolute; left:0; right:0; height:10vh; background:#080706; pointer-events:none; }
+/* Letterbox bars slide in when a scene opens, so the shift into a scene reads as deliberate. */
+#houndScene::before { top:0; animation:scene-bar-top 1.6s cubic-bezier(.65,0,.35,1) both; }
+#houndScene::after { bottom:0; animation:scene-bar-bottom 1.6s cubic-bezier(.65,0,.35,1) both; }
+@keyframes scene-bar-top { from { transform:translateY(-100%); } }
+@keyframes scene-bar-bottom { from { transform:translateY(100%); } }
+#houndScene .scene-line.in { animation:scene-line-in .9s cubic-bezier(.33,0,.2,1) both; }
+@keyframes scene-line-in { from { opacity:0; transform:translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { #houndScene::before, #houndScene::after, #houndScene .scene-line.in { animation:none; } }
 #houndScene .scene-veil { position:absolute; inset:0; background:#080706; pointer-events:none; }
 #houndScene .scene-top { position:absolute; top:2.2vh; left:5vw; right:5vw; display:flex; align-items:center; justify-content:space-between; gap:12px; color:#d8b884; font:9px 'DM Mono',monospace; letter-spacing:.18em; }
 #houndScene button { border:0; background:transparent; color:#d8b884; padding:6px 0; cursor:pointer; font:9px 'DM Mono',monospace; letter-spacing:.12em; }

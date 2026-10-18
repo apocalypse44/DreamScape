@@ -1,4 +1,18 @@
-import { createHoundScene } from '../models/houndScene.js';
+import { createHoundScene, PHASE_SECONDS, TRANSFORM_SECONDS, blendShot, smoother } from '../models/houndScene.js';
+
+// Shots orbit a subject. yaw is the angle (radians) from the subject's line toward the other character:
+// 0 sits between them, ~1 is a three-quarter view. The subject of each conversation takes +yaw and the
+// player −yaw, so every shot stays on the same side of the line between them (no left/right flips).
+// pitch looks down from above. Each shot drifts from a to b over its line, so the frame always moves with
+// intent; the transformation is one long descending orbit, from high and wide to low and close.
+const SHOTS = {
+  transform: { subject: 'hound', lift: .9, a: { yaw: 1.35, pitch: .46, dist: 8.2, fov: 50 }, b: { yaw: .5, pitch: .12, dist: 4.3, fov: 40 } },
+  hound: { subject: 'hound', lift: .9, a: { yaw: 1.05, pitch: .32, dist: 5.4, fov: 44 }, b: { yaw: 1.22, pitch: .27, dist: 4.6, fov: 42 } },
+  player: { subject: 'player', lift: -.45, a: { yaw: -.8, pitch: .24, dist: 3.9, fov: 44 }, b: { yaw: -.62, pitch: .2, dist: 3.3, fov: 42 } },
+  keeper: { subject: 'keeper', lift: 1.35, a: { yaw: .62, pitch: .2, dist: 4.8, fov: 44 }, b: { yaw: .74, pitch: .17, dist: 4, fov: 42 } },
+};
+const CUT_SECONDS = 1.8; // a change of shot is a slow arc, not a slide
+const CURSE_ROLL = .06;  // a slight Dutch angle (~3.5°) for the curse; the cure stays level
 
 export function createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, obstacles, onReset, canvas, getKeeper, onCureComplete }) {
   const story = createHoundScene();
@@ -15,6 +29,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
   const target = new THREE.Vector3(), desired = new THREE.Vector3(), direction = new THREE.Vector3();
   const look = new THREE.Vector3(), ray = new THREE.Raycaster();
   let savedFov = null, lastLine = -1;
+  let shotKey = null, shotClock = 0, cutClock = 0, cutFrom = null, pose = null, clearance = Infinity;
 
   function keepPointerLock() {
     if (document.pointerLockElement === canvas) return;
@@ -48,37 +63,35 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
     state.cinematicSpeaker = ''; state.cinematicMood = null;
     if (completed && story.kind === 'cure') onCureComplete?.();
   }
+  // Where a shot puts the camera at progress k (0 → 1 through its drift).
+  function shotPose(name, k) {
+    const shot = SHOTS[name] && (name !== 'keeper' || getKeeper?.()) ? SHOTS[name] : SHOTS.hound;
+    const keeper = getKeeper?.()?.root.position;
+    const at = shot.subject === 'keeper' ? keeper : shot.subject === 'player' ? player.position : companion.position;
+    const other = shot.subject === 'player' ? (story.kind === 'cure' && keeper ? keeper : companion.position) : player.position;
+    direction.set(other.x - at.x, 0, other.z - at.z);
+    if (direction.lengthSq() < .01) direction.set(Math.sin(state.yaw), 0, Math.cos(state.yaw));
+    const drift = key => shot.a[key] + (shot.b[key] - shot.a[key]) * k;
+    return { x: at.x, y: at.y + shot.lift, z: at.z, az: Math.atan2(direction.x, direction.z) + drift('yaw'),
+      pitch: drift('pitch'), dist: drift('dist'), fov: drift('fov'), roll: story.kind === 'curse' ? CURSE_ROLL : 0 };
+  }
   function updateCamera(dt) {
     if (story.phase === 'return') { restoreCamera(); return; }
-    const hound = companion.position;
-    direction.set(player.position.x - hound.x, 0, player.position.z - hound.z);
-    if (story.kind === 'cure' && story.line.shot === 'player' && getKeeper?.()) {
-      direction.subVectors(player.position, getKeeper().root.position); direction.y = 0;
-    }
-    if (direction.lengthSq() < .01) direction.set(Math.sin(state.yaw), 0, Math.cos(state.yaw));
-    direction.normalize();
-    if (story.line.shot === 'keeper' && getKeeper?.()) {
-      const keeper = getKeeper().root.position;
-      target.copy(keeper); target.y += 1.35;
-      direction.set(player.position.x - keeper.x, 0, player.position.z - keeper.z);
-      if (direction.lengthSq() < .01) direction.set(1, 0, 0);
-      direction.normalize();
-      desired.copy(target).addScaledVector(direction, 4);
-      desired.x += direction.z * 2; desired.z -= direction.x * 2;
-      desired.y += .3;
-    } else if (story.line.shot === 'player') {
-      target.copy(player.position); target.y -= .45;
-      desired.copy(target).addScaledVector(direction, -3.2);
-      desired.x += direction.z * 2.5; desired.z -= direction.x * 2.5;
-      desired.y += .35;
-    } else {
-      target.copy(hound); target.y += .85;
-      desired.copy(target).addScaledVector(direction, .8);
-      desired.x += direction.z * 4.8; desired.z -= direction.x * 4.8;
-      desired.y += 1.2;
-    }
+    // One shot for the fade-in and transformation, then one per line. A new shot starts an arc from wherever
+    // the camera is now; reduced motion cuts straight to it and holds still.
+    const dialogue = story.phase === 'dialogue' || (story.phase === 'exit' && shotKey !== 'transform');
+    const key = dialogue ? `line${story.index}` : shotKey ?? 'transform';
+    const name = key === 'transform' ? 'transform' : story.line.shot;
+    const length = key === 'transform' ? PHASE_SECONDS.enter + TRANSFORM_SECONDS : story.line.seconds;
+    if (key !== shotKey) { cutFrom = pose; cutClock = 0; shotClock = 0; shotKey = key; }
+    shotClock += dt; cutClock += dt;
+    const still = reducedMotion.matches;
+    pose = shotPose(name, still ? 0 : smoother(shotClock / length));
+    if (cutFrom && !still && cutClock < CUT_SECONDS) pose = blendShot(cutFrom, pose, smoother(cutClock / CUT_SECONDS));
+    target.set(pose.x, pose.y, pose.z);
     // Fit the growing hound in narrow viewports without changing its world scale.
-    desired.sub(target).multiplyScalar(Math.max(1, .9 / camera.aspect)).add(target);
+    const dist = pose.dist * Math.max(1, .9 / camera.aspect), flat = Math.cos(pose.pitch) * dist;
+    desired.set(target.x + Math.sin(pose.az) * flat, target.y + Math.sin(pose.pitch) * dist, target.z + Math.cos(pose.az) * flat);
     desired.y = Math.max(desired.y, terrainHeight(desired.x, desired.z) + .65);
     // Reuse the gameplay camera's obstruction rule for walls, props and slopes.
     direction.subVectors(desired, target);
@@ -86,10 +99,13 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
     const objects = obstacles(); objects.forEach(object => object.updateMatrixWorld(true));
     ray.set(target, direction); ray.near = .15; ray.far = distance;
     const hit = ray.intersectObjects(objects, true)[0];
-    if (hit) desired.copy(target).addScaledVector(direction, Math.max(.25, hit.distance - .35));
-    const ease = reducedMotion.matches || story.phase === 'enter' ? 1 : 1 - Math.exp(-4 * dt);
-    camera.position.lerp(desired, ease); look.lerp(target, ease); camera.lookAt(look);
-    camera.fov = Math.min(savedFov, 54); camera.updateProjectionMatrix();
+    // Pull in at once when something blocks the view (never clip through it), ease back out once it clears.
+    const reach = hit ? Math.max(.25, hit.distance - .35) : distance;
+    clearance = reach < clearance ? reach : clearance + (reach - clearance) * (1 - Math.exp(-2.5 * dt));
+    desired.copy(target).addScaledVector(direction, Math.min(clearance, distance));
+    camera.position.copy(desired); look.copy(target); camera.lookAt(look);
+    camera.rotateZ(pose.roll);
+    camera.fov = Math.min(savedFov, pose.fov); camera.updateProjectionMatrix();
   }
   overlay.querySelector('[data-scene-next]').addEventListener('click', () => { keepPointerLock(); story.next(); });
   overlay.querySelector('[data-scene-skip]').addEventListener('click', () => { keepPointerLock(); story.skip(); });
@@ -118,6 +134,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       savedPosition.copy(camera.position); savedRotation.copy(camera.quaternion); savedFov = camera.fov;
       look.copy(companion.position); look.y += .85;
       lastLine = -1; state.cinematic = true; clearInput();
+      shotKey = null; pose = cutFrom = null; clearance = Infinity; // open on the transformation shot, under the fade from black
       state.cinematicMood = story.kind === 'cure' ? 'calm' : 'danger';
       overlay.dataset.scene = story.kind;
       overlay.querySelector('.scene-chapter').textContent = story.kind === 'cure' ? 'I · A BOND RESTORED' : 'I · THE FIRST FLAME';
@@ -136,6 +153,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       updateCamera(step);
       if (lastLine !== story.index) {
         line.textContent = story.line.text;
+        line.classList.remove('in'); void line.offsetWidth; line.classList.add('in'); // each line fades up
         state.cinematicSpeaker = story.line.speaker ?? 'YOU';
         overlay.querySelector('.scene-speaker').textContent = state.cinematicSpeaker;
         lastLine = story.index;
@@ -143,8 +161,8 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       overlay.dataset.phase = story.phase;
       overlay.dataset.fire = String(story.transformation.fire);
       overlay.dataset.wolf = String(story.transformation.wolf);
-      veil.style.opacity = String(story.phase === 'enter' ? 1 - story.time / .45
-        : story.phase === 'exit' ? story.time / .25 : story.phase === 'return' ? 1 - story.time / .3 : 0);
+      const fade = smoother(story.time / PHASE_SECONDS[story.phase]);
+      veil.style.opacity = String(story.phase === 'enter' ? 1 - fade : story.phase === 'exit' ? fade : story.phase === 'return' ? 1 - fade : 0);
       return camera.position.distanceTo(player.position);
     },
     reset() { if (story.active) finish(false); story.reset(); },

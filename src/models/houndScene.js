@@ -13,10 +13,22 @@ export const HOUND_CURE_LINES = [
   { speaker: 'YOU', text: 'Then we head west. Stay close, friend. We’ll find Neris together.', seconds: 4.4, shot: 'player' },
 ];
 
-export const TRANSFORM_SECONDS = 5.2;
+// Slow, deliberate pacing: fade up from black, a long transformation the camera circles, unhurried fades out.
+export const PHASE_SECONDS = Object.freeze({ enter: 1.2, exit: .9, return: 1 });
+export const TRANSFORM_SECONDS = 8;
 export function houndTransformation(seconds) {
   const smooth = (a, b, t) => { const p = Math.max(0, Math.min(1, (t - a) / (b - a))); return p * p * (3 - 2 * p); };
-  return { fire: smooth(1, 2.8, seconds), wolf: smooth(3, 4.6, seconds) };
+  return { fire: smooth(1.6, 4.4, seconds), wolf: smooth(4.6, 7.2, seconds) };
+}
+
+// Camera moves: ease in and out with zero velocity and acceleration at both ends (no lurch when a move starts).
+export const smoother = v => { const t = Math.max(0, Math.min(1, v)); return t * t * t * (t * (6 * t - 15) + 10); };
+// Blend two camera poses { x, y, z (look point), az, pitch, dist, fov, roll }. The azimuth takes the shorter way
+// round, so a change of shot arcs around the subject instead of sliding through it.
+export function blendShot(a, b, t) {
+  const turn = Math.atan2(Math.sin(b.az - a.az), Math.cos(b.az - a.az));
+  const mix = key => a[key] + (b[key] - a[key]) * t;
+  return { x: mix('x'), y: mix('y'), z: mix('z'), az: a.az + turn * t, pitch: mix('pitch'), dist: mix('dist'), fov: mix('fov'), roll: mix('roll') };
 }
 
 // Each real quest milestone gets one scene per run. Offering alone is not a cure.
@@ -60,11 +72,11 @@ export function createHoundScene() {
     update(dt) {
       if (!scene.active) return;
       time += Math.max(0, dt);
-      if (phase === 'enter' && time >= .45) { phase = 'transform'; time = 0; }
+      if (phase === 'enter' && time >= PHASE_SECONDS.enter) { phase = 'transform'; time = 0; }
       else if (phase === 'transform' && time >= TRANSFORM_SECONDS) scene.next();
       else if (phase === 'dialogue' && time >= scene.line.seconds) scene.next();
-      else if (phase === 'exit' && time >= .25) { phase = 'return'; time = 0; }
-      else if (phase === 'return' && time >= .3) { phase = 'idle'; time = 0; }
+      else if (phase === 'exit' && time >= PHASE_SECONDS.exit) { phase = 'return'; time = 0; }
+      else if (phase === 'return' && time >= PHASE_SECONDS.return) { phase = 'idle'; time = 0; }
     },
     reset() { seen.clear(); pending = false; kind = 'curse'; phase = 'idle'; time = index = 0; },
   };
