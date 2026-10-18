@@ -67,7 +67,17 @@ const CSS = `
 #worldMap .map-location-detail { max-width:860px;margin:0;color:#dbd2bf;font:11px/1.5 'DM Mono',monospace;min-height:3em; }
 #worldMap footer { display: flex; flex-wrap: wrap; gap: 16px; color: rgba(240,230,200,.75); font: 9px 'DM Mono', monospace; letter-spacing: .12em; }
 #worldMap footer i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; border-radius: 50%; }
-#worldMap footer .hint { margin-left: auto; color: rgba(216,178,90,.6); }`;
+#worldMap footer .hint { margin-left: auto; color: rgba(216,178,90,.6); }
+#worldMap header .map-views { margin-left: auto; display: flex; border: 1px solid rgba(216,178,90,.5); border-radius: 4px; overflow: hidden; }
+#worldMap header .map-views button { width: auto; height: 28px; margin: 0; padding: 0 12px; border: 0; border-radius: 0;
+  background: none; color: rgba(216,178,90,.7); font: 600 9px 'DM Mono', monospace; letter-spacing: .16em; }
+#worldMap header .map-views button[aria-pressed="true"] { background: rgba(216,178,90,.2); color: ${GOLD}; }
+#worldMap header .map-close { margin-left: 0; }
+#worldMap .iso-page { height: calc(var(--map-size) + 60px); border: 1px solid rgba(216,178,90,.45); border-radius: 3px; overflow: hidden; background: #121314; }
+#worldMap .iso-page iframe { display: block; width: 100%; height: 100%; border: 0; }`;
+// Isometric view: the iso-glow terrain diorama (iso-map/), isolated in an iframe because it runs its own
+// newer three.js. Loaded only while that view is showing so it never renders alongside the game.
+const ISO_MAP = 'iso-map/grimoire-atlas-3d.html';
 
 // Five-leaf clover seal: five heart-shaped leaves rotated 72° apart.
 function drawClover(ctx, x, y, size, fill, stroke) {
@@ -120,7 +130,8 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
   overlay.innerHTML = `<div class="atlas">
     <header><canvas class="seal" width="44" height="44" aria-hidden="true" style="border:0"></canvas>
       <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
-      <button type="button" aria-label="Close map">✕</button></header>
+      <div class="map-views" role="group" aria-label="Map view"><button type="button" data-map-view="grimoire" aria-pressed="true">GRIMOIRE</button><button type="button" data-map-view="iso" aria-pressed="false">ISOMETRIC</button></div>
+      <button type="button" class="map-close" aria-label="Close map">✕</button></header>
     <div class="book-spread"><section class="map-page" aria-label="World atlas">
     <div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></div>
     <div class="map-toolbar"><details class="map-destinations"><summary>DESTINATIONS</summary><div class="destination-panel"><nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
@@ -130,6 +141,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
     <section class="quest-page" aria-labelledby="grimoireQuestHeading" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Close the grimoire to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section></div>
+    <section class="iso-page" aria-label="Isometric world map" hidden><iframe title="Isometric world map: drag to orbit, 1 to 4 light a kingdom"></iframe></section>
     <div class="book-bottom"><span>THE FOURFOLD GRIMOIRE</span><span>M / ESC · CLOSE THE BOOK</span></div>
     </div>`;
   overlay.dataset.page='atlas';
@@ -184,7 +196,33 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
   }
   overlay.addEventListener('click',event=>{
     const tab=event.target.closest('[data-book-page]');if(tab)setPage(tab.dataset.bookPage);
+    const view=event.target.closest('[data-map-view]');if(view)setView(view.dataset.mapView);
   });
+  // Map view: the grimoire book (relief map + quests) or the isometric diorama. Remembered per player.
+  const isoPage=overlay.querySelector('.iso-page'),isoFrame=isoPage.querySelector('iframe'),bookSpread=overlay.querySelector('.book-spread');
+  let view='grimoire';
+  try{if(localStorage.getItem('grimoire-map-view')==='iso')view='iso';}catch{}
+  function loadIso(on){ // navigating away to about:blank stops its render loop
+    const current=isoFrame.getAttribute('src');
+    if(on&&current!==ISO_MAP)isoFrame.src=ISO_MAP;
+    else if(!on&&current===ISO_MAP)isoFrame.src='about:blank';
+  }
+  function setView(next){
+    view=next;overlay.dataset.view=view;
+    bookSpread.hidden=view==='iso';isoPage.hidden=view!=='iso';
+    overlay.querySelectorAll('[data-map-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mapView===view)));
+    try{localStorage.setItem('grimoire-map-view',view);}catch{}
+    loadIso(open&&view==='iso');
+    if(view==='grimoire'&&open){resize();draw(performance.now()/1000);}
+  }
+  // Keys pressed inside the diorama never reach this window; forward the map's own close keys.
+  isoFrame.addEventListener('load',()=>{
+    try{isoFrame.contentWindow.addEventListener('keydown',event=>{
+      if(event.code==='KeyM'&&!event.repeat){event.preventDefault();setOpen(false);}
+      else if(event.code==='Escape'){event.preventDefault();setOpen(false,false);}
+    });}catch{} // cross-origin (e.g. opened from file://): close with ✕ instead
+  });
+  setView(view);
   questList.addEventListener('click',event=>{
     const route=event.target.closest('[data-journal-route]');if(!route)return;
     const target=route.dataset.journalRoute==='quest'?overlay.querySelector('[data-quest-route]')
@@ -470,6 +508,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
     open = next;
     button.setAttribute('aria-expanded',String(open));
     state.mapOpen = open;
+    loadIso(open && view === 'iso');
     if (!open) {
       overlay.classList.add('closing');
       closeTimer=setTimeout(()=>{
@@ -500,11 +539,11 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
     updateQuests();
     resize();
     draw(performance.now() / 1000);
-    overlay.querySelector('header button').focus({ preventScroll: true });
+    overlay.querySelector('.map-close').focus({ preventScroll: true });
   }
 
   button.addEventListener('click', () => setOpen(!open));
-  overlay.querySelector('header button').addEventListener('click', () => setOpen(false));
+  overlay.querySelector('.map-close').addEventListener('click', () => setOpen(false));
   overlay.addEventListener('click', event => { if (event.target === overlay) setOpen(false); });
   addEventListener('keydown', event => {
     if(event.ctrlKey||event.metaKey||event.altKey||/INPUT|TEXTAREA|SELECT/.test(event.target.tagName)||event.target.isContentEditable)return;
@@ -529,7 +568,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
       if (now - lastDraw < 66) return; // ~15 fps is plenty for a map
       lastDraw = now;
       updateQuests();
-      if(overlay.dataset.page==='atlas')draw(now / 1000);
+      if(overlay.dataset.page==='atlas'&&view==='grimoire')draw(now / 1000);
     }
   };
 }

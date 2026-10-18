@@ -24,6 +24,23 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
         ".bin": "application/octet-stream",
         ".exr": "application/octet-stream",
     }
+    # Models, textures and audio rarely change: let the browser keep them for a day so reloads skip the
+    # download. Code always revalidates (a quick 304 when unchanged), so edits show on the next reload.
+    # Replaced an asset under the same name? Hard-reload (Ctrl+Shift+R) to fetch it again.
+    CACHED = {".glb", ".gltf", ".bin", ".fbx", ".png", ".jpg", ".jpeg", ".webp", ".hdr", ".exr", ".mp3", ".ogg", ".wav"}
+
+    def end_headers(self):
+        ext = os.path.splitext(self.path.split("?", 1)[0])[1].lower()
+        self.send_header("Cache-Control", "max-age=86400" if ext in self.CACHED else "no-cache")
+        super().end_headers()
+
+
+class DemoServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        # The browser hung up mid-download (tab closed, reload, cancelled request): normal, not worth a traceback.
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
 
 
 def open_browser(url):
@@ -46,7 +63,7 @@ def main():
     directory = root / args[0] if args else root
     handler = partial(DemoRequestHandler, directory=str(directory))
     # An available port avoids conflicts with other development servers.
-    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+    with DemoServer(("127.0.0.1", 0), handler) as server:
         url = f"http://127.0.0.1:{server.server_port}/index.html"
         print(f"Dreamscape: {url}", flush=True)
         print("Keep this window open while playing. Press Ctrl+C to stop.", flush=True)

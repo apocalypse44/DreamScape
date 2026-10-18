@@ -8,7 +8,7 @@ DIST = ROOT / 'dist'
 MAX_FILE = 25 * 1024 * 1024  # Cloudflare Pages per-file limit
 MAX_FILES = 1000  # Cloudflare dashboard upload / itch.io limit
 
-APP = ['index.html', 'src', 'styles', 'vendor']
+APP = ['index.html', 'src', 'styles', 'vendor', 'iso-map/grimoire-atlas-3d.html']
 ASSETS = [
     'animals/ShibaInu.gltf',
     'animals/Wolf.gltf',
