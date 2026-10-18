@@ -1,5 +1,6 @@
 // The Ember Hound: chaos curses the dog, embers on chaos-only peaks cure it at the shrine.
 import { CHAOS_CALM } from './encounterConfig.js';
+import { echoContains } from './castleEcho.js';
 
 export const SHRINE = { x: 0, z: -11 }; // straight ahead of the spawn point, inside talk range
 // One challenge per ember: the parkour spiral, a chaos-only peak, and the one the hound carries.
@@ -49,11 +50,22 @@ function houndDrops(playerPos, houndPos, chaos) {
 
 // Parkour: the strongest ember is lifted onto a spiral of floating slabs around its peak.
 // Each slab sits STEP_RISE above the last (jump apex is ~2.2 m), so the climb is always possible.
+// The slabs are basalt shards torn up by the curse: chaos-only, like the castle echo's fragments.
 const STEPS = 9;
 const STEP_RISE = 1.6;
 const SPIRAL_RADIUS = 6;
 export const SLAB_SIZE = 3;
-function raiseEmber(world, ember) {
+// Seven-sided outline, 1.55–1.85 m to each corner: always convex (each corner clears the chord between its
+// neighbours), every edge ≥ 1.39 m from the centre (a 2.75 m landing, close to the old 3 m square), and gaps
+// between shards stay ≥ 3 m. The same outline drives rock and collision.
+function shardOutline(world, i) {
+  const turn = world.hash(i, 401) * .6;
+  return Array.from({ length: 7 }, (_, k) => {
+    const a = k / 7 * Math.PI * 2 + turn, r = 1.55 + world.hash(i * 7 + k, 557) * .3;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  });
+}
+function raiseEmber(world, ember, isActive) {
   const platforms = [];
   let top = -Infinity;
   for (let i = 0; i < STEPS; i++) {
@@ -61,7 +73,9 @@ function raiseEmber(world, ember) {
     const x = ember.x + Math.cos(angle) * SPIRAL_RADIUS;
     const z = ember.z + Math.sin(angle) * SPIRAL_RADIUS;
     top = Math.max(world.heightAt(x, z, PEAK_CHAOS), top) + STEP_RISE;
-    platforms.push({ x, z, top });
+    const slab = { x, z, top, outline: shardOutline(world, i) };
+    slab.contains = (px, pz, pad = 0) => isActive() && echoContains(slab, px, pz, pad);
+    platforms.push(slab);
   }
   const last = platforms[STEPS - 1];
   Object.assign(ember, { x: last.x, z: last.z, y: last.top + 1.2 });
@@ -70,7 +84,9 @@ function raiseEmber(world, ember) {
 
 export function createQuest({ world, state, player, onEmberPickup, onEmberPosition, onOfferEmbers, onHoundDrop }) {
   const embers = placeEmbers(world);
-  const platforms = raiseEmber(world, embers[0]);
+  let courseActive = false, courseEngaged = false;
+  const courseCentre = { x: embers[0].x, z: embers[0].z };
+  const platforms = raiseEmber(world, embers[0], () => courseActive);
   const emberStartPositions = embers.map(({ x, y, z }) => ({ x, y, z }));
   let stage = 'companion';
   let offering = false;
@@ -80,6 +96,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
     embers,
     platforms,
     get stage() { return stage; },
+    get courseActive() { return courseActive; },
     restless: false,
     nearShrine: false,
     drowned: false,
@@ -92,6 +109,15 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
       else if (state.mode === 'chaos' && state.chaos < 0.4) state.mode = 'calm';
       const calm = state.mode === 'calm';
       quest.restless = stage === 'companion' && calm && state.chaos > 0.5;
+
+      // The parkour course exists only in chaos. Once the player is on it (or jumping between shards) it stays
+      // until they are back on solid ground, so calming mid-climb never drops them (as with the castle echo).
+      const feet = player.position.y - 2.05;
+      const onShard = platforms.some(s => Math.abs(feet - s.top) < .3 && echoContains(s, player.position.x, player.position.z, .55));
+      const nearCourse = Math.hypot(player.position.x - courseCentre.x, player.position.z - courseCentre.z) < SPIRAL_RADIUS + SLAB_SIZE;
+      if (courseActive && (onShard || (!player.grounded && nearCourse))) courseEngaged = true;
+      if (courseEngaged && player.grounded && !onShard) courseEngaged = false;
+      courseActive = !calm || courseEngaged;
 
       if (stage === 'companion' && !calm) {
         stage = 'cursed';
@@ -179,6 +205,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
     reset() {
       stage = 'companion';
       offering = false;
+      courseActive = courseEngaged = false;
       houndCarrying = false;
       houndDistance = Infinity;
       embers.forEach((ember, index) => {

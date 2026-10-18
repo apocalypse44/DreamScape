@@ -25,7 +25,7 @@ export function createAtmosphere({ scene, renderer, sun, hemi, moteMat, material
     clock,
     prepare: effects.prepare,
     advance(dt) { clock.advance(dt); refreshTime(); },
-    finish: (dt, visualScore, camera) => effects.update(dt, visualScore, camera, { hour: clock.hour }),
+    finish: (dt, visualScore, camera, story) => effects.update(dt, visualScore, camera, { hour: clock.hour, ...story }),
     reset() { clock.reset(); effects.reset(); refreshTime(); },
     update(score, biome) {
       const warmth = sample([0, .18, .9], score);

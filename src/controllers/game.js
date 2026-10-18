@@ -36,6 +36,7 @@ import { createWorldMap } from '../views/worldMap.js';
 import { createDemoSpawns } from '../views/demoSpawns.js';
 import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
 import { createHoundCutscene } from './houndScene.js';
+import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
 import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 
@@ -186,6 +187,9 @@ export function startGame(ui) {
 
   // Screen warp is reserved for demo spawns (keys 1–5 and their buttons).
   const kamui = createKamui(renderer);
+  // ?rift=0.6 previews the sky rift at a fixed openness (0–1) without playing the story to that point.
+  const riftParam = new URLSearchParams(location.search).get('rift');
+  const riftPreview = riftParam === null || !Number.isFinite(+riftParam) ? null : Math.min(1, Math.max(0, +riftParam));
   const pressed = new Set(); // edge detection for one-shot keys
   const tapped = code => { const down = keys.has(code), fresh = down && !pressed.has(code); if (down) pressed.add(code); else pressed.delete(code); return fresh; };
   function updateShortcuts() {
@@ -319,7 +323,7 @@ export function startGame(ui) {
     grass.update();
     if (!houndScene.active) applyCameraShake(camera, dt);
     const chaosScore = chaosLook.update(houndScene.active ? 0 : dt, state);
-    atmosphere.finish(dt, chaosScore, camera);
+    atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade) });
     updateShortcuts();
     music.update(dt);
     kamui.render(scene, camera, dt);

@@ -99,3 +99,41 @@ test('the hound carries its ember, flees in chaos, and drops it for a calm appro
   quest.update();
   assert.equal(ember.taken, true);
 });
+
+test('the ember parkour exists only in chaos and never vanishes under a player mid-climb', () => {
+  const { quest, state, player } = setup();
+  const shard = quest.platforms[3];
+  const standOn = s => { Object.assign(player.position, { x: s.x, y: s.top + 2.05, z: s.z }); player.grounded = true; };
+  quest.update();
+  assert.equal(quest.courseActive, false);
+  assert.equal(shard.contains(shard.x, shard.z), false);          // calm: no shard to stand on
+  state.chaos = 0.9; quest.update();
+  assert.equal(quest.courseActive, true);
+  assert.equal(shard.contains(shard.x, shard.z), true);
+  standOn(shard); quest.update();
+  state.chaos = 0.2; quest.update();                              // calm returns while standing on a shard
+  assert.equal(state.mode, 'calm');
+  assert.equal(quest.courseActive, true);
+  player.grounded = false; player.position.y += 1; quest.update(); // mid-jump between shards
+  assert.equal(quest.courseActive, true);
+  Object.assign(player.position, { x: 0, y: 2.05, z: 0 }); player.grounded = true; quest.update();
+  assert.equal(quest.courseActive, false);                        // back on solid ground in calm: it fades
+  state.chaos = 0.9; quest.update();
+  Object.assign(state, { chaos: 0.06, mode: 'calm' }); quest.reset(); // as game reset(): state first
+  assert.equal(quest.courseActive, false);
+});
+
+test('every parkour shard is convex and at least as forgiving as a 2.75 m landing', () => {
+  const { quest } = setup();
+  for (const s of quest.platforms) {
+    s.outline.forEach((a, i) => {                                // left turn at every corner: convex
+      const b = s.outline[(i + 1) % s.outline.length], c = s.outline[(i + 2) % s.outline.length];
+      assert.ok((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) > 0);
+    });
+    const inside = (x, z) => s.outline.every((a, i) => {
+      const b = s.outline[(i + 1) % s.outline.length];
+      return (b[0] - a[0]) * (z - a[1]) - (b[1] - a[1]) * (x - a[0]) >= 0;
+    });
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; assert.ok(inside(Math.cos(a) * 1.38, Math.sin(a) * 1.38)); }
+  }
+});

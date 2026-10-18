@@ -6,6 +6,7 @@ import { spadeClimateAt } from '../models/climate.js';
 import { createSky } from './sky.js';
 import { createChaosWeather } from './chaosWeather.js';
 import { createEnvironmentLighting } from './environmentLighting.js';
+import { RIFT, riftStrength } from '../models/rift.js';
 
 export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, materialProfiles }) {
   const sky = createSky();
@@ -29,11 +30,15 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
   const groundNight = new THREE.Color(0x111a2d), groundDay = new THREE.Color(0x59634c);
   const skyNight = new THREE.Color(0x849bcd), skyDay = new THREE.Color(0xc4ddff);
   const white = new THREE.Color(0xffffff);
-  let time = 0, lastHour = null;
+  const E = CONFIG.evil;
+  const evilZenith = new THREE.Color(E.zenith).convertSRGBToLinear(), evilHorizon = new THREE.Color(E.horizon).convertSRGBToLinear();
+  const evilFog = new THREE.Color(E.fog), evilLight = new THREE.Color(E.light);
+  const evilHemiSky = new THREE.Color(E.hemiSky), evilHemiGround = new THREE.Color(E.hemiGround);
+  let time = 0, lastHour = null, vortexPhase = 0;
 
   return {
     prepare: lighting.prepare,
-    update(dt, visual, camera, { hour = 9 } = {}) {
+    update(dt, visual, camera, { hour = 9, rift = 0 } = {}) {
       time += dt;
       const look = sampleLook(visual);
       const flash = weather.update(dt, visual, camera.position);
@@ -70,6 +75,30 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
       hemi.groundColor.copy(groundNight).lerp(groundDay, day.daylight);
       hemi.intensity = day.ambientIntensity * (1 - storm * 0.4) + flash * 1.2;
       renderer.toneMappingExposure = 1.05 - storm * 0.13;
+      // Evil mode: red-black sky and fog, one red key light from whichever body is up, almost no ambient.
+      const evil = THREE.MathUtils.smoothstep(visual, E.start, E.full);
+      if (evil > 0) {
+        u.uZenith.value.lerp(evilZenith, evil);
+        u.uHorizon.value.lerp(evilHorizon, evil);
+        u.uStars.value *= 1 - evil;
+        scene.fog.color.lerp(evilFog, evil);
+        u.uFogColor.value.copy(scene.fog.color);
+        const sunUp = day.sun.y > 0;
+        sun.color.lerp(evilLight, evil);
+        moon.color.lerp(evilLight, evil);
+        sun.intensity = THREE.MathUtils.lerp(sun.intensity, sunUp ? E.lightIntensity : 0, evil);
+        moon.intensity = THREE.MathUtils.lerp(moon.intensity, sunUp ? 0 : E.lightIntensity, evil);
+        hemi.color.lerp(evilHemiSky, evil);
+        hemi.groundColor.lerp(evilHemiGround, evil);
+        hemi.intensity = THREE.MathUtils.lerp(hemi.intensity, E.hemiIntensity + flash * 1.6, evil);
+        renderer.toneMappingExposure = THREE.MathUtils.lerp(renderer.toneMappingExposure, E.exposure, evil);
+      }
+      u.uEvil.value = evil;
+      // The rift spins slowly in calm and churns in evil mode; the phase accumulates so speed changes never jump.
+      vortexPhase += dt * (.12 + evil * .9);
+      u.uVortex.value = riftStrength(rift, evil);
+      u.uVortexPhase.value = vortexPhase;
+      u.uVortexDir.value.set(RIFT.x - camera.position.x, RIFT.y - camera.position.y, RIFT.z - camera.position.z).normalize();
       const signature = [Math.floor(hour * 2), Math.round(day.daylight * 20), Math.round(day.twilight * 10), Math.round(storm * 10), Math.round(climate * 10)].join(':');
       const jumped = lastHour !== null && Math.abs(hour - lastHour) > 0.25;
       lighting.update(true, 0.28 + day.daylight * 0.52, dt, signature, jumped || lastHour === null);
@@ -78,6 +107,6 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
         chunk.userData.material.color.copy(white).lerp(look.groundTint, look.groundTintAmount);
       }
     },
-    reset() { time = 0; lastHour = null; weather.reset(); },
+    reset() { time = 0; lastHour = null; vortexPhase = 0; weather.reset(); },
   };
 }

@@ -12,7 +12,7 @@ export const LOOK_STOPS = [
   { at: 1.0, fogColor: 0x7a1d12, fogDensity: 0.022, exposure: 0.75,
     sunColor: 0xff5528, sunIntensity: 0.6, hemiSky: 0x8a2a1c, hemiGround: 0x1e0d08, hemiIntensity: 0.4,
     skyMix: 1.0, skyTint: 0xff8a70, skySaturation: 0.75, skyBrightness: 0.6, skyFog: 0.7,
-    groundTint: 0x6b3a2c, groundTintAmount: 0.6 },
+    groundTint: 0x3a201c, groundTintAmount: 0.7 }, // dark charcoal-red: ground reads as silhouette in evil mode
 ];
 
 const COLOR_KEYS = ['fogColor', 'sunColor', 'hemiSky', 'hemiGround', 'skyTint', 'groundTint'];
