@@ -172,7 +172,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
       card.querySelector('.quest-state').textContent=task.done?'OATH FULFILLED':task.locked?'AWAITING REVELATION':'UNSEALED';
       card.querySelector('.completion-seal span').textContent=task.stamp;
       const route=card.querySelector('.quest-route');route.dataset.journalRoute=task.destination;
-      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':'MARK CASTLE ENTRANCE';
+      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':'MARK CASTLE ENTRANCE';
     }
   }
   function setPage(page){
@@ -464,6 +464,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
   // viaGesture: closed by M, ✕ or a click, which may recapture the mouse. Escape can't: browsers
   // reserve it for leaving pointer lock, so it shows a one-click resume prompt instead of the intro.
   function setOpen(next, viaGesture = true) {
+    if (next && state.cinematic) return;
     if (next === open) return;
     clearTimeout(closeTimer);
     open = next;

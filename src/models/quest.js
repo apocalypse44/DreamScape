@@ -14,7 +14,7 @@ const SHRINE_LINES = {
   companion: 'Your companion fears the wild. Walk gently and the world stays soft. Run wild and the hound will be lost to the flames. If that happens, follow it, gather three embers, and bring them to me.',
   cursed: 'The hound burns. It runs to the embers it scattered. They rest on peaks that rise only in chaos. Stay wild to reach them. One burns high above. Climb to it.',
   return: 'You carry the embers. Be still, and offer them here.',
-  cured: 'The hound is free. The flames will not take it again. The four kingdoms wait beyond the tower.'
+  cured: 'The hound is free. Travel west to Spade and find Neris at the Lantern Refuge, the first house on your right beyond the gate. She shelters those whose memories the Triad stole.'
 };
 const DROWNED = 'The shrine\'s voice is lost in the noise. Be still to hear it.';
 
@@ -137,7 +137,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
           ? `EMBERS ${taken}/${EMBERS} · THE HOUND HOLDS ONE · CALM DOWN AND WALK UP TO IT`
           : `EMBERS ${taken}/${EMBERS} · FOLLOW THE HOUND · STAY WILD`,
         return: 'RETURN TO THE SHRINE · BE STILL',
-        cured: 'THE HOUND IS SAVED'
+        cured: 'NEXT · SPADE KINGDOM · FIND NERIS AT LANTERN REFUGE'
       }[stage];
     },
 

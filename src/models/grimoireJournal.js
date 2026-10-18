@@ -6,12 +6,12 @@ export function grimoireQuests(quest, spade) {
   return [
     {id:'hound',chapter:'I · THE CROSSING',title:'The Ember Hound',done:stage==='cured',locked:false,
       progress:stage==='companion'?'Your companion walks beside you.':`${embers}/3 embers gathered`,
-      hint:stage==='cured'?'The hound is free. Your bond has survived the curse.'
+      hint:stage==='cured'?'The shrine keeper sends you west to Spade. Find Neris at the Lantern Refuge, the first house on your right beyond the gate. Then investigate the castle archive.'
         :stage==='return'?'Return to the Grimoire Tower shrine. Become still to offer the three embers.'
         :stage==='cursed'?(quest.houndCarrying?'Follow the hound to the embers. Chaos raises their peaks; approach the hound calmly for the ember it carries.'
           :'Gather the remaining embers, then return to the shrine. Chaos reveals their high resting places.')
         :'Explore with your companion. Walk softly and approach calmly; E lets you pet it. If chaos awakens its curse, the shrine knows the cure.',
-      stamp:'PACT RESTORED',destination:'quest'},
+      stamp:'PACT RESTORED',destination:stage==='cured'?'spade-refuge':'quest'},
     {id:'archive',chapter:'II · THE SPADE KINGDOM',title:'The Stolen Testimonies',done:archive===3,locked:false,
       progress:`${archive}/3 testimonies restored`,
       hint:archive===3?'Clover, Heart and Diamond’s testimonies are inscribed in your grimoire.'

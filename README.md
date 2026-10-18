@@ -3,14 +3,31 @@
 A browser-based 3D exploration game built with Three.js. How you move (walking, sprinting, jumping) changes
 a calm-to-chaos score that reshapes the terrain and the world around you.
 
+The first time chaos turns your companion into the Ember Hound, a short in-world story scene
+shows the transformation and your character's reaction. Dialogue advances automatically;
+The dog catches fire before growing into the hound. **Space / Enter** continues and **X** skips
+while keeping mouse control. Gameplay resumes automatically. **R** resets the quest and allows
+the scene to play again.
+
+After all three embers finish flying into the shrine, a second scene extinguishes
+the hound's fire and restores the dog. The shrine keeper explains the Triad's stolen
+memories and sends you west to Neris at the Lantern Refuge in Spade. Completing or
+skipping the dialogue marks the refuge route; the completed quest's journal card
+also lets you mark it again. This scene uses the calm soundtrack.
+
+Music fades between **Reverie** (calm), **Legionnaire** (chaos), and **Anabasis I**
+(the hound scene). Press **N** to mute/unmute, or use the music button in the right panel.
+Music pauses in the menu and background tabs. The three MP3s and their
+[credits](assets/music/CREDITS.md) are included by `python tools/build_dist.py`.
+
 **Play it live: https://dreamscape-v1.hro24.workers.dev/** (desktop browser with keyboard and mouse)
 
 ## World time
 
 The atmosphere has a shared world clock starting at **09:00**, with a full day lasting **20 minutes
 of simulation time**. During gameplay, the top-left clock replaces the Dreamscape branding.
-R resets it to morning. Theatre toggles, kingdom travel and the P chaos preview do not restart it.
-Theatre mode uses a procedural sky with moving sun and moon, sunrise/sunset, stars and drifting
+R resets it to morning. Kingdom travel does not restart it.
+The world always uses a procedural sky with moving sun and moon, sunrise/sunset, stars and drifting
 clouds. Lighting, shadows, fog and sky reflections follow the clock; no HDRI download is needed.
 Spade suppresses daylight at every hour. Its snowfall and the other kingdom climates are the next stage.
 
@@ -21,7 +38,7 @@ For demos, `dreamscape.clock.setHour(18)` sets the time and
 
 - **Python 3.8 or newer**, for the local launcher. It uses the standard library only.
 - A **desktop browser with WebGL** (Chrome, Edge or Firefox), plus a keyboard and mouse.
-- **Internet access**: Three.js r128, Theatre.js and the fonts load from CDNs.
+- **Internet access**: Three.js r128 and the fonts load from CDNs.
 
 No npm install, build step, account or API key is needed.
 
@@ -40,6 +57,11 @@ The models and animations are **not stored in Git**. Download them and place the
 below, relative to the folder that contains `index.html`. Paths are case-sensitive on macOS and Linux.
 The game still starts if some are missing. Those objects are skipped (the dog and NPCs fall back to simple
 shapes). The sky is generated in code.
+
+The hound's fire uses the MIT-licensed `fire.png` and `smoke.png` sprites from
+[Bobby Roe's Simple-Particle-Effects](https://github.com/bobbyroe/Simple-Particle-Effects/tree/main/img).
+Place them in `assets/particles/`. Assets stay outside Git; the build includes these sprites
+and [the upstream license](vendor/simple-particle-effects-LICENSE.txt).
 
 | Path | Source |
 | --- | --- |

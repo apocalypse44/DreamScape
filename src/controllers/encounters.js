@@ -62,10 +62,12 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
   });
 
   return {
+    get keeper() { return people?.keeper ?? null; },
     update(dt, t) {
       embers.setWorldVisible(stage() === 'cursed');
       embers.update(dt, t, player.position, state.chaos);
-      people?.update(dt, { playerPos: player.position, sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'), chaos: state.chaos, camera, renderer });
+      people?.update(dt, { playerPos: player.position, sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'), chaos: state.chaos, camera, renderer,
+        cinematic: state.cinematic, speaker: state.cinematicSpeaker });
       if (isInputActive() && canPet() && dogBrain.state !== 'pet') {
         promptPos.copy(dog.object.position);
         promptPos.y += 1.4;

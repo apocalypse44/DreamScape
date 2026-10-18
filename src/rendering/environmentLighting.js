@@ -1,4 +1,4 @@
-// Keep Theatre's surface materials, with reflections captured from the procedural
+// World surface materials use reflections captured from the procedural
 // sky alone. Capture at intervals rather than rendering six extra views per frame.
 export function createEnvironmentLighting({ scene, renderer, profiles, sky }) {
   const originalEnvironment = scene.environment;

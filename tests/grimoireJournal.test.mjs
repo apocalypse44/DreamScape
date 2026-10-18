@@ -13,6 +13,8 @@ test('grimoire hints follow the hound quest without marking an unfinished cure c
   quest.stage='return';quest.embers.forEach(e=>e.taken=true);
   assert.equal(grimoireQuests(quest,spade)[0].done,false);assert.match(grimoireQuests(quest,spade)[0].hint,/offer/);
   quest.stage='cured';assert.equal(grimoireQuests(quest,spade)[0].done,true);assert.equal(grimoireQuests(quest,spade)[0].stamp,'PACT RESTORED');
+  assert.equal(grimoireQuests(quest,spade)[0].destination,'spade-refuge');
+  assert.match(grimoireQuests(quest,spade)[0].hint,/Neris/);
 });
 test('archive, witness and observatory seals reflect independent actual discoveries',()=>{
   const {quest,spade}=fixture();

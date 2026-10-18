@@ -52,6 +52,7 @@ export function createShrine({ scene, terrainHeight, quest }) {
   }
 
   return {
+    root,
     colliders,
     get crystalWorldPosition() {
       root.updateMatrixWorld(true);

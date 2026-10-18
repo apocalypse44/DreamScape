@@ -12,9 +12,6 @@ export const CONFIG = {
   passThroughJump: 0.3,  // a change bigger than this in one frame (quest event) is not slowed
 
   // Look
-  // How strongly fog / lights / exposure are pushed toward the chaos look
-  // on top of what atmosphere.js (Theatre) already sets. 0 = leave them alone.
-  lookStrength: 0.6,
   tintGround: true,      // tint vertex-coloured terrain toward ash in chaos
   weather: { embers: 900, ash: 1400 }, // lower if FPS drops
   showHud: true,         // small "CHAOS 0.42 ▲" label (bottom-left)

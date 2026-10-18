@@ -17,6 +17,8 @@ ASSETS = [
     'shrine',
     'spade',
     'character',
+    'music',
+    'particles',
     'Stylized Nature MegaKit[Standard]/glTF',
     'Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb',
     'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb',
@@ -37,6 +39,14 @@ def copy(rel: str, base: pathlib.Path, out: pathlib.Path) -> None:
         shutil.copy2(src, dst)
 
 
+if DIST.is_symlink() or DIST.resolve() != ROOT.resolve() / 'dist':
+    sys.exit('Refusing to replace dist/ outside the project directory.')
+for name in ['sb_reverie.mp3', 'Legionnaire2022.mp3', 'Anabasis_I.mp3', 'CREDITS.md']:
+    if not (ROOT / 'assets' / 'music' / name).is_file():
+        sys.exit(f'Missing required soundtrack file: assets/music/{name}')
+for name in ['fire.png', 'smoke.png']:
+    if not (ROOT / 'assets' / 'particles' / name).is_file():
+        sys.exit(f'Missing required particle sprite: assets/particles/{name} (see README.md)')
 if DIST.exists():
     shutil.rmtree(DIST)
 for rel in APP:

@@ -134,11 +134,12 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
       const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
-      root.visible = Boolean(mixer) && (state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
+      root.visible = Boolean(mixer) && (state.cinematic || state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
-      const targetYaw = speed > 0.2 ? Math.atan2(player.velocity.x, player.velocity.z) : state.yaw + Math.PI;
+      const targetYaw = state.cinematic ? state.cinematicYaw
+        : speed > 0.2 ? Math.atan2(player.velocity.x, player.velocity.z) : state.yaw + Math.PI;
       const delta = Math.atan2(Math.sin(targetYaw - root.rotation.y), Math.cos(targetYaw - root.rotation.y));
       root.rotation.y += delta * (1 - Math.exp(-12 * dt));
       if (!mixer) return;

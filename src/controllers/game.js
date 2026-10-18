@@ -3,7 +3,7 @@ import { createWorld } from '../models/world.js';
 import { DreamSwarm } from '../models/swarm.js';
 import { createScene } from '../rendering/scene.js';
 import { createEnvironment } from '../rendering/environment.js';
-import { createAtmosphereDemo } from '../rendering/atmosphere.js';
+import { createAtmosphere } from '../rendering/atmosphere.js';
 import { createGrass } from '../rendering/grass.js';
 import { updateHUD, updateQuestHUD } from '../views/hud.js';
 import { bindInput } from './input.js';
@@ -35,6 +35,9 @@ import { createResolutionGovernor } from '../rendering/resolution.js';
 import { createWorldMap } from '../views/worldMap.js';
 import { createDemoSpawns } from '../views/demoSpawns.js';
 import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
+import { createHoundCutscene } from './houndScene.js';
+import { createMusic } from '../rendering/music.js';
+import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 
 export function startGame(ui) {
   const startup = createStartupReadiness();
@@ -45,6 +48,7 @@ export function startGame(ui) {
   startup.begin(performance.now());
   prepareAudio().finally(() => startup.end(performance.now()));
   const { state, keys, pointerButtons, player } = createGameState();
+  const music = createMusic({ state });
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
   let atmosphere = null;
   let props = null;
@@ -82,12 +86,21 @@ export function startGame(ui) {
   // Ground-level obstacles the hound's A* routes around: landmark and prop colliders that still stand.
   const groundObstacles = () => [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
     .flatMap(colliders => colliders.filter(c => !c.off && c.minY === undefined));
-  const companion = createCompanion({ scene, state, player, quest, surfaceAt, navigation: {
+  const companion = createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation: {
     height: terrainHeight, obstacles: groundObstacles, version: () => world.terrainVersion,
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
   const worldMap = createWorldMap({ world, player, state, quest, spade, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
+  const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
+    getKeeper: () => encounters?.keeper,
+    onCureComplete() {
+      const refuge = SPADE_MAP_LOCATIONS.find(location => location.id === 'spade-refuge');
+      navigation.setDestination({ ...refuge.destination, id: refuge.id });
+      toast('NEXT · FIND NERIS AT THE LANTERN REFUGE · SPADE KINGDOM', 6000);
+    },
+    obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
+      clover.root, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
@@ -95,7 +108,7 @@ export function startGame(ui) {
   npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders,
     platforms,
-    isMovementBlocked: () => skyIsland.journey.blocked,
+    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     allowFallRecovery: player => !spade.isInsideCastle(player.position),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
@@ -103,6 +116,8 @@ export function startGame(ui) {
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
+    houndScene.reset();
+    music.reset();
     Object.assign(state, START);
     keys.clear();
     pointerButtons.clear();
@@ -135,7 +150,7 @@ export function startGame(ui) {
     toast(`VIEW RADIUS ${world.viewRadius} · ${side * side} CHUNKS`, 1800);
   }
   bindInput({ state, keys, pointerButtons, player, renderer, camera, ui, onReset: reset, onStress: stress });
-  atmosphere = createAtmosphereDemo({ scene, renderer, sun, hemi, moteMat, chunks, materialProfiles: world.materialProfiles });
+  atmosphere = createAtmosphere({ scene, renderer, sun, hemi, moteMat, chunks, materialProfiles: world.materialProfiles });
   atmosphere.prepare?.(wayfinding.root);
   atmosphere.prepare?.(plaza.root);
   atmosphere.prepare?.(clover.root);
@@ -146,7 +161,7 @@ export function startGame(ui) {
   const character = createCharacter({ scene, state, player, surfaceAt });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
-    isInputActive: () => state.locked && !skyIsland.journey.atDoor(player.position),
+    isInputActive: () => state.locked && !houndScene.active && !skyIsland.journey.atDoor(player.position),
     // NPCs keep out of landmarks and anything the player collides with (shrine tower, trees, rocks).
     blocked: (x, z) => world.isLandmarkArea(x, z) ||
       [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
@@ -169,42 +184,20 @@ export function startGame(ui) {
     swarmStatusEl.textContent = mode.toUpperCase();
   }
 
-  // Kamui vortex (rendering/kamui.js): drives the Sky Garden travel, fills the screen on entering chaos,
-  // pulses on the shrine at the cure; K previews.
+  // Screen warp is reserved for demo spawns (keys 1–5 and their buttons).
   const kamui = createKamui(renderer);
-  let lastStage = quest.stage, lastMode = state.mode, lastChaosVortex = -Infinity;
   const pressed = new Set(); // edge detection for one-shot keys
   const tapped = code => { const down = keys.has(code), fresh = down && !pressed.has(code); if (down) pressed.add(code); else pressed.delete(code); return fresh; };
-  function updateKamui() {
-    if (quest.stage !== lastStage) {
-      const cured = quest.stage === 'cured' && lastStage !== 'cured';
-      if (cured) kamui.pulse(shrine.crystalWorldPosition, 2.2);
-      lastStage = quest.stage;
-    }
-    // Entering chaos tears the whole screen into the vortex (at most every 6 s).
-    if (state.mode === 'chaos' && lastMode !== 'chaos' && state.elapsed - lastChaosVortex > 6) {
-      kamui.pulse(null, 2.2, { full: true });
-      lastChaosVortex = state.elapsed;
-    }
-    lastMode = state.mode;
-    if (tapped('KeyK')) kamui.pulse(null, 2.2, { full: true });
+  function updateShortcuts() {
     if (tapped('KeyG')) toast(navigation.toggle() ? 'ROUTE ON' : 'ROUTE HIDDEN · ARROW STAYS', 2000);
-    // Gateway travel: swirl in while charging, ease off in flight, swirl out on arrival.
-    const flight = skyIsland.journey.cinematic;
-    if (flight) {
-      const s = flight.phase === 'charge' ? flight.charge
-        : flight.phase === 'flight' ? 1 - 0.7 * THREE.MathUtils.smoothstep(flight.progress, 0, 0.3) + 0.6 * THREE.MathUtils.smoothstep(flight.progress, 0.75, 1)
-        : 0.9 * (1 - flight.arrival);
-      kamui.drive(Math.min(1, s));
-    }
   }
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music };
 
-  // Demo spawns (Theatre mode, keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
+  // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
-    isEnabled: () => Boolean(atmosphere.isEnabled?.()),
+    isAvailable: () => !houndScene.active,
     spawn(index) {
       let x = 0, z = 0, yaw = 0;
       const gate = gates.gates[index - 1];
@@ -261,18 +254,21 @@ export function startGame(ui) {
       ui.loadEl.textContent = `R${world.viewRadius} · ${chunks.size} CHUNKS`;
       fpsFrames = fpsTime = 0;
     }
-    if (startup.ready) state.elapsed += dt;
+    const playDt = houndScene.active ? 0 : dt;
+    if (startup.ready) state.elapsed += playDt;
     updateChunks();
-    world.updateTerrain(dt);
-    skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
-    if (!skyIsland.journey.blocked) movement.update(startup.ready ? dt : 0);
+    world.updateTerrain(playDt);
+    if (!houndScene.active) skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
+    if (!skyIsland.journey.blocked && !houndScene.active) movement.update(startup.ready ? dt : 0);
     props.update(player.position, world.terrainVersion);
-    quest.update();
-    companion.update(dt, dt => encounters.updateDog(dt, state.elapsed));
-    quest.updateHoundEmber(companion.position);
-    kingdomBorder.update(dt);
-    gates.update(dt);
-    spade.update(dt, player, state);
+    if (!houndScene.active) quest.update();
+    houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
+      !skyIsland.journey.blocked && player.grounded);
+    companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation);
+    if (!houndScene.active) quest.updateHoundEmber(companion.position);
+    kingdomBorder.update(playDt);
+    gates.update(playDt);
+    if (!houndScene.active) spade.update(dt, player, state);
     heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
@@ -282,10 +278,11 @@ export function startGame(ui) {
     plaza.update();
     clover.update(player.position, dt);
     let cameraDistance;
-    if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
+    if (houndScene.active) cameraDistance = houndScene.update(dt);
+    else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
     else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(); }
     character.update(dt, cameraDistance);
-    navigation.update(dt); // after the camera, so the arrow matches this frame's view
+    navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     demoSpawns.update();
     cullLandmarks();
@@ -293,11 +290,12 @@ export function startGame(ui) {
     updateQuestHUD(ui, quest);
     encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
-    updateSwarm(dt);
+    if (!houndScene.active) updateSwarm(dt);
     updateMotes(dt);
     animateEnvironment();
     const currentBiome = biomeAt(player.position.x, player.position.z);
-    const visualScore = atmosphere.score ? atmosphere.score(dt, state.chaos) : state.chaos;
+    atmosphere.advance(dt);
+    const visualScore = state.chaos;
     scene.fog.color.set(currentBiome.fog).lerp(chaosFog, visualScore * 0.25);
     scene.background = scene.fog.color;
     scene.fog.density = 0.009 + visualScore * 0.012;
@@ -318,11 +316,12 @@ export function startGame(ui) {
     } else if (player.position.y > 24 && Math.hypot(player.position.x-2,player.position.z+510)<45) {
       scene.fog.density = Math.min(scene.fog.density, 0.006);
     }
-    grass.update(Boolean(atmosphere.isEnabled?.()));
-    applyCameraShake(camera, dt);
-    const chaosScore = chaosLook.update(dt, state, atmosphere.isPreviewing?.() ? visualScore : null);
+    grass.update();
+    if (!houndScene.active) applyCameraShake(camera, dt);
+    const chaosScore = chaosLook.update(houndScene.active ? 0 : dt, state);
     atmosphere.finish(dt, chaosScore, camera);
-    updateKamui();
+    updateShortcuts();
+    music.update(dt);
     kamui.render(scene, camera, dt);
     if (!startup.ready) {
       const phase = startup.update({ now: performance.now(), frameMs: rawDt * 1000,

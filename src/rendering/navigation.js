@@ -223,7 +223,8 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
     get visible() { return shown; },
     get points() { return route?.points ?? null; }, // for the world map
     toggle() { shown = !shown; return shown; },
-    update(dt) {
+    update(dt, cinematic = false) {
+      if (cinematic) { ribbon.visible = false; hud.classList.remove('on'); return; }
       time += dt;
       material.uniforms.uTime.value = time;
       const list = stops();

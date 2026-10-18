@@ -30,12 +30,11 @@ export function createChaosLook() {
   }
 
   return {
-    // Preview changes the visual score without changing the world clock.
-    update(dt, state, previewScore = null) {
+    update(dt, state) {
       if (dt > 0) govern(state, dt);
       const score = state.chaos;
-      visual = previewScore ?? visual + (score - visual) * (1 - Math.exp(-3 * dt));
-      if (CONFIG.showHud) updateChaosReadout(previewScore !== null ? 'PREVIEW' : score >= 0.65 ? 'CHAOS' : 'CALM', score, trend);
+      visual += (score - visual) * (1 - Math.exp(-3 * dt));
+      if (CONFIG.showHud) updateChaosReadout(score >= 0.65 ? 'CHAOS' : 'CALM', score, trend);
       return visual;
     },
     reset() {

@@ -20,20 +20,20 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
     if (state.locked) document.activeElement?.blur();
     // The map frees the mouse on purpose: stay in play mode (no intro screen) while it is open or
     // while waiting for the click that resumes after it closed.
-    const inPlay = state.locked || state.mapOpen || state.awaitResume;
+    const inPlay = state.locked || state.mapOpen || state.awaitResume || state.cinematic;
     document.body.classList.toggle("playing", inPlay);
     introEl.classList.toggle("hidden", inPlay);
     if (state.locked) state.awaitResume = false;
   });
   document.addEventListener("mousemove", event => {
-    if (!state.locked) return;
+    if (!state.locked || state.cinematic) return;
     state.yaw -= event.movementX * 0.0022;
     state.pitch -= event.movementY * 0.002;
     state.pitch = THREE.MathUtils.clamp(state.pitch, -1.35, 1.35);
   });
   document.body.classList.toggle("tpp", state.perspective === 'third'); // crosshair is FPP-only
   document.addEventListener("keydown", event => {
-    if (!state.locked || !document.hasFocus()) return;
+    if (!state.locked || state.cinematic || !document.hasFocus()) return;
     keys.add(event.code);
     if (event.code === 'KeyI' && !event.repeat) {
       document.body.classList.toggle('right-panels-hidden');
@@ -52,7 +52,7 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
   });
   document.addEventListener("keyup", event => keys.delete(event.code));
   document.addEventListener("mousedown", event => {
-    if (state.locked) pointerButtons.add(event.button);
+    if (state.locked && !state.cinematic) pointerButtons.add(event.button);
   });
   document.addEventListener("mouseup", event => pointerButtons.delete(event.button));
   document.addEventListener("contextmenu", event => {
