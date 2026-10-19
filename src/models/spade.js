@@ -13,7 +13,16 @@ export function spadeArea(x, z, pad = 0) {
 export function spadeHeight(x) {
   return 1.5 + 14.5 * smooth(58, 112, -344 - x);
 }
-export const spadeStableArea = (x,z) => x>=-550&&x<=-330&&Math.abs(z)<=85;
+// The kingdom's spade crest outline (tip at +y, stem at -y, about 7.6 tall). Shared by the castle
+// emblem and the swarm's wisps.
+export function spadeOutline() {
+  const s = new THREE.Shape(); s.moveTo(0, 3.8);
+  s.bezierCurveTo(-1, 2, -4, 0.5, -3.6, -1.6); s.bezierCurveTo(-3.2, -3.1, -1, -2.9, -0.35, -1.7);
+  s.lineTo(-1.1, -3.7); s.lineTo(1.1, -3.7); s.lineTo(0.35, -1.7);
+  s.bezierCurveTo(1, -2.9, 3.2, -3.1, 3.6, -1.6); s.bezierCurveTo(4, 0.5, 1, 2, 0, 3.8);
+  return s;
+}
+export const spadeStableArea =(x,z) => x>=-550&&x<=-330&&Math.abs(z)<=85;
 export function spadeGround(x, z, original) {
   if (!spadeArea(x, z)) return original;
   const edge = smooth(-570, -550, x) * (1 - smooth(-330, -310, x)) * (1 - smooth(85, 102, Math.abs(z)));

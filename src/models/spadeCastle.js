@@ -32,8 +32,11 @@ export const CASTLE_RAILS = [1, 2].flatMap(level => {
 });
 export const CASTLE_PROPS = [
   ...[135,146,157].map(u=>({name:'archive',u,v:-13.6,width:4,depth:1.4,bottom:23.12,height:3.8})),
+  // A grimoire lectern before each record; reading stays at the record point (u, -11), a step behind it.
+  ...[135,146,157].map(u=>({name:'lectern',u,v:-10.1,width:.7,depth:.6,bottom:23.12,height:1.05})),
   {name:'archive-chest',u:163,v:-10.5,width:2,depth:1.3,bottom:23.12,height:1.5},
-  ...[-8,0,8].map(v=>({name:'binding',u:174,v,width:1.6,depth:1.6,bottom:30.12,height:1.1})),
+  // Binding pedestals stand before each Triad throne; their crystals float above (rendering only).
+  ...[-8,0,8].map(v=>({name:'binding',u:170.6,v,width:1,depth:1,bottom:30.12,height:.9})),
 ];
 export const CASTLE_RECORDS = [
   { id:'root',u:135,v:-11,top:23.12,title:'CLOVER · THE FALSE ANCHORS',text:'The Root Sigil reveals true bindings among the Triad’s decoys. Seek Iven at the Rootkeeper Archive.' },
@@ -54,10 +57,11 @@ export function createCastleDiscovery({hasEcho=()=>true}={}) {
   const found = new Set(); let inspected=false;
   return {
     get count(){return found.size;}, get complete(){return found.size===3&&inspected;},
+    has:id=>found.has(id),
     get objective(){return found.size<3?'Read the three testimonies in the first-floor archive.'
       :!hasEcho()?'Expose the erased castle in chaos. Recover the witness above the archive.'
       :!inspected?'Climb to the observatory and inspect the three bindings.'
-      :'Return to Neris. The border anchor must fall before the journey north.';},
+      :'Go north to Clover. Iven can show you which bindings are true.';},
     update(position,chaos){
       if(chaos>.4)return null;
       const feet=position.y-2.05;
@@ -65,7 +69,7 @@ export function createCastleDiscovery({hasEcho=()=>true}={}) {
         found.add(record.id);return {title:record.title,text:record.text};
       }
       if(found.size===3&&hasEcho()&&!inspected&&Math.abs(feet-30.12)<1&&Math.hypot(position.x+516,position.z)<4){
-        inspected=true;return {title:'THE HOLLOW CROWN',text:'Veyr hides the true anchors. Sile feeds the shield. Morcant seals the armor. The swarm needs all three openings. First, free the border settlement with Neris.'};
+        inspected=true;return {title:'THE HOLLOW CROWN',text:'Veyr hides the true anchors. Sile feeds the shield. Morcant seals the armor. The swarm needs all three openings, and none can be forced yet. Go north to Clover: Iven can show you which bindings are true.'};
       }
       return null;
     },

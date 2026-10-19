@@ -17,8 +17,15 @@ export const VILLAGERS = [
   { name: 'Lantern Guard', body: 'M', tint: 0x3b3b3b, home: [7, -42], idle: 'Idle_Lantern_Loop' },
   { name: 'Farmer', body: 'F', tint: 0x7a6a2f, home: [24, 21], idle: 'Farm_Watering' },
   { name: 'Ring Walker', body: 'F', tint: 0x4f7a3a, home: [0, 0], path: 'ring' },
-  { name: 'Traveller', body: 'M', tint: 0x5a4a7a, home: [-34, 30], path: 'wander' }
+  { name: 'Traveller', body: 'M', tint: 0x5a4a7a, home: [-34, 30], path: 'wander' },
+  // Spade resistance guide, inside the Lantern Refuge (y: the refuge floor). Hooded, carrying a wisp lantern.
+  { name: 'Neris', body: 'F', tint: 0x2e2448, home: [-368, -20], y: 1.65, idle: 'Idle_Lantern_Loop', hood: 0x1f1833, lantern: 0xd9c8ff, robe: 0x241c3a }
 ];
+// Full robe silhouette, shoulders to floor, as [radius, height] fractions of the model's height.
+// Hem → hips → belted waist → chest → shoulders → collar.
+const ROBE_PROFILE = [[0.21, 0], [0.17, 0.25], [0.13, 0.48], [0.11, 0.58], [0.115, 0.7], [0.105, 0.8], [0.06, 0.855], [0.045, 0.87]];
+// Hood and lantern follow these bones' world positions (offsets in metres); tune if they sit off.
+const HOOD_LIFT = 0.1, LANTERN_DROP = 0.16, LANTERN_HAND = 'hand_r';
 
 function stripRootMotion(clip) {
   for (const track of clip.tracks) {
@@ -89,6 +96,35 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
       const collider = { x: def.home[0], z: def.home[1], radius: 0.45 };
       colliders.push(collider);
       const npc = { def, group, collider, mixer: new THREE.AnimationMixer(model), actions: {}, current: null, t: 0 };
+      if (def.robe) {
+        // Rides on the NPC's group (feet origin, turns with her); legs and hips stay hidden inside.
+        const height = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+        const cloth = new THREE.MeshStandardMaterial({ color: def.robe, roughness: 0.9, side: THREE.DoubleSide });
+        const gold = new THREE.MeshStandardMaterial({ color: 0xb8954a, roughness: 0.5, metalness: 0.4 });
+        const profile = ROBE_PROFILE.map(([r, y]) => new THREE.Vector2(r * height, y * height));
+        const robe = new THREE.Mesh(new THREE.LatheGeometry(profile, 18), cloth);
+        robe.castShadow = true;
+        const hem = new THREE.Mesh(new THREE.TorusGeometry(0.21 * height, 0.012 * height, 6, 32), gold);
+        hem.rotation.x = Math.PI / 2; hem.position.y = 0.01 * height;
+        const belt = new THREE.Mesh(new THREE.TorusGeometry(0.112 * height, 0.01 * height, 6, 28), gold);
+        belt.rotation.x = Math.PI / 2; belt.position.y = 0.58 * height;
+        group.add(robe, hem, belt);
+      }
+      if (def.hood) {
+        // Open-faced hood: a sphere shell with a 90° gap facing forward (+z).
+        npc.hood = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 8, Math.PI * 0.75, Math.PI * 1.5, 0, Math.PI * 0.68),
+          new THREE.MeshStandardMaterial({ color: def.hood, roughness: 0.95, side: THREE.DoubleSide }));
+        npc.head = model.getObjectByName('Head');
+        root.add(npc.hood);
+      }
+      if (def.lantern) {
+        npc.lantern = new THREE.Group();
+        npc.lantern.add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 1), new THREE.MeshBasicMaterial({ color: def.lantern })));
+        npc.lantern.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), new THREE.MeshBasicMaterial({
+          color: def.lantern, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false })));
+        npc.hand = model.getObjectByName(LANTERN_HAND);
+        root.add(npc.lantern);
+      }
       place(npc);
       npcs.push(npc);
       play(npc, def.idle || 'Walk_Loop');
@@ -130,10 +166,20 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
         }
         const turn = Math.atan2(Math.sin(yaw - group.rotation.y), Math.cos(yaw - group.rotation.y));
         group.rotation.y += turn * (1 - Math.exp(-6 * dt));
-        group.position.y = terrainHeight(group.position.x, group.position.z);
+        group.position.y = def.y ?? terrainHeight(group.position.x, group.position.z);
         npc.collider.x = group.position.x;
         npc.collider.z = group.position.z;
         npc.mixer.update(dt);
+        if (npc.hood || npc.lantern) group.updateMatrixWorld(true);
+        if (npc.hood && npc.head) {
+          npc.head.getWorldPosition(npc.hood.position).y += HOOD_LIFT;
+          npc.hood.rotation.y = group.rotation.y;
+        }
+        if (npc.lantern && npc.hand) {
+          npc.hand.getWorldPosition(npc.lantern.position).y -= LANTERN_DROP;
+          npc.lantern.scale.setScalar(1 + 0.08 * Math.sin(npc.t * 3));
+          npc.t += def.path ? 0 : dt;
+        }
       }
     },
     reset() { npcs.forEach(place); }

@@ -1,6 +1,8 @@
 import { storyVolumes, BORDER_ANCHOR } from '../models/spadeStory.js';
+import { insideRefuge } from '../models/spadeCampaign.js';
 
-export function buildSpadeStory({root,add,block,label,height}) {
+// ground(x, z): the terrain as drawn, for paths laid over slopes. road: the avenue's paving material.
+export function buildSpadeStory({root,add,block,label,height,ground,road}) {
   const volumes=storyVolumes(height),base=height(-447);
   for(const p of volumes){
     if(!p.name||p.name==='refuge-floor')block(p.u,p.v,p.width,p.depth,p.top-p.bottom,p.bottom,'house');
@@ -14,16 +16,21 @@ export function buildSpadeStory({root,add,block,label,height}) {
       if(p.name==='supplies')for(const side of [-1,1])block(p.u+side*.42,p.v,.1,p.depth+.03,p.top-p.bottom,p.bottom,'trim');
     }
   }
-  // Neris is a small cloaked silhouette, not a new character download.
-  add('cone',24,2.4,-20,.45,1.5,.4,'cloth');add('orb',24,3.4,-20,.24,.27,.24,'wood');
+  // Neris herself is a hooded villager mannequin (rendering/npc.js, VILLAGERS).
   block(25,-25,.3,.3,.5,2.8,'light');
   label('NERIS · LANTERN REFUGE',22,5.2,-18.25,5,0);
   label('THEY TOOK OUR MEMORIES. NOT OUR LIGHT.',22,4,-27.75,7,0);
   // A repaired resistance banner and supplies make this an occupied shelter.
   block(17.25,-24,.08,2.4,1.6,3.1,'cloth');
   for(const u of [18,26])block(u,-18.2,.45,.45,.5,2.4,'light');
-  // A short side path leaves the main avenue unobstructed.
-  block(103,-26,4.5,40,.04,base+.015,'road');
+  // A short side path leaves the main avenue unobstructed. It crosses the avenue's sideways slope, so it
+  // is a strip draped over the drawn terrain (a vertex every ~0.75 m, 5 cm above it), not a flat slab.
+  const path=new THREE.PlaneGeometry(4.5,40,6,54).rotateX(-Math.PI/2).translate(-344-103,0,-26);
+  const at=path.attributes.position;
+  for(let i=0;i<at.count;i++)at.setY(i,ground(at.getX(i),at.getZ(i))+.05);
+  path.computeVertexNormals();
+  const paving=road.clone();paving.polygonOffset=true;paving.polygonOffsetFactor=-2;paving.polygonOffsetUnits=-2;
+  const pathMesh=new THREE.Mesh(path,paving);pathMesh.receiveShadow=true;root.add(pathMesh);
   add('disc',103,base+.035,-48,6.3,.07,6.3,'road');
   block(103,-48,3.2,3.2,2.6,base,'roof');
   add('orb',103,base+3.6,-48,.8,1.2,.8,'wisp');
@@ -47,8 +54,9 @@ export function buildSpadeStory({root,add,block,label,height}) {
   }
   // Three distinct stolen currents: branching roots, stepped water channels and
   // angular prism sockets. Emissive strips add no point lights or shadow maps.
+  // Rows stay below the archive gallery's slab (bottom 22.77); the prism row used to poke through it.
   for(const [i,material]of ['root','tide','prism'].entries()){
-    const y=18.4+i*2;
+    const y=17.6+i*1.6;
     block(150,-14.7,43,.12,.13,y,material);
     for(let n=0;n<5;n++){
       const u=132+n*8;
@@ -58,11 +66,22 @@ export function buildSpadeStory({root,add,block,label,height}) {
       else add('orb',u,y+.5,-14.65,.3,.5,.12,material);
     }
   }
+  // The Dark Triad's thrones (after Black Clover's Spade castle): black stone with spired backs, a
+  // blood-crimson panel and a gold spade crest, under the observatory's 5.9 m ceiling. They face the
+  // hall (+x). Name plaques sit on each dais front, readable on approach.
   for(const [i,v]of [-8,0,8].entries()){
-    block(175.2,v,.35,2.4,3.2,30.12,'roof');
-    block(174,v,1.8,2.2,.25,31.35,'trim');
-    for(const side of [-1,1])block(174,v+side*.95,1.8,.2,.8,31.6,'stone');
-    label(['VEYR · THE BINDER','SILE · THE HARVESTER','MORCANT · THE GATEKEEPER'][i],175.7,34.35,v,5.8);
+    const floor=30.12,back=floor+3.6;
+    block(173.6,v,3.4,3.4,.3,floor,'obsidian');                                   // dais
+    block(175.3,v,.4,2.6,3.6,floor,'obsidian');                                   // backrest
+    block(175.08,v,.06,1.9,2.7,floor+.75,'velvet');                               // crimson panel
+    add('spade',175.0,floor+2.75,v,1.1,1.15,.1,'gold',Math.PI/2);                 // crest
+    for(const [o,h]of [[-1,1.1],[0,1.6],[1,1.1]])add('cone',175.3,back+h/2,v+o*.95,.3,h,.3,'obsidian',Math.PI/4); // spires
+    block(174,v,1.9,2.2,.45,floor+.3,'velvet');                                   // seat
+    for(const side of [-1,1]){
+      block(174,v+side*1.2,1.9,.3,.95,floor+.3,'obsidian');                       // arms
+      add('spade',173.1,floor+1.45,v+side*1.2,.32,.36,.08,'gold',Math.PI/2);      // finials
+    }
+    label(['VEYR · THE BINDER','SILE · THE HARVESTER','MORCANT · THE GATEKEEPER'][i],171.85,floor+.55,v,3.4);
   }
   const uniforms={uTime:{value:0}};
   const material=new THREE.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide,
@@ -75,16 +94,15 @@ export function buildSpadeStory({root,add,block,label,height}) {
   label('THE HOLLOW GATE · SEALED BY THREE BINDINGS',175.6,35.4,0,15);
   const ward=new THREE.Mesh(new THREE.PlaneGeometry(5,5),material);
   ward.position.set(-344-BORDER_ANCHOR.u,base+4,-48);root.add(ward);
-  let seenRefuge=false,seenAnchor=false,seenGate=false;
+  // Neris and the border anchor speak through the chapter campaign (spadeCampaign.js).
+  let seenGate=false;
   return {
-    insideRefuge(p){return p.x<-361&&p.x>-371&&p.z<-18&&p.z>-28;},
+    ward,insideRefuge,
     update(dt,player,state,notify){
       uniforms.uTime.value+=dt;
       if(!state.locked||state.chaos>.4)return;
-      if(!seenRefuge&&this.insideRefuge(player.position)){seenRefuge=true;notify?.('NERIS · We shelter those the Triad tried to erase. The wisps remember. Gather them before you ask them to fight.',8000);}
-      if(!seenAnchor&&Math.hypot(player.position.x+447,player.position.z+48)<9){seenAnchor=true;notify?.('THE BORDER ANCHOR · Its chains bind the settlement. This is where Neris will need the gathered swarm.',7000);}
       if(!seenGate&&player.position.x<-510&&player.position.x>-520&&Math.abs(player.position.z)<5&&player.position.y<22){seenGate=true;notify?.('THE HOLLOW GATE · Stolen currents feed the rift. Breaking the Triad’s defenses will require allies from three kingdoms.',7000);}
     },
-    reset(){seenRefuge=seenAnchor=seenGate=false;},
+    reset(){seenGate=false;},
   };
 }

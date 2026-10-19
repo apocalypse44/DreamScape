@@ -38,7 +38,8 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
 
   return {
     prepare: lighting.prepare,
-    update(dt, visual, camera, { hour = 9, rift = 0 } = {}) {
+    // indoors (0–1): inside an enclosed hall, where sky reflections (the environment light) are mostly blocked.
+    update(dt, visual, camera, { hour = 9, rift = 0, indoors = 0 } = {}) {
       time += dt;
       const look = sampleLook(visual);
       const flash = weather.update(dt, visual, camera.position);
@@ -101,7 +102,7 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
       u.uVortexDir.value.set(RIFT.x - camera.position.x, RIFT.y - camera.position.y, RIFT.z - camera.position.z).normalize();
       const signature = [Math.floor(hour * 2), Math.round(day.daylight * 20), Math.round(day.twilight * 10), Math.round(storm * 10), Math.round(climate * 10)].join(':');
       const jumped = lastHour !== null && Math.abs(hour - lastHour) > 0.25;
-      lighting.update(true, 0.28 + day.daylight * 0.52, dt, signature, jumped || lastHour === null);
+      lighting.update(true, (0.28 + day.daylight * 0.52) * (1 - 0.85 * indoors), dt, signature, jumped || lastHour === null);
       lastHour = hour;
       if (CONFIG.tintGround) for (const chunk of chunks.values()) {
         chunk.userData.material.color.copy(white).lerp(look.groundTint, look.groundTintAmount);

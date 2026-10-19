@@ -84,8 +84,8 @@ test('the hound carries its ember, flees in chaos, and drops it for a calm appro
   const hound = { x: 50, y: 4, z: -25 };
   quest.updateHoundEmber(hound);
   const ember = quest.embers.find(item => item.challenge === 'hound');
-  assert.deepEqual([ember.x, ember.y, ember.z], [50, 5.3, -25]);
-  assert.deepEqual(positions[positions.length - 1], [2, 50, 5.3, -25]);
+  assert.deepEqual([ember.x, ember.y, ember.z], [50, 5.8, -25]);
+  assert.deepEqual(positions[positions.length - 1], [2, 50, 5.8, -25]);
 
   // Reaching the hound while chaotic does not take the ember it still carries.
   player.position = { x: hound.x, y: ember.y + 1, z: hound.z };

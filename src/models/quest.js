@@ -189,7 +189,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
         return;
       }
       ember.x = houndPosition.x;
-      ember.y = houndPosition.y + 1.3;
+      ember.y = houndPosition.y + 1.8; // just above the wolf's back, not inside its body
       ember.z = houndPosition.z;
       onEmberPosition?.(index, ember);
       houndDistance = Math.hypot(player.position.x - houndPosition.x, player.position.z - houndPosition.z);

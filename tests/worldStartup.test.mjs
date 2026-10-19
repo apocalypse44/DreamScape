@@ -26,6 +26,13 @@ test('world startup returns live material profiles after legacy scenery removal'
   assert.equal(world.seed, 1234);
   assert.equal(world.chunks.size, 0);
   assert.equal(world.terrainHeight(-400,0),1.5); // stable city bypasses noise/MathUtils
+  // surfaceHeight follows the drawn mesh: exact at grid vertices, straight lines between them
+  // (Spade's slope, x ≈ -430, needs no noise and still curves).
+  const CELL = 64 / 36, x0 = Math.round(-430 / CELL) * CELL, x1 = x0 + CELL;
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
+  near(world.surfaceHeight(x0, 0), world.terrainHeight(x0, 0));
+  near(world.surfaceHeight((x0 + x1) / 2, 0), (world.terrainHeight(x0, 0) + world.terrainHeight(x1, 0)) / 2);
+  assert.notEqual(world.terrainHeight((x0 + x1) / 2, 0), world.surfaceHeight((x0 + x1) / 2, 0));
   assert.ok(world.materialProfiles.length > 0);
   for (const [material, profile] of world.materialProfiles) {
     assert.ok(material instanceof Material);

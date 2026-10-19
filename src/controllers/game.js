@@ -36,9 +36,9 @@ import { createWorldMap } from '../views/worldMap.js';
 import { createDemoSpawns } from '../views/demoSpawns.js';
 import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
 import { createHoundCutscene } from './houndScene.js';
+import { createDoorScene } from './doorScene.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
-import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 
 export function startGame(ui) {
   const startup = createStartupReadiness();
@@ -79,11 +79,14 @@ export function startGame(ui) {
   shrine.colliders.push(...waterfall.colliders, ...wayfinding.colliders, ...ridge.colliders, ...plaza.colliders, ...clover.colliders);
   const heavenly = createHeavenlyFalls({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
-  const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast });
+  let doorScene = null; // created below, with the camera controls
+  const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
+    onChapterComplete: () => doorScene.queue(9) }); // after Neris's sigil lines have been read
   shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
   const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
-  const surfaceAt = createSurfaceAt(platforms, terrainHeight);
+  // Standing and feet use the ground as drawn (flat mesh triangles), not the smooth height between vertices.
+  const surfaceAt = createSurfaceAt(platforms, world.surfaceHeight);
   // Ground-level obstacles the hound's A* routes around: landmark and prop colliders that still stand.
   const groundObstacles = () => [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
     .flatMap(colliders => colliders.filter(c => !c.off && c.minY === undefined));
@@ -96,20 +99,19 @@ export function startGame(ui) {
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
-      const refuge = SPADE_MAP_LOCATIONS.find(location => location.id === 'spade-refuge');
-      navigation.setDestination({ ...refuge.destination, id: refuge.id });
       toast('NEXT · FIND NERIS AT THE LANTERN REFUGE · SPADE KINGDOM', 6000);
     },
     obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
       clover.root, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
+  doorScene = createDoorScene({ camera, state, keys, onOpen: () => spade.openGate() });
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
   startup.begin(performance.now());
   npcs.ready.finally(() => startup.end(performance.now()));
-  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders: shrine.colliders,
+  const movement = createPlayerController({ state, keys, player, chunks, terrainHeight: world.surfaceHeight, staticColliders: shrine.colliders,
     platforms,
-    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active,
+    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active || doorScene.active,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     allowFallRecovery: player => !spade.isInsideCastle(player.position),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
@@ -118,6 +120,7 @@ export function startGame(ui) {
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
     houndScene.reset();
+    doorScene.reset();
     music.reset();
     Object.assign(state, START);
     keys.clear();
@@ -170,17 +173,21 @@ export function startGame(ui) {
   });
   const chaosLook = createChaosLook();
   const chaosFog = new THREE.Color(0x2a0809);
+  let swarmCast = null;
   function updateSwarm(dt) {
     const insideSwarmWorld = biomeAt(player.position.x, player.position.z).kind === "wisps";
     let mode = "roaming";
+    // Near the exposed border-anchor ward, scattering becomes a directed strike through it.
+    const strike = spade.campaign.strikeTarget(player.position, state.chaos);
     if (keys.has("KeyF")) mode = "recall";
-    else if (keys.has("KeyQ") || pointerButtons.has(2)) mode = "repel";
+    else if (keys.has("KeyQ") || pointerButtons.has(2)) mode = strike ? "strike" : "repel";
     else if (keys.has("KeyE") || pointerButtons.has(0)) mode = "attract";
     // Gathering the swarm calms the world; scattering it stirs chaos.
     if (insideSwarmWorld && mode === "attract") state.chaos -= 0.12 * dt;
-    if (insideSwarmWorld && mode === "repel") state.chaos += 0.2 * dt;
+    if (insideSwarmWorld && (mode === "repel" || mode === "strike")) state.chaos += 0.2 * dt;
     swarm.setEnabled(insideSwarmWorld, player.position);
-    swarm.update(dt, player.position, camera, mode, state.chaos);
+    swarm.update(dt, player.position, camera, mode, state.chaos, strike);
+    swarmCast = swarm.enabled && mode !== "roaming" ? swarm.target : null; // the character raises its arms at it
     swarmPanelEl.classList.toggle("active", insideSwarmWorld);
     swarmStatusEl.textContent = mode.toUpperCase();
   }
@@ -197,7 +204,8 @@ export function startGame(ui) {
   }
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music };
+  // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music, player, movement };
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -241,6 +249,21 @@ export function startGame(ui) {
       object.visible = Math.max(dx, dz) < reach; // square, like the chunk grid
     }
   }
+  // Inside Spade castle: dim daylight, cold violet ambient and a dark haze, eased in at the doorway
+  // (`indoors`, updated each frame before the atmosphere pass, which also dims sky reflections with it).
+  // Runs after the atmosphere has set this frame's lights, so it never compounds.
+  const CASTLE_GLOOM = { sun: 0.15, hemi: 0.4, exposure: 0.82, fog: 0.03 };
+  const gloomFog = new THREE.Color(0x0b0816), gloomSky = new THREE.Color(0x3b2c66);
+  let indoors = 0;
+  function darkenCastle() {
+    if (indoors < 0.01) return;
+    sun.intensity *= THREE.MathUtils.lerp(1, CASTLE_GLOOM.sun, indoors);
+    hemi.intensity *= THREE.MathUtils.lerp(1, CASTLE_GLOOM.hemi, indoors);
+    hemi.color.lerp(gloomSky, indoors);
+    renderer.toneMappingExposure = THREE.MathUtils.lerp(renderer.toneMappingExposure, CASTLE_GLOOM.exposure, indoors);
+    scene.fog.color.lerp(gloomFog, indoors);
+    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, CASTLE_GLOOM.fog, indoors);
+  }
   const resolution = createResolutionGovernor(renderer);
   const clock = new THREE.Clock();
   let fpsFrames = 0;
@@ -272,7 +295,7 @@ export function startGame(ui) {
     if (!houndScene.active) quest.updateHoundEmber(companion.position);
     kingdomBorder.update(playDt);
     gates.update(playDt);
-    if (!houndScene.active) spade.update(dt, player, state);
+    if (!houndScene.active) spade.update(dt, player, state, swarm);
     heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
@@ -281,17 +304,22 @@ export function startGame(ui) {
     wayfinding.update();
     plaza.update();
     clover.update(player.position, dt);
+    doorScene.observe(!houndScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
     let cameraDistance;
     if (houndScene.active) cameraDistance = houndScene.update(dt);
+    else if (doorScene.active) cameraDistance = doorScene.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
     else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(); }
-    character.update(dt, cameraDistance);
+    character.update(dt, cameraDistance, houndScene.active ? null : swarmCast);
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     demoSpawns.update();
     cullLandmarks();
     updateHUD(ui, state, player, biomeAt);
-    updateQuestHUD(ui, quest);
+    // After the cure: the Spade chapter's objective, then the castle's next step once the sigil is earned.
+    const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete;
+    updateQuestHUD(ui, quest, quest.stage !== 'cured' ? quest.goal
+      : castleNext ? `SPADE CASTLE · ${spade.castle.discovery.objective.toUpperCase()}` : spade.campaign.goal);
     encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
     if (!houndScene.active) updateSwarm(dt);
@@ -323,7 +351,9 @@ export function startGame(ui) {
     grass.update();
     if (!houndScene.active) applyCameraShake(camera, dt);
     const chaosScore = chaosLook.update(houndScene.active ? 0 : dt, state);
-    atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade) });
+    indoors += ((!doorScene.active && spade.isInsideCastle(player.position) ? 1 : 0) - indoors) * (1 - Math.exp(-3 * dt));
+    atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade), indoors });
+    darkenCastle();
     updateShortcuts();
     music.update(dt);
     kamui.render(scene, camera, dt);

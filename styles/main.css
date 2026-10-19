@@ -1,30 +1,30 @@
 :root { --ink:#f0f3df; --muted:rgba(226,235,211,.58); --line:rgba(221,239,213,.17); --acid:#c6ff65; --panel:rgba(7,15,14,.6); }
 /* In-world story scenes: the world remains live behind the letterbox and subtitles. */
-#houndScene { position:fixed; inset:0; z-index:28; color:#fff0da; background:linear-gradient(#0009,transparent 23%,transparent 55%,#080706d9); }
-#houndScene[hidden] { display:none; }
-#houndScene::before, #houndScene::after { content:''; position:absolute; left:0; right:0; height:10vh; background:#080706; pointer-events:none; }
+:is(#houndScene,#doorScene) { position:fixed; inset:0; z-index:28; color:#fff0da; background:linear-gradient(#0009,transparent 23%,transparent 55%,#080706d9); }
+:is(#houndScene,#doorScene)[hidden] { display:none; }
+:is(#houndScene,#doorScene)::before, :is(#houndScene,#doorScene)::after { content:''; position:absolute; left:0; right:0; height:10vh; background:#080706; pointer-events:none; }
 /* Letterbox bars slide in when a scene opens, so the shift into a scene reads as deliberate. */
-#houndScene::before { top:0; animation:scene-bar-top 1.6s cubic-bezier(.65,0,.35,1) both; }
-#houndScene::after { bottom:0; animation:scene-bar-bottom 1.6s cubic-bezier(.65,0,.35,1) both; }
+:is(#houndScene,#doorScene)::before { top:0; animation:scene-bar-top 1.6s cubic-bezier(.65,0,.35,1) both; }
+:is(#houndScene,#doorScene)::after { bottom:0; animation:scene-bar-bottom 1.6s cubic-bezier(.65,0,.35,1) both; }
 @keyframes scene-bar-top { from { transform:translateY(-100%); } }
 @keyframes scene-bar-bottom { from { transform:translateY(100%); } }
-#houndScene .scene-line.in { animation:scene-line-in .9s cubic-bezier(.33,0,.2,1) both; }
+:is(#houndScene,#doorScene) .scene-line.in { animation:scene-line-in .9s cubic-bezier(.33,0,.2,1) both; }
 @keyframes scene-line-in { from { opacity:0; transform:translateY(8px); } }
-@media (prefers-reduced-motion: reduce) { #houndScene::before, #houndScene::after, #houndScene .scene-line.in { animation:none; } }
-#houndScene .scene-veil { position:absolute; inset:0; background:#080706; pointer-events:none; }
-#houndScene .scene-top { position:absolute; top:2.2vh; left:5vw; right:5vw; display:flex; align-items:center; justify-content:space-between; gap:12px; color:#d8b884; font:9px 'DM Mono',monospace; letter-spacing:.18em; }
-#houndScene button { border:0; background:transparent; color:#d8b884; padding:6px 0; cursor:pointer; font:9px 'DM Mono',monospace; letter-spacing:.12em; }
-#houndScene button:focus-visible { outline:1px solid #d8b884; outline-offset:4px; }
-#houndScene .scene-dialogue { position:absolute; left:50%; bottom:9vh; transform:translateX(-50%); width:min(720px,86vw); text-align:center; text-shadow:0 2px 12px #000; }
-#houndScene .scene-chapter { margin:0 0 18px; color:#c39b64; font:9px 'DM Mono',monospace; letter-spacing:.22em; }
-#houndScene .scene-speaker { margin:0 0 8px; color:#f2bc72; font:10px 'DM Mono',monospace; letter-spacing:.2em; }
-#houndScene .scene-line { margin:0 0 16px; font:400 clamp(20px,2.3vw,30px)/1.45 Georgia,serif; }
-#houndScene [data-scene-next] span { margin-left:12px; }
+@media (prefers-reduced-motion: reduce) { :is(#houndScene,#doorScene)::before, :is(#houndScene,#doorScene)::after, :is(#houndScene,#doorScene) .scene-line.in { animation:none; } }
+:is(#houndScene,#doorScene) .scene-veil { position:absolute; inset:0; background:#080706; pointer-events:none; }
+:is(#houndScene,#doorScene) .scene-top { position:absolute; top:2.2vh; left:5vw; right:5vw; display:flex; align-items:center; justify-content:space-between; gap:12px; color:#d8b884; font:9px 'DM Mono',monospace; letter-spacing:.18em; }
+:is(#houndScene,#doorScene) button { border:0; background:transparent; color:#d8b884; padding:6px 0; cursor:pointer; font:9px 'DM Mono',monospace; letter-spacing:.12em; }
+:is(#houndScene,#doorScene) button:focus-visible { outline:1px solid #d8b884; outline-offset:4px; }
+:is(#houndScene,#doorScene) .scene-dialogue { position:absolute; left:50%; bottom:9vh; transform:translateX(-50%); width:min(720px,86vw); text-align:center; text-shadow:0 2px 12px #000; }
+:is(#houndScene,#doorScene) .scene-chapter { margin:0 0 18px; color:#c39b64; font:9px 'DM Mono',monospace; letter-spacing:.22em; }
+:is(#houndScene,#doorScene) .scene-speaker { margin:0 0 8px; color:#f2bc72; font:10px 'DM Mono',monospace; letter-spacing:.2em; }
+:is(#houndScene,#doorScene) .scene-line { margin:0 0 16px; font:400 clamp(20px,2.3vw,30px)/1.45 Georgia,serif; }
+:is(#houndScene,#doorScene) [data-scene-next] span { margin-left:12px; }
 body.story-playing :is(.hud-top,.hud-right,.swarm-panel,.crosshair,.compass,.shrine-panel,.movement-hint,.escape-menu,#mapButton,#overlay,#chaosReadout,#resumeHint) { visibility:hidden; }
 @media (max-height:500px) {
-  #houndScene .scene-chapter { display:none; }
-  #houndScene .scene-line { font-size:20px; margin-bottom:5px; }
-  #houndScene .scene-dialogue { bottom:8vh; }
+  :is(#houndScene,#doorScene) .scene-chapter { display:none; }
+  :is(#houndScene,#doorScene) .scene-line { font-size:20px; margin-bottom:5px; }
+  :is(#houndScene,#doorScene) .scene-dialogue { bottom:8vh; }
 }
 * { box-sizing:border-box; }
 html,body { width:100%; height:100%; margin:0; overflow:hidden; background:#07100f; color:var(--ink); font-family:"Manrope",sans-serif; }

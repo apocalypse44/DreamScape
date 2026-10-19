@@ -26,7 +26,7 @@ export function echoContains(p, x, z, pad = 0) {
 const inHall = p => p.x < -468 && p.x > -522 && Math.abs(p.z)<15 && p.y<39;
 const inRoute = p => p.x < -499 && p.x > -513 && p.z>-10.5 && p.z<7 && p.y>23;
 export function createCastleEcho() {
-  let chaosVisible=false,engaged=false,active=false,progress=-1,recovered=false,announced=false;
+  let chaosVisible=false,engaged=false,active=false,progress=-1,recovered=false,announced=false,skipped=false;
   const platforms=ECHO_FRAGMENTS.map(p => ({...p,solid:true,
     contains:(x,z,pad=0)=>active&&echoContains(p,x,z,pad) }));
   return {
@@ -36,6 +36,7 @@ export function createCastleEcho() {
     get objective(){
       if(recovered)return 'Memory restored: Clover can reveal Veyr’s true bindings.';
       if(progress===4)return 'Be still on the witness seal to understand the erased memory.';
+      if(engaged&&skipped)return 'The witness answers only a full crossing. Drop back to the archive balcony and start at the broken arch.';
       if(engaged)return `Follow the fractured arches · ${progress+1}/5 landings`;
       return active?'Archive north balcony · jump over the rail toward the glowing arch.'
         :'Climb to the archive. Sprint and jump to expose the erased castle.';
@@ -52,6 +53,8 @@ export function createCastleEcho() {
       active=chaosVisible||engaged;
       if(!active)return null;
       if(!announced){announced=true;return {type:'reveal',text:'THE ERASED CASTLE · The erased witnesses surface. From the archive’s north balcony, follow the glowing masonry into the atrium.'};}
+      // Landing ahead of the next fragment (e.g. dropping onto the seal from the observatory) doesn't count.
+      skipped=player.grounded&&on>progress+1?true:player.grounded&&on>=0&&on<=progress+1?false:skipped;
       if(player.grounded&&on===progress+1) {
         progress=on;
         if(progress===4)return {type:'witness',text:'VEYR’S ECHO · Let them strike the false anchors. The true binding remains unseen. Be still here to hear the witness.'};
@@ -62,6 +65,6 @@ export function createCastleEcho() {
       }
       return null;
     },
-    reset(){chaosVisible=engaged=active=recovered=announced=false;progress=-1;},
+    reset(){chaosVisible=engaged=active=recovered=announced=skipped=false;progress=-1;},
   };
 }

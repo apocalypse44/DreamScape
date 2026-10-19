@@ -36,8 +36,9 @@ export async function mountView() {
 }
 
 // Text is only written when it changes, so the aria-live panel isn't re-announced every frame.
-export function updateQuestHUD(ui, quest) {
-  if (ui.questGoalEl.textContent !== quest.goal) ui.questGoalEl.textContent = quest.goal;
+// goal: after the cure, the Spade chapter's objective replaces the hound quest's.
+export function updateQuestHUD(ui, quest, goal = quest.goal) {
+  if (ui.questGoalEl.textContent !== goal) ui.questGoalEl.textContent = goal;
   ui.questGoalEl.classList.toggle("warn", quest.restless);
   ui.shrinePanelEl.classList.toggle("active", quest.nearShrine);
   ui.shrinePanelEl.classList.toggle("drowned", quest.drowned);

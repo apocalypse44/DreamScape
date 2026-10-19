@@ -50,28 +50,44 @@ export function buildCastleEcho({root,obstacles,notify}) {
   linkTransforms.forEach((matrix,i)=>links.setMatrixAt(i,matrix));links.frustumCulled=false;group.add(links);
   const last=ECHO_FRAGMENTS.at(-1),vision=new THREE.Group();
   vision.position.set(last.x+.65,last.top,last.z+.55);group.add(vision);
-  mesh(new THREE.CylinderGeometry(.28,.52,1.5,7),phantom,vision,0,.78,0);
-  const collar=mesh(new THREE.TorusGeometry(.3,.065,4,8),glow,vision,0,1.45,0);collar.rotation.x=Math.PI/2;
+  // Veyr's projection, drawn after Dante Zogratis of Black Clover's Dark Triad: tall, long dark hair swept
+  // back past the shoulders, an open long coat with a high flared collar over a bare chest. It faces -z,
+  // as the original apparition did. Coat pieces are open cylinders with the gap at the front (-z).
+  const ghost=(color,opacity)=>new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,side:THREE.DoubleSide});
+  const coat=ghost(0x3d2e66,.7),skin=ghost(0xe2d3f5,.55),hair=ghost(0x1a1230,.82),pants=ghost(0x2a2045,.65);
+  const tones=[[coat,.7],[skin,.55],[hair,.82],[pants,.65]];
+  const open=(top,bottom,height,y,material)=>{const m=mesh(new THREE.CylinderGeometry(top,bottom,height,14,1,true,Math.PI*1.2,Math.PI*1.6),material,vision,0,y,0);return m;};
   for(const side of [-1,1]){
-    const arm=mesh(new THREE.CylinderGeometry(.07,.1,.72,5),phantom,vision,side*.35,1.05,0);arm.rotation.z=side*.25;
-    mesh(new THREE.IcosahedronGeometry(.035,0),glow,vision,side*.075,1.87,-.21);
+    mesh(new THREE.CylinderGeometry(.1,.08,1.0,8),pants,vision,side*.12,.5,0);                    // legs
+    const sleeve=mesh(new THREE.CylinderGeometry(.075,.095,.82,8),coat,vision,side*.36,1.42,0);   // sleeves
+    sleeve.rotation.z=side*.18;
+    mesh(new THREE.SphereGeometry(.07,10,8),skin,vision,side*.43,1.0,-.02);                       // hands
+    mesh(new THREE.SphereGeometry(.12,10,8),coat,vision,side*.29,1.8,0);                          // shoulders
+    mesh(new THREE.SphereGeometry(.022,8,6),glow,vision,side*.045,2.07,-.115);                    // eyes
   }
-  mesh(new THREE.IcosahedronGeometry(.23,1),phantom,vision,0,1.85,0);
-  mesh(new THREE.CylinderGeometry(.25,.22,.12,7),glow,vision,0,2.08,0);
-  for(let i=0;i<3;i++)mesh(new THREE.ConeGeometry(.055,.24,4),glow,vision,(i-1)*.15,2.22,0);
+  open(.3,.48,1.05,.78,coat);                                                                     // coat tails
+  mesh(new THREE.CylinderGeometry(.19,.16,.62,12),skin,vision,0,1.5,0);                           // bare chest
+  open(.27,.25,.66,1.5,coat);                                                                     // coat body
+  open(.36,.2,.42,2.0,coat);                                                                      // flared collar
+  mesh(new THREE.CylinderGeometry(.06,.07,.14,8),skin,vision,0,1.9,0);                            // neck
+  mesh(new THREE.SphereGeometry(.13,14,12),skin,vision,0,2.05,-.01);                              // head
+  mesh(new THREE.SphereGeometry(.142,14,10,0,Math.PI*2,0,Math.PI*.55),hair,vision,0,2.07,.012);  // hair, swept back
+  const mane=mesh(new THREE.CylinderGeometry(.15,.21,.82,10),hair,vision,0,1.68,.13);             // long hair down the back
+  mane.scale.z=.45;
   const chains=[];
   for(const z of [-8,0,8]){
     const points=[new THREE.Vector3(last.x+.65,last.top+1.3,last.z+.55),new THREE.Vector3(-511,30.3,z/2),new THREE.Vector3(-518,31.2,z)];
     const chain=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),lineMat);group.add(chain);chains.push(chain);
   }
-  // A faint witness kneels beside the projection, rather than another enemy.
-  mesh(new THREE.ConeGeometry(.28,.7,6),phantom,vision,-1.1,.36,-.45);
-  mesh(new THREE.IcosahedronGeometry(.15,0),glow,vision,-1.1,.85,-.45);
+  // A faint hooded witness kneels beside the projection, head bowed, rather than another enemy.
+  mesh(new THREE.ConeGeometry(.3,.75,10),phantom,vision,-1.1,.38,-.45);
+  mesh(new THREE.SphereGeometry(.13,12,10),skin,vision,-1.1,.8,-.38);
+  mesh(new THREE.SphereGeometry(.16,12,8,0,Math.PI*2,0,Math.PI*.6),phantom,vision,-1.1,.83,-.42);
   // The existing scraped portrait frames regain their erased silhouettes.
   for(const u of [134,147,160]){
     const portrait=new THREE.Group();portrait.position.set(-344-u,19.15,14.45);group.add(portrait);
-    mesh(new THREE.CylinderGeometry(.2,.48,1.25,6),phantom,portrait,0,.63,0);
-    mesh(new THREE.IcosahedronGeometry(.22,0),glow,portrait,0,1.58,0);
+    mesh(new THREE.CylinderGeometry(.2,.48,1.25,12),phantom,portrait,0,.63,0);
+    mesh(new THREE.SphereGeometry(.2,14,12),skin,portrait,0,1.5,0);
     const frame=[[-1.05,0],[1.05,0],[1.05,1.95],[-1.05,1.95],[-1.05,0]].map(([x,y])=>new THREE.Vector3(x,y,0));
     portrait.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(frame),lineMat));
   }
@@ -82,7 +98,8 @@ export function buildCastleEcho({root,obstacles,notify}) {
   ctx.fillStyle='#c8badb';ctx.font='25px Georgia';ctx.textAlign='center';
   ctx.fillText('THEY ERASED THE WITNESSES.',384,48);ctx.fillText('THEY COULD NOT ERASE THEIR FOOTSTEPS.',384,89);
   const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
-  mesh(new THREE.PlaneGeometry(6.2,1.03),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}),root,ECHO_ENTRY.x,25.8,-14.7);
+  // Past the bookcases (which end at u 159), so it never sits behind a record's title plaque.
+  mesh(new THREE.PlaneGeometry(6.2,1.03),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}),root,ECHO_ENTRY.x-8.5,25.8,-14.7);
   let time=0;
   return {model,root:group,
     update(dt,player,state){
@@ -92,7 +109,9 @@ export function buildCastleEcho({root,obstacles,notify}) {
       if(!model.active)return;
       time+=dt;glow.opacity=.65+Math.sin(time*1.7)*.1;
       // Only the apparition flickers; all physical landings stay fixed.
-      phantom.opacity=(state.chaos>.4?.5:.72)+Math.sin(time*4)*.04;
+      const flicker=(state.chaos>.4?.7:1)+Math.sin(time*4)*.05;
+      phantom.opacity=.72*flicker;
+      for(const [material,base] of tones)material.opacity=base*flicker;
       chains.forEach((c,i)=>c.visible=state.chaos>.4||model.recovered||i===0);
     },
     reset(){model.reset();group.visible=false;time=0;},

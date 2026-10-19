@@ -55,6 +55,21 @@ function solveLeg({ thigh, calf, ankle }, goal) {
   rotateWorld(calf, turn.setFromUnitVectors(foot.sub(knee).normalize(), dir.subVectors(goal, knee).normalize()));
 }
 
+// Casting pose: both arms straighten toward the swarm's target, palms out (fingers tipped up).
+const CAST_EASE = 8;      // how fast the arms rise and fall (1/s)
+const CAST_SPREAD = 0.35; // hands aim this far apart (m), left and right of the target
+const FINGERS_UP = 0.6;   // 0 = fingers along the arm, 1 = fingers straight up
+const CAST_REACH = 0.95;  // radians (~55°): arms never aim further than this from where the body faces,
+                          // so running away from the target never swings them behind (no "Naruto run")
+const [shoulder, elbow, wrist, knuckle, aim, side, up] = [v(), v(), v(), v(), v(), v(), new THREE.Vector3(0, 1, 0)];
+const blend = new THREE.Quaternion(), still = new THREE.Quaternion();
+
+// Turn a bone so the direction from→to (two of its descendants' world positions) eases toward `goal`.
+function aimBone(bone, from, to, goal, weight) {
+  turn.setFromUnitVectors(to.sub(from).normalize(), goal);
+  rotateWorld(bone, blend.copy(still).slerp(turn, weight));
+}
+
 export function createCharacter({ scene, state, player, surfaceAt }) {
   const root = new THREE.Group();
   scene.add(root);
@@ -66,6 +81,9 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
   let hipDrop = 0;
   let ikWeight = 0;
   let wasGrounded = true;
+  const arms = [];
+  let castWeight = 0;
+  const lastCast = new THREE.Vector3();
   let failed = false;
   let lastStatus = '';
 
@@ -87,6 +105,8 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
     for (const side of ['Left', 'Right']) {
       const bone = part => model.getObjectByName(`mixamorig${side}${part}`);
       if (bone('UpLeg') && bone('Leg') && bone('Foot')) legs.push({ thigh: bone('UpLeg'), calf: bone('Leg'), ankle: bone('Foot') });
+      if (bone('Arm') && bone('ForeArm') && bone('Hand') && bone('HandMiddle1'))
+        arms.push({ sign: side === 'Left' ? 1 : -1, upper: bone('Arm'), fore: bone('ForeArm'), hand: bone('Hand'), finger: bone('HandMiddle1') });
     }
     mixer = new THREE.AnimationMixer(model);
     for (const [name, file] of Object.entries(CLIPS)) {
@@ -129,8 +149,35 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
     });
   }
 
+  // Raise both arms toward `castAt` (world point) like a repulsor pose; eases out when castAt is null.
+  function castArms(dt, castAt) {
+    castWeight += ((castAt && arms.length ? 1 : 0) - castWeight) * (1 - Math.exp(-CAST_EASE * dt));
+    // Kept relative to the player, so after release the lowering arms travel with them.
+    if (castAt) lastCast.copy(castAt).sub(player.position);
+    if (castWeight < 0.01) return;
+    root.updateMatrixWorld(true);
+    const facing = root.rotation.y;
+    side.set(Math.cos(facing), 0, -Math.sin(facing)); // the character's left
+    for (const arm of arms) {
+      arm.upper.getWorldPosition(shoulder);
+      aim.copy(lastCast).add(player.position).addScaledVector(side, arm.sign * CAST_SPREAD).sub(shoulder);
+      // Clamp the horizontal bearing to the body's front cone, keeping the rise/fall of the aim.
+      const flat = Math.hypot(aim.x, aim.z), off = Math.atan2(Math.sin(Math.atan2(aim.x, aim.z) - facing), Math.cos(Math.atan2(aim.x, aim.z) - facing));
+      const bearing = facing + THREE.MathUtils.clamp(off, -CAST_REACH, CAST_REACH);
+      aim.set(Math.sin(bearing) * flat, aim.y, Math.cos(bearing) * flat).normalize();
+      arm.fore.getWorldPosition(elbow);
+      aimBone(arm.upper, shoulder, elbow, aim, castWeight);
+      arm.fore.getWorldPosition(elbow); arm.hand.getWorldPosition(wrist);
+      aimBone(arm.fore, elbow, wrist, aim, castWeight);
+      // Palm out: tip the fingers from along the arm toward straight up.
+      arm.hand.getWorldPosition(wrist); arm.finger.getWorldPosition(knuckle);
+      aimBone(arm.hand, wrist, knuckle, aim.clone().lerp(up, FINGERS_UP).normalize(), castWeight);
+    }
+  }
+
   return {
-    update(dt, cameraDistance) {
+    // castAt: world point the player is directing the swarm at, or null.
+    update(dt, cameraDistance, castAt = null) {
       const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
       const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
@@ -169,6 +216,7 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       actions.crouchWalk?.setEffectiveTimeScale(CROUCH_RATE * Math.min(speed / 4.5, 1));
       mixer.update(dt);
       placeFeet(dt);
+      castArms(dt, castAt);
     }
   };
 }

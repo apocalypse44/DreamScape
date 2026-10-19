@@ -132,6 +132,19 @@ export function createWorld({ scene, state, player, onChunk }) {
     return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), rough, base, weight, hill, shift));
   }
   const terrainHeight = (x, z) => heightFor(x, z, terrainShift);
+  // The ground exactly as drawn: chunk meshes are a grid of flat triangles, so between vertices they sit
+  // above or below the smooth terrainHeight (by up to ~0.3 m on sharp chaos ridges). Standing uses this
+  // so feet meet the visible surface. Triangles split like PlaneGeometry: (a, b, d) and (b, c, d).
+  const CELL = CHUNK_SIZE / SEGMENTS; // chunk edges fall on multiples of CELL, so one global grid
+  function surfaceHeight(x, z) {
+    const gx = Math.floor(x / CELL), gz = Math.floor(z / CELL);
+    const fx = x / CELL - gx, fz = z / CELL - gz;
+    const x0 = gx * CELL, z0 = gz * CELL, x1 = x0 + CELL, z1 = z0 + CELL;
+    const hb = terrainHeight(x0, z1), hd = terrainHeight(x1, z0);
+    if (fx + fz <= 1) { const ha = terrainHeight(x0, z0); return ha + (hd - ha) * fx + (hb - ha) * fz; }
+    const hc = terrainHeight(x1, z1);
+    return hc + (hb - hc) * (1 - fx) + (hd - hc) * (1 - fz);
+  }
   // Height the ground would settle at for a given score; used to put items on chaos-only peaks.
   const heightAt = (x, z, chaos) => heightFor(x, z, shiftFor(chaos));
 
@@ -371,7 +384,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
-  return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
     isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6),
     get formed() { return formed; },

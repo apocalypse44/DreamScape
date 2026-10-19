@@ -25,24 +25,35 @@ export class EmberSystem {
     }
   }
 
+  // Small mana core inside a four-leaf grimoire clover, over a thin magic-circle ring.
   _createShard(pos, index) {
     const group = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({
-      color: 0xff7a2a, emissive: 0xff4a10, emissiveIntensity: 2, roughness: 0.25, metalness: 0.1,
+      color: 0xffb040, emissive: 0xff6a10, emissiveIntensity: 2, roughness: 0.2, metalness: 0.1,
     });
-    const crystalGeometry = new THREE.OctahedronGeometry(0.35, 0);
-    crystalGeometry.scale(1, 1.8, 1);
-    const crystal = new THREE.Mesh(crystalGeometry, mat);
-    const beamMat = new THREE.MeshBasicMaterial({
-      color: 0xffa040, transparent: true, opacity: 0.2,
-      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-    });
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.3, 14, 12, 1, true), beamMat);
+    const coreGeometry = new THREE.OctahedronGeometry(0.09, 0);
+    coreGeometry.scale(1, 1.6, 1);
+    const crystal = new THREE.Group(); // spins: core + clover
+    crystal.add(new THREE.Mesh(coreGeometry, mat));
+    const glow = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide };
+    const leafMat = new THREE.MeshBasicMaterial({ color: 0xffd27a, opacity: 0.85, ...glow });
+    const leafGeometry = new THREE.ShapeGeometry(heartLeaf(), 8);
+    leafGeometry.scale(0.17, 0.17, 1);
+    for (let k = 0; k < 4; k++) {
+      const leaf = new THREE.Mesh(leafGeometry, leafMat);
+      leaf.rotation.z = k * Math.PI / 2 + Math.PI / 4;
+      crystal.add(leaf);
+    }
+    // Aura ring around the ember's middle, so the sigil sits inside it.
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.01, 6, 40), leafMat);
+    ring.rotation.x = Math.PI / 2;
+    const beamMat = new THREE.MeshBasicMaterial({ color: 0xffa040, opacity: 0.2, ...glow });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.1, 14, 10, 1, true), beamMat);
     beam.position.y = 7;
-    group.add(crystal, beam);
+    group.add(crystal, ring, beam);
     group.position.copy(pos);
     this.scene.add(group);
-    return { group, crystal, beam, mat, phase: index * 2.1, state: 'world', base: pos.clone(), fly: null };
+    return { group, crystal, beam, mat, leafMat, phase: index * 2.1, state: 'world', base: pos.clone(), fly: null };
   }
 
   // For an ember that moves (e.g. carried by the hound).
@@ -65,7 +76,7 @@ export class EmberSystem {
     sfx.pickup();
     e.state = 'carried';
     e.beam.visible = false;
-    e.group.scale.setScalar(0.5);
+    e.group.scale.setScalar(0.7);
   }
 
   // Offering: carried embers fly into `target` one after another.
@@ -97,6 +108,7 @@ export class EmberSystem {
       e.crystal.rotation.y = t * 0.8 + e.phase;
       const pulse = 0.5 + 0.5 * Math.sin(t * 3 + e.phase);
       e.mat.emissiveIntensity = 1.5 + pulse + chaos * 2;
+      e.leafMat.opacity = 0.6 + 0.35 * pulse;
 
       if (e.state === 'world') {
         e.group.position.set(e.base.x, e.base.y + Math.sin(t * 2 + e.phase) * 0.15, e.base.z);
@@ -107,10 +119,11 @@ export class EmberSystem {
         }
       } else if (e.state === 'carried') {
         const a = t * 1.5 + (orbitIndex / Math.max(1, carriedTotal)) * Math.PI * 2;
+        // playerPos is eye height (feet + 2.05): orbit at chest height, clear of the arms.
         e.group.position.set(
-          playerPos.x + Math.cos(a) * 0.9,
-          playerPos.y + 1.3 + Math.sin(t * 3 + orbitIndex) * 0.1,
-          playerPos.z + Math.sin(a) * 0.9
+          playerPos.x + Math.cos(a) * 1.0,
+          playerPos.y - 0.7 + Math.sin(t * 3 + orbitIndex) * 0.1,
+          playerPos.z + Math.sin(a) * 1.0
         );
         orbitIndex++;
       } else if (e.state === 'flying') {
@@ -147,10 +160,7 @@ export class EmberSystem {
   clearEmbers() {
     for (const e of this.embers) {
       this.scene.remove(e.group);
-      e.crystal.geometry.dispose();
-      e.beam.geometry.dispose();
-      e.beam.material.dispose();
-      e.mat.dispose();
+      e.group.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
     }
     this.embers = [];
     this.offering = null;
@@ -162,6 +172,17 @@ export class EmberSystem {
     this.offerBurst.dispose();
     this.scene.remove(this.light);
   }
+}
+
+// Heart-shaped clover leaf, tip at the origin, lobes at +y (about 1 unit long).
+function heartLeaf() {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.bezierCurveTo(-0.5, 0.35, -0.55, 0.85, -0.25, 0.95);
+  s.bezierCurveTo(-0.08, 1, 0, 0.88, 0, 0.78);
+  s.bezierCurveTo(0, 0.88, 0.08, 1, 0.25, 0.95);
+  s.bezierCurveTo(0.55, 0.85, 0.5, 0.35, 0, 0);
+  return s;
 }
 
 function bezier(p0, p1, p2, k, out) {

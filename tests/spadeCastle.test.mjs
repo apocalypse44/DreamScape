@@ -15,7 +15,7 @@ test('castle discoveries require the archive floor and calm, persist and reset',
   assert.equal(q.count,3);assert.equal(q.complete,false);
   const crown={x:-516,z:0,y:32.17};
   assert.equal(q.update(crown,.1).title,'THE HOLLOW CROWN');assert.equal(q.complete,true);
-  assert.match(q.objective,/border anchor/);
+  assert.match(q.objective,/Clover/);
   q.reset();assert.equal(q.count,0);assert.equal(q.complete,false);
 });
 test('castle fall policy covers stairs, atrium and echo route without affecting other kingdoms',()=>{

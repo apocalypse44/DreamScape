@@ -1,14 +1,16 @@
-import { SPADE_HOUSES, SPADE_WALLS, SPADE_TOWERS, SPADE_WINGS, SPADE_FIXTURES, SPADE_MOUNTAINS, SPADE_CURTAIN_MODULES, SPADE_RETAINING, spadePosition, spadeHeight, spadeVolumes, spadeColliders } from '../models/spade.js';
+import { SPADE_HOUSES, SPADE_WALLS, SPADE_TOWERS, SPADE_WINGS, SPADE_FIXTURES, SPADE_MOUNTAINS, SPADE_CURTAIN_MODULES, SPADE_RETAINING, spadePosition, spadeHeight, spadeVolumes, spadeColliders, spadeOutline } from '../models/spade.js';
 import { spadeClimateAt } from '../models/climate.js';
 import { buildCastleInterior } from './spadeCastle.js';
 import { isInsideSpadeCastle } from '../models/spadeCastle.js';
 import { createFrameQueue } from '../models/streaming.js';
 import { buildSpadeStory } from './spadeStory.js';
 import { buildCastleEcho } from './castleEcho.js';
+import { buildSpadeCampaign } from './spadeCampaign.js';
 
 // Large forms are procedural and available immediately. Ten curated modules stream
 // on approach, then render in batches (one draw per source mesh, not per building).
-export function createSpade({ scene, world, onReady, notify }) {
+// onChapterComplete: Neris's quest is done (the game plays the castle doors' cutscene).
+export function createSpade({ scene, world, onReady, notify, onChapterComplete }) {
   const root = new THREE.Group(); root.name = 'Spade · The Swarm Remembers'; scene.add(root);
   const details = new THREE.Group(); root.add(details);
   const obstacles = new THREE.Group(); root.add(obstacles);
@@ -18,13 +20,21 @@ export function createSpade({ scene, world, onReady, notify }) {
   const box = new THREE.BoxGeometry(1, 1, 1), cone = new THREE.ConeGeometry(1, 1, 5);
   const gableShape = new THREE.Shape(); gableShape.moveTo(-0.5, -0.5); gableShape.lineTo(0, 0.5); gableShape.lineTo(0.5, -0.5); gableShape.closePath();
   const gable = new THREE.ExtrudeGeometry(gableShape, { depth: 1, bevelEnabled: false }).translate(0, 0, -0.5);
-  const geometries = { box, cone, gable, orb:new THREE.IcosahedronGeometry(1,1),disc:new THREE.CylinderGeometry(1,1,1,20), mountain: new THREE.CylinderGeometry(0.48, 1, 1, 7), snowcap: new THREE.ConeGeometry(1, 1, 7) };
+  // spade: the crest outline as a unit-sized slab (1 wide, 1 tall, 1 deep, centred), facing +z.
+  const spadeSlab = new THREE.ExtrudeGeometry(spadeOutline(), { depth: 1, bevelEnabled: false, curveSegments: 8 })
+    .translate(0, -0.05, -0.5).scale(1 / 7.2, 1 / 7.5, 1);
+  const geometries = { box, cone, gable, spade: spadeSlab, orb:new THREE.IcosahedronGeometry(1,1),disc:new THREE.CylinderGeometry(1,1,1,20), mountain: new THREE.CylinderGeometry(0.48, 1, 1, 7), snowcap: new THREE.ConeGeometry(1, 1, 7) };
   const materials = Object.fromEntries(Object.entries({ stone: 0x44475d, roof: 0x202942, snow: 0xc4d1e2,
     trim: 0x747b9b, house: 0x717687, road: 0x58647e, mountain: 0x343b58,wood:0x685346,cloth:0x846958 }).map(([key, color]) =>
     [key, new THREE.MeshStandardMaterial({ color, roughness: 0.95, flatShading: true })]));
   materials.light = new THREE.MeshBasicMaterial({ color: 0xffd39a });
   materials.wisp = new THREE.MeshBasicMaterial({ color: 0xc4acff });
   for(const [key,color]of Object.entries({root:0x72a87f,tide:0x59a9c3,prism:0xcea361}))materials[key]=new THREE.MeshBasicMaterial({color});
+  // Dark Triad palette for the castle interior: black stone, blood-crimson cloth, tarnished gold.
+  materials.obsidian = new THREE.MeshStandardMaterial({ color: 0x1a1524, roughness: 0.6, metalness: 0.2, flatShading: true });
+  materials.velvet = new THREE.MeshStandardMaterial({ color: 0x5a1226, roughness: 0.9 });
+  materials.gold = new THREE.MeshStandardMaterial({ color: 0xb08a3e, roughness: 0.4, metalness: 0.6, emissive: 0x2a1a05 });
+  materials.crest = new THREE.MeshBasicMaterial({ color: 0x9b6bff });
   const matrix = new THREE.Matrix4(), dummy = new THREE.Object3D();
   function add(kind, u, y, v, w, h, d, material = 'stone', rotation = 0) {
     const key = `${kind}:${material}`;
@@ -125,8 +135,8 @@ export function createSpade({ scene, world, onReady, notify }) {
     const y = fixture.bottom ?? spadeHeight(-344 - fixture.u);
     if (fixture.name === 'lantern') continue; // already rendered beside the avenue
     if (fixture.name === 'pedestal') {
-      block(fixture.u, fixture.v, fixture.width, fixture.depth, fixture.height, y, 'stone', true);
-      add('cone', fixture.u, 20.1, fixture.v, 0.8, 2, 0.8, 'wisp');
+      block(fixture.u, fixture.v, fixture.width, fixture.depth, fixture.height, y, 'obsidian', true);
+      add('spade', fixture.u, 20.0, fixture.v, 1.1, 1.2, 0.12, 'crest', Math.PI / 2); // glowing crest faces the hall
     } else module(fixture.name, fixture.u, y, fixture.v, fixture.width, fixture.height, fixture.depth);
   }
   // Separate lower rock and upper snow sections meet at one seam instead of
@@ -162,7 +172,8 @@ export function createSpade({ scene, world, onReady, notify }) {
   const echo = buildCastleEcho({root,obstacles,notify});
   platforms.push(...echo.model.platforms);
   const castle = buildCastleInterior({root,add,block,module,label,notify,echo:echo.model});
-  const story=buildSpadeStory({root,add,block,label,height:spadeHeight});
+  const story=buildSpadeStory({root,add,block,label,height:spadeHeight,ground:world.surfaceHeight,road:materials.road});
+  const campaign=buildSpadeCampaign({root,ward:story.ward,notify,platforms,onChapterComplete,crownKnown:()=>castle.discovery.complete});
   // Flush after interior construction so its repeated steps, shelves and rails
   // join the same batches instead of adding a draw call for every object.
   for (const [key, placements] of batches) {
@@ -174,7 +185,8 @@ export function createSpade({ scene, world, onReady, notify }) {
   }
   const emblem = createSpadeEmblem(); emblem.position.set(-342.2, 21, 0); emblem.rotation.y = Math.PI / 2; root.add(emblem);
   // One local fill light, no extra shadow map; enough to read the hall at night.
-  const hallLight = new THREE.PointLight(0x9dafff, 1.6, 60, 1.5);
+  // Cold violet, flickering like torchlight (see update) for the castle's gloom.
+  const hallLight = new THREE.PointLight(0x8a6bff, 1.6, 60, 1.5);
   hallLight.position.set(-494, 25, 0); root.add(hallLight);
   // Local snowfall is one draw, bounded to the player's surroundings.
   const snowCount = 560;
@@ -216,11 +228,13 @@ export function createSpade({ scene, world, onReady, notify }) {
     await worker(); status = errors.length ? 'partial' : 'ready';
   }
   return {
-    root, obstacles, platforms, colliders, castle, story, echo:echo.model,
+    root, obstacles, platforms, colliders, castle, story, echo:echo.model, campaign:campaign.model,
+    openGate: () => campaign.openGate(),
     get streaming(){return {pending:preparation.pending,prepared:preparation.completed};},
     isInsideCastle: isInsideSpadeCastle,
     get status() { return status; }, get errors() { return [...errors]; },
-    update(dt, player, state) {
+    // swarm: the DreamSwarm, read for the chapter's lantern and ward checks.
+    update(dt, player, state, swarm) {
       const distance = Math.hypot(player.position.x + 460, player.position.z);
       root.visible = distance < 520; details.visible = root.visible;
       if(!loading&&distance<380){
@@ -234,9 +248,12 @@ export function createSpade({ scene, world, onReady, notify }) {
       echo.update(dt,player,state);
       castle.update(dt,player,state,inHall);
       story.update(dt,player,state,notify);
+      campaign.update(dt,player,state,swarm);
       // Keep the light count constant. Toggling visibility changes shader
       // variants for every lit material as the player approaches the castle.
-      hallLight.intensity = distance < 90 ? 1.6 : 0;
+      const t = performance.now() / 1000;
+      // Dim on purpose: at full strength this one light washed every wall lavender.
+      hallLight.intensity = distance < 90 ? 0.55 + Math.sin(t * 7.3) * 0.08 + Math.sin(t * 13.1) * 0.05 : 0;
       snow.visible = climate > 0.01 && !inHall&&!story.insideRefuge(player.position);
       snow.material.opacity = 0.7 * climate;
       if (snow.visible) {
@@ -252,7 +269,7 @@ export function createSpade({ scene, world, onReady, notify }) {
       visit('hall', inHall && player.position.x > -490,
         'MEMORY HALL · Clover reveals the true binding. Heart restores the stolen current. Diamond turns the chains.');
     },
-    reset() { memories.clear(); castle.reset(); echo.reset(); story.reset(); },
+    reset() { memories.clear(); castle.reset(); echo.reset(); story.reset(); campaign.reset(); },
   };
 }
 
@@ -260,10 +277,7 @@ export function createSpade({ scene, world, onReady, notify }) {
 // pointed outline, three inner lobes, and engraved rays. No image download.
 function createSpadeEmblem() {
   const group = new THREE.Group();
-  const outline = new THREE.Shape(); outline.moveTo(0, 3.8);
-  outline.bezierCurveTo(-1, 2, -4, 0.5, -3.6, -1.6); outline.bezierCurveTo(-3.2, -3.1, -1, -2.9, -0.35, -1.7);
-  outline.lineTo(-1.1, -3.7); outline.lineTo(1.1, -3.7); outline.lineTo(0.35, -1.7);
-  outline.bezierCurveTo(1, -2.9, 3.2, -3.1, 3.6, -1.6); outline.bezierCurveTo(4, 0.5, 1, 2, 0, 3.8);
+  const outline = spadeOutline();
   const ink = new THREE.MeshBasicMaterial({ color: 0x10172b }), blue = new THREE.MeshBasicMaterial({ color: 0x52688b }), pale = new THREE.MeshBasicMaterial({ color: 0xcbd6e5 });
   const geometry = new THREE.ShapeGeometry(outline, 24);
   for (const [s, z, material] of [[1.12, 0, pale], [1.03, 0.025, ink], [0.93, 0.05, blue], [0.79, 0.075, ink]]) {

@@ -93,8 +93,8 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
   let lastPlan = -Infinity, plannedVersion = -1, ribbonKey = '', ribbonAt = -Infinity, time = 0, shown = true;
 
   // Where to go (unordered). The hound's ember travels with the hound, so it is a moving stop.
+  // Only the ember quest is routed; map destinations (e.g. Neris) are found by exploring.
   function stops() {
-    if(destination)return [destination];
     if (quest.stage === 'return') return [{ id: 'shrine', x: shrine.x, z: shrine.z, name: 'SHRINE' }];
     if (quest.stage !== 'cursed') return [];
     const list = quest.embers.flatMap((e, i) => {
