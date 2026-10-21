@@ -198,6 +198,7 @@ export function createCloverTerrain({ scene, world, onReady }) {
   const lake = new THREE.Mesh(new THREE.PlaneGeometry(86, 216), lakeMat);
   lake.rotation.x = -Math.PI / 2; lake.position.set(0, -4, -452); scene.add(lake);
   const hint = document.createElement('small'); document.querySelector('.compass').appendChild(hint);
+  hint.dataset.kingdom = 'CLOVER KINGDOM';
   let messageTime = 0, recoveredAtSummit = false;
   function courseRecovery(player) {
     const target = recovery.update(player);

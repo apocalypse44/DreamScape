@@ -1,7 +1,8 @@
 import { loadModel, makeGlow } from './models.js';
 import { findPath } from '../models/pathfinding.js';
+import { companionScenePosition } from '../models/companionSpacing.js';
+import { createHoundFire } from './houndFire.js';
 
-const FIRE_COUNT = 140;
 // [right, behind] offsets in metres, tried in order: beside, tighter beside, other side, behind.
 const SLOTS = [[1.5, 0], [1.1, 0.3], [-1.5, 0], [-1.1, 0.3], [0, 1.3]];
 
@@ -11,7 +12,7 @@ function createBody(scene, url, height, glow) {
   body.root.visible = false;
   scene.add(body.root);
   loadModel(url, height).then(({ object, animations }) => {
-    if (glow) makeGlow(object, 0xff3a12, 0.7);
+    if (glow) makeGlow(object, 0xff3a12, .22).forEach(material => material.color?.multiplyScalar(.4));
     body.root.add(object);
     body.mixer = new THREE.AnimationMixer(object);
     for (const clip of animations) body.actions[clip.name] = body.mixer.clipAction(clip);
@@ -90,7 +91,7 @@ function animateFallback(body, dt) {
 }
 
 // navigation (optional): { height(x, z), obstacles(): [{x, z, radius}], version() } for A* leading.
-export function createCompanion({ scene, state, player, quest, surfaceAt, navigation = null }) {
+export function createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation = null }) {
   // Climbs onto Clover terraces / Sky Garden instead of staying in the ravine below.
   const groundAt = (x, z) => surfaceAt(x, z, player.position.y - 2.05 + 1);
   const dog = createBody(scene, 'assets/animals/ShibaInu.gltf', 0.9, false);
@@ -132,81 +133,7 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
   let yaw = 0;
   let slot = SLOTS[0]; // kept while the player is airborne, so jumps don't reshuffle it
 
-  // Flames around the cursed hound: a particle system drawn with a custom point shader. Each flame is
-  // a soft round sprite whose colour follows a blackbody-like ramp over its life (white-hot, yellow,
-  // orange, deep red), shrinking and fading as it rises; a sideways sway makes the trail flicker.
-  // About one in eight is a spark: small, bright, faster and longer-lived.
-  const firePositions = new Float32Array(FIRE_COUNT * 3);
-  const fireAge = new Float32Array(FIRE_COUNT);  // 0 = just born, 1 = gone (drives colour and size)
-  const fireSeed = new Float32Array(FIRE_COUNT).map(() => Math.random());
-  const fireLife = new Float32Array(FIRE_COUNT); // seconds left
-  const fireMax = new Float32Array(FIRE_COUNT).fill(1);
-  const fireGeometry = new THREE.BufferGeometry();
-  fireGeometry.setAttribute('position', new THREE.BufferAttribute(firePositions, 3));
-  fireGeometry.setAttribute('aAge', new THREE.BufferAttribute(fireAge, 1));
-  fireGeometry.setAttribute('aSeed', new THREE.BufferAttribute(fireSeed, 1));
-  const fireMaterial = new THREE.ShaderMaterial({
-    uniforms: { uScale: { value: 800 } },
-    vertexShader: `
-      attribute float aAge;
-      attribute float aSeed;
-      uniform float uScale;
-      varying float vAge;
-      varying float vSpark;
-      void main() {
-        vAge = aAge;
-        vSpark = step(0.875, aSeed);
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_Position = projectionMatrix * mv;
-        float size = vSpark > 0.5 ? 0.09 : mix(0.62, 0.18, aAge) * (0.75 + 0.5 * aSeed); // metres
-        gl_PointSize = size * uScale / -mv.z;
-      }`,
-    fragmentShader: `
-      varying float vAge;
-      varying float vSpark;
-      void main() {
-        float r = length(gl_PointCoord - 0.5) * 2.0;
-        if (r > 1.0) discard;
-        float soft = pow(1.0 - r, vSpark > 0.5 ? 0.8 : 1.8);
-        vec3 hot = vec3(1.0, 0.92, 0.65), flame = vec3(1.0, 0.5, 0.1), ember = vec3(0.7, 0.1, 0.02);
-        vec3 colour = vAge < 0.3 ? mix(hot, flame, vAge / 0.3) : mix(flame, ember, (vAge - 0.3) / 0.7);
-        if (vSpark > 0.5) colour = vec3(1.0, 0.75, 0.35);
-        float alpha = soft * (1.0 - vAge) * smoothstep(0.0, 0.1, vAge) * (vSpark > 0.5 ? 1.0 : 0.75);
-        gl_FragColor = vec4(colour * alpha, alpha);
-      }`,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
-  });
-  const fire = new THREE.Points(fireGeometry, fireMaterial);
-  fire.frustumCulled = false;
-  scene.add(fire);
-
-  let fireTime = 0;
-  function updateFire(dt) {
-    fireTime += dt;
-    // Pixels per metre at distance 1: keeps sprite sizes in world units at any resolution.
-    fireMaterial.uniforms.uScale.value = innerHeight * Math.min(devicePixelRatio, 1.75) / 1.35;
-    for (let i = 0; i < FIRE_COUNT; i++) {
-      const spark = fireSeed[i] > 0.875;
-      fireLife[i] -= dt;
-      if (fireLife[i] <= 0) {
-        // Born inside the hound's body (an ellipsoid along its facing), mostly low on the back.
-        fireMax[i] = fireLife[i] = spark ? 0.9 + Math.random() * 0.6 : 0.45 + Math.random() * 0.55;
-        const along = (Math.random() - 0.5) * 1.3, across = (Math.random() - 0.5) * 0.6;
-        firePositions[i * 3] = position.x + Math.sin(yaw) * along + Math.cos(yaw) * across;
-        firePositions[i * 3 + 1] = position.y + 0.45 + Math.random() * 0.6;
-        firePositions[i * 3 + 2] = position.z + Math.cos(yaw) * along - Math.sin(yaw) * across;
-      } else {
-        const rise = spark ? 3.2 : 1.4 + fireSeed[i] * 1.2;
-        const sway = Math.sin(fireTime * 7 + fireSeed[i] * 40) * (spark ? 1.2 : 0.5) * dt;
-        firePositions[i * 3] += sway;
-        firePositions[i * 3 + 1] += rise * dt;
-        firePositions[i * 3 + 2] += Math.cos(fireTime * 6 + fireSeed[i] * 25) * (spark ? 1.2 : 0.5) * dt;
-      }
-      fireAge[i] = 1 - fireLife[i] / fireMax[i];
-    }
-    fireGeometry.attributes.position.needsUpdate = true;
-    fireGeometry.attributes.aAge.needsUpdate = true;
-  }
+  const fire = createHoundFire({ scene, camera, renderer });
 
   // What the dog's mood brain (rendering/dog.js) drives: the active body and its clips per mood.
   const dogHandle = {
@@ -231,13 +158,35 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
     dogHandle,
     get position() { return position; },
     route,
-    update(dt, updateMoods) {
+    prepareScene() {
+      const colliders = navigation?.obstacles() ?? [];
+      const at = companionScenePosition(position, player.position, groundAt,
+        (x, z) => colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.radius + .7));
+      if (!at) return false;
+      position.set(at.x, at.y, at.z);
+      fire.reset();
+      return true;
+    },
+    update(dt, updateMoods, cinematic = null) {
       const cursed = quest.stage === 'cursed' || quest.stage === 'return';
-      const body = cursed ? hound : dog;
+      const wolf = cinematic?.wolf ?? (cursed ? 1 : 0);
+      const flame = cinematic?.fire ?? (cursed ? 1 : 0);
+      const body = wolf >= .5 ? hound : dog;
       activeBody = body;
-      dog.root.visible = !cursed;
-      hound.root.visible = cursed;
-      fire.visible = cursed;
+      dog.root.visible = wolf < .5;
+      hound.root.visible = wolf >= .5;
+      dog.root.scale.setScalar(1 + Math.min(wolf, .5) * .35);
+      hound.root.scale.setScalar(.65 + .35 * wolf);
+      if (cinematic?.hold) {
+        yaw = Math.atan2(player.position.x - position.x, player.position.z - position.z);
+        body.root.position.copy(position);
+        body.root.rotation.y = yaw;
+        play(body, 'Idle');
+        body.mixer?.update(dt);
+        animateFallback(body, dt);
+        fire.update(dt, { position, yaw, intensity: flame, wolf });
+        return;
+      }
 
       // Cursed: lead the player to the next ember. Otherwise: walk at the player's right side.
       const ember = quest.stage === 'cursed' ? quest.nextEmber() : null;
@@ -272,7 +221,9 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
           const x = player.position.x + c * r + sn * b, z = player.position.z - sn * r + c * b;
           return Math.abs(groundAt(x, z) - feet) < 1.2;
         }) || SLOTS[SLOTS.length - 1];
-        goal.set(player.position.x + c * slot[0] + sn * slot[1], 0, player.position.z - sn * slot[0] + c * slot[1]);
+        const spacing = cursed ? 2.6 : 1;
+        goal.set(player.position.x + (c * slot[0] + sn * slot[1]) * spacing, 0,
+          player.position.z + (-sn * slot[0] + c * slot[1]) * spacing);
       }
       const dx = goal.x - position.x;
       const dz = goal.z - position.z;
@@ -308,17 +259,17 @@ export function createCompanion({ scene, state, player, quest, surfaceAt, naviga
       else play(body, 'Idle');
       body.mixer?.update(dt);
       animateFallback(body, dt);
-      if (cursed) updateFire(dt);
 
       if (updateMoods(dt)) {
         position.copy(body.root.position);
         yaw = body.root.rotation.y;
       }
+      fire.update(dt, { position, yaw, intensity: flame, wolf });
     },
 
     reset() {
       position.set(player.position.x + 1.5, 0, player.position.z + 2.5);
-      fireLife.fill(0);
+      fire.reset();
     }
   };
   return companion;

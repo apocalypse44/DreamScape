@@ -2,7 +2,7 @@ import { MOVEMENT } from './movementConfig.js';
 
 // Checkpoints belong to bare, locally walkable terrain, never floating slabs.
 // Store x/z, then re-query height on recovery because chaos can reshape the land.
-export function createRecovery({ player, terrainHeight, collidesAt, isUnsafe = () => false }) {
+export function createRecovery({ player, terrainHeight, collidesAt, isUnsafe = () => false, allowFallRecovery = () => true }) {
   let spawn = null;
   let checkpoint = null;
   let stableTime = 0;
@@ -45,7 +45,7 @@ export function createRecovery({ player, terrainHeight, collidesAt, isUnsafe = (
       if (player.grounded) { airTime = 0; fallStart = feet; }
       else { airTime += dt; fallStart = Math.max(fallStart, feet); }
       return !Number.isFinite(feet) || isUnsafe(player.position.x, player.position.z) ||
-        (player.velocity.y < 0 && (fallStart - feet > MOVEMENT.maxFallDistance || airTime > MOVEMENT.maxAirTime));
+        (allowFallRecovery(player) && player.velocity.y < 0 && (fallStart - feet > MOVEMENT.maxFallDistance || airTime > MOVEMENT.maxAirTime));
     },
     updateCheckpoint(dt, onTerrain) {
       const { x, z } = player.position;

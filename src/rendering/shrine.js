@@ -1,4 +1,4 @@
-import { SHRINE, SLAB_SIZE } from '../models/quest.js';
+import { SHRINE } from '../models/quest.js';
 import { loadModel, makeGlow } from './models.js';
 
 const CALM_COLOR = new THREE.Color(0x7fe8ff);
@@ -41,17 +41,51 @@ export function createShrine({ scene, terrainHeight, quest }) {
     crystal.add(object);
   }).catch(error => console.warn('Shrine crystal could not load.', error));
 
-  // Floating parkour slabs leading up to the raised ember.
-  const slabGeo = new THREE.BoxGeometry(SLAB_SIZE, 0.6, SLAB_SIZE);
-  const slabMat = new THREE.MeshStandardMaterial({ color: 0x3a2622, emissive: 0x5d1a08, roughness: 0.8 });
-  for (const { x, z, top } of quest.platforms) {
-    const slab = new THREE.Mesh(slabGeo, slabMat);
-    slab.position.set(x, top - 0.3, z);
-    slab.castShadow = slab.receiveShadow = true;
-    scene.add(slab);
-  }
+  // Ember parkour: basalt shards the curse tore up, chaos-only. Each cap is extruded from the same outline that
+  // drives its collision (models/quest.js); molten veins run to its corners and an ember rune marks the landing.
+  const basalt = new THREE.MeshStandardMaterial({ color: 0x2b201e, roughness: .92, metalness: .05, emissive: 0x3a0c04, emissiveIntensity: .35, flatShading: true });
+  const scorched = new THREE.MeshStandardMaterial({ color: 0x1a1312, roughness: .96, flatShading: true });
+  const molten = new THREE.MeshBasicMaterial({ color: 0xff6a1f, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const veinMat = new THREE.LineBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: .85 });
+  const rimMat = new THREE.LineBasicMaterial({ color: 0xc8461a, transparent: true, opacity: .5 });
+  const course = new THREE.Group();
+  course.name = 'Ember parkour · cursed basalt shards';
+  course.visible = false;
+  scene.add(course);
+  const runeGeo = new THREE.TorusGeometry(.5, .04, 4, 24), dripGeo = new THREE.IcosahedronGeometry(.13, 0);
+  const shards = quest.platforms.map((p, i) => {
+    const shard = new THREE.Group();
+    shard.position.set(p.x, p.top, p.z);
+    const shape = new THREE.Shape();
+    p.outline.forEach(([x, z], k) => k ? shape.lineTo(x, -z) : shape.moveTo(x, -z));
+    const cap = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: .5, bevelEnabled: false }).rotateX(-Math.PI / 2), basalt);
+    cap.position.y = -.5;                           // top face exactly at the walkable height
+    cap.castShadow = cap.receiveShadow = true;
+    const radius = p.outline.reduce((sum, [x, z]) => sum + Math.hypot(x, z), 0) / p.outline.length;
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(radius * .85, 2.2 + (i % 3) * .5, 7), scorched);
+    spike.rotation.set(Math.PI, i * .9, 0);          // point down, each turned differently
+    spike.position.y = -.5 - spike.geometry.parameters.height / 2;
+    const drip = new THREE.Mesh(dripGeo, molten);
+    drip.position.y = -.5 - spike.geometry.parameters.height - .1;
+    const veins = [], rim = [];
+    p.outline.forEach(([x, z], k) => {
+      const [nx, nz] = p.outline[(k + 1) % p.outline.length];
+      rim.push(new THREE.Vector3(x, .012, z), new THREE.Vector3(nx, .012, nz));
+      if (k % 2 === 0) veins.push(new THREE.Vector3(x * .22, .015, z * .22), new THREE.Vector3(x * .92, .015, z * .92));
+    });
+    const rune = new THREE.Mesh(runeGeo, molten);
+    rune.rotation.x = -Math.PI / 2;
+    rune.position.y = .02;
+    shard.add(cap, spike, drip, rune,
+      new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(veins), veinMat),
+      new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(rim), rimMat));
+    course.add(shard);
+    return { shard, top: p.top };
+  });
+  let reveal = 0;
 
   return {
+    root,
     colliders,
     get crystalWorldPosition() {
       root.updateMatrixWorld(true);
@@ -72,6 +106,21 @@ export function createShrine({ scene, terrainHeight, quest }) {
         material.emissiveIntensity = glow;
       }
 
+      // Chaos raises the shards one after another up the spiral; calm lets them sink away. Collision follows
+      // quest.courseActive at once, so a shard is solid from the first frame it starts to rise.
+      reveal = THREE.MathUtils.clamp(reveal + (quest.courseActive ? dt : -dt) * 1.6, 0, 1 + shards.length * .08);
+      course.visible = reveal > 0;
+      if (!course.visible) return;
+      shards.forEach(({ shard, top }, i) => {
+        const t = THREE.MathUtils.smootherstep(reveal - i * .08, 0, 1);
+        shard.position.y = top - (1 - t) * 4 + Math.sin(elapsed * .8 + i) * .04 * t;   // a faint hover once risen
+        shard.scale.setScalar(.35 + .65 * t);
+        shard.visible = t > .01;
+      });
+      const pulse = .75 + Math.sin(elapsed * 2.4) * .15;
+      molten.opacity = .9 * pulse;
+      veinMat.opacity = .85 * pulse;
+      basalt.emissiveIntensity = .3 + .15 * pulse;
     }
   };
 }

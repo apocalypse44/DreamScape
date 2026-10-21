@@ -10,6 +10,8 @@ import { RIDGE } from '../models/ridge.js';
 import { CLOVER_ENTRANCE } from '../models/cloverTerrain.js';
 import { SKY, SUMMIT_DOOR } from '../models/skyIsland.js';
 import { SHRINE } from '../models/quest.js';
+import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
+import { grimoireQuests } from '../models/grimoireJournal.js';
 
 const CENTER = { x: 0, z: -90 }; // shifted north so the Clover terraces and Sky Garden fit
 const HALF = 650;                // metres from the centre to the map edge
@@ -29,6 +31,7 @@ const LANDMARKS = [
   { name: 'CLOVER TERRACES', x: CLOVER_ENTRANCE.x, z: CLOVER_ENTRANCE.z, side: 1 },
   { name: 'CLOVER SUMMIT', note: 'Sky gateway', x: SUMMIT_DOOR.x, z: SUMMIT_DOOR.z, side: -1 },
   { name: 'SKY GARDEN', note: 'Heavenly Falls below', x: SKY.x, z: SKY.z, side: 1, floating: true },
+  ...SPADE_MAP_LOCATIONS.map(p=>({...p,side:1,color:'#c5afff',callout:true})),
 ];
 
 const CSS = `
@@ -58,9 +61,14 @@ const CSS = `
   background: none; color: ${GOLD}; font: 16px Georgia, serif; cursor: pointer; }
 #worldMap header button:hover { background: rgba(216,178,90,.15); }
 #worldMap canvas { display: block; border: 1px solid rgba(216,178,90,.45); border-radius: 3px; }
+#worldMap .spade-destinations { display:flex;flex-wrap:wrap;gap:6px; }
+#worldMap .spade-destinations button { background:#191426;border:1px solid #746386;color:#e2d4ff;padding:7px 9px;cursor:pointer;font:10px 'DM Mono',monospace; }
+#worldMap .spade-destinations button:focus-visible,#worldMap .spade-destinations button[aria-pressed="true"] { outline:2px solid #c5afff;outline-offset:1px; }
+#worldMap .map-location-detail { max-width:860px;margin:0;color:#dbd2bf;font:11px/1.5 'DM Mono',monospace;min-height:3em; }
 #worldMap footer { display: flex; flex-wrap: wrap; gap: 16px; color: rgba(240,230,200,.75); font: 9px 'DM Mono', monospace; letter-spacing: .12em; }
 #worldMap footer i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; border-radius: 50%; }
-#worldMap footer .hint { margin-left: auto; color: rgba(216,178,90,.6); }`;
+#worldMap footer .hint { margin-left: auto; color: rgba(216,178,90,.6); }
+#worldMap header .map-close { margin-left: auto; }`;
 
 // Five-leaf clover seal: five heart-shaped leaves rotated 72° apart.
 function drawClover(ctx, x, y, size, fill, stroke) {
@@ -88,10 +96,18 @@ function drawClover(ctx, x, y, size, fill, stroke) {
 }
 
 // canvas: the game's canvas, used to free and recapture the mouse around the map.
-export function createWorldMap({ world, player, state, quest, companion, navigation, gates = [], canvas: gameCanvas }) {
+// Satchel item icons (inline SVG, drawn in the grimoire's ink colour).
+const ITEM_ICONS = {
+  spade: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10 6 4 9 4 13.5c0 2.6 2 4.3 4.3 4.3 1.3 0 2.4-.6 3.1-1.4L10 22h4l-1.4-5.6c.7.8 1.8 1.4 3.1 1.4 2.3 0 4.3-1.7 4.3-4.3C20 9 14 6 12 2z" fill="currentColor"/></svg>',
+  hook: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v11a4 4 0 1 1-4-4"/><path d="M9 5l3-3 3 3"/><path d="M12 13c0 4 3 7 7 7"/></svg>',
+};
+
+// inventory: the player's satchel (models/inventory.js), listed on the quest page.
+export function createWorldMap({ world, player, state, quest, spade, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
   const style = document.createElement('style');
   style.textContent = CSS;
-  document.head.appendChild(style);
+  // Baseline atlas rules precede the responsive grimoire stylesheet.
+  document.head.prepend(style);
 
   const button = document.createElement('button');
   button.id = 'mapButton';
@@ -104,14 +120,27 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
   overlay.id = 'worldMap';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-label', 'World map');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.inert=true;
+  button.setAttribute('aria-expanded','false');
+  button.setAttribute('aria-controls','worldMap');
   overlay.innerHTML = `<div class="atlas">
     <header><canvas class="seal" width="44" height="44" aria-hidden="true" style="border:0"></canvas>
       <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
-      <button type="button" aria-label="Close map">✕</button></header>
-    <canvas class="map"></canvas>
+      <button type="button" class="map-close" aria-label="Close map">✕</button></header>
+    <div class="book-spread"><section class="map-page" aria-label="World atlas">
+    <div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></div>
+    <div class="map-toolbar"><details class="map-destinations"><summary>DESTINATIONS</summary><div class="destination-panel"><nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
+    <p class="map-location-detail" aria-live="polite">Choose a Spade location to read its directions.</p>
+    </div></details><button type="button" class="page-turn" data-book-page="quests" aria-label="Open the grimoire to your quests">OPEN QUESTS <span aria-hidden="true">➜</span></button></div>
     <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
-      <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span><span class="hint">M / ESC · CLOSE</span></footer></div>`;
+      <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
+    <section class="quest-page" aria-labelledby="grimoireQuestHeading" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Close the grimoire to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><section class="satchel" aria-labelledby="satchelHeading"><h4 id="satchelHeading">Satchel</h4><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p></section><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section></div>
+    <div class="book-bottom"><span>THE FOURFOLD GRIMOIRE</span><span>M / ESC · CLOSE THE BOOK</span></div>
+    </div>`;
+  overlay.dataset.page='atlas';
   document.body.appendChild(overlay);
   const resumeHint = document.createElement('button');
   resumeHint.id = 'resumeHint';
@@ -126,20 +155,100 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
   const sealCanvas = overlay.querySelector('canvas.seal');
   drawClover(sealCanvas.getContext('2d'), 22, 24, 21, '#0b0a07', GOLD);
 
-  let open = false, relief = null, size = 0, lastDraw = 0;
+  let open = false, relief = null, size = 0, lastDraw = 0, reliefBuilding=false;
+  let closeTimer=null,returnFocus=button,questSignature='';
+  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+  const questList=overlay.querySelector('.quest-list'),questCards=new Map();
+  const satchelList=overlay.querySelector('.satchel-items'),satchelEmpty=overlay.querySelector('.satchel-empty');
+  function updateSatchel(items){
+    satchelEmpty.hidden=items.length>0;
+    satchelList.replaceChildren(...items.map(item=>{
+      const row=document.createElement('li');row.className='satchel-item';
+      row.innerHTML=`${ITEM_ICONS[item.icon]??''}<div><span class="satchel-kind"></span><strong></strong><p></p></div>`;
+      row.querySelector('.satchel-kind').textContent=item.kind;
+      row.querySelector('strong').textContent=item.name;
+      row.querySelector('p').textContent=item.text;
+      return row;
+    }));
+  }
+  function updateQuests(){
+    const tasks=grimoireQuests(quest,spade),items=inventory?.items??[];
+    const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
+    if(signature===questSignature)return;
+    questSignature=signature;
+    updateSatchel(items);
+    overlay.querySelector('.journal-summary').textContent=`${tasks.filter(t=>t.done).length} / ${tasks.length} OATHS SEALED`;
+    for(const task of tasks){
+      let card=questCards.get(task.id);
+      if(!card){
+        card=document.createElement('article');card.className='quest-card';card.dataset.quest=task.id;
+        card.innerHTML='<span class="quest-chapter"></span><h4></h4><p class="quest-progress"></p><p class="quest-hint"></p><button type="button" class="quest-route"></button><span class="quest-state"></span><span class="completion-seal"><canvas width="72" height="72" aria-hidden="true"></canvas><span></span></span>';
+        drawClover(card.querySelector('canvas').getContext('2d'),36,37,28,'#829052','#315d43');
+        questCards.set(task.id,card);questList.appendChild(card);
+      }
+      card.dataset.status=task.done?'complete':task.locked?'locked':'active';
+      card.querySelector('.quest-chapter').textContent=task.chapter;
+      card.querySelector('h4').textContent=task.title;
+      card.querySelector('.quest-progress').textContent=task.progress;
+      card.querySelector('.quest-hint').textContent=task.hint;
+      card.querySelector('.quest-state').textContent=task.done?'OATH FULFILLED':task.locked?'AWAITING REVELATION':'UNSEALED';
+      card.querySelector('.completion-seal span').textContent=task.stamp;
+      const route=card.querySelector('.quest-route');route.dataset.journalRoute=task.destination;
+      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR':'MARK CASTLE ENTRANCE';
+    }
+  }
+  function setPage(page){
+    overlay.dataset.page=page;
+    overlay.querySelector('.map-page').inert=page!=='atlas';
+    overlay.querySelector('.quest-page').inert=page!=='quests';
+    if(page==='atlas'){resize();draw(performance.now()/1000);}
+    overlay.querySelector(`[data-book-page="${page==='atlas'?'quests':'atlas'}"]`).focus({preventScroll:true});
+  }
+  overlay.addEventListener('click',event=>{
+    const tab=event.target.closest('[data-book-page]');if(tab)setPage(tab.dataset.bookPage);
+  });
+  questList.addEventListener('click',event=>{
+    const route=event.target.closest('[data-journal-route]');if(!route)return;
+    const target=route.dataset.journalRoute==='quest'?overlay.querySelector('[data-quest-route]')
+      :overlay.querySelector(`[data-spade="${route.dataset.journalRoute}"]`);
+    target?.click();setPage('atlas');
+  });
+  let selected=null;
+  const locationDetail=overlay.querySelector('.map-location-detail');
+  overlay.querySelector('.spade-destinations').addEventListener('click',event=>{
+    const target=event.target.closest('button');if(!target)return;
+    if(target.hasAttribute('data-quest-route')){
+      selected=null;navigation.clearDestination?.();locationDetail.textContent='Quest navigation restored.';
+    }else{
+      selected=SPADE_MAP_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
+      navigation.setDestination?.({...selected.destination,id:selected.id});
+      locationDetail.textContent=`${selected.name} · X ${Math.round(selected.x)} / Z ${selected.z}. ${selected.directions}`;
+    }
+    overlay.querySelectorAll('[data-spade]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.spade===selected?.id)));
+    draw(performance.now()/1000);
+  });
 
   // Relief layer: generated once from the calm height field
-  function buildRelief() {
+  async function buildRelief() {
+    if(relief||reliefBuilding)return;
+    reliefBuilding=true;
+    const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+    await nextFrame();
+    let deadline=performance.now()+3;
     const cell = (HALF * 2) / RES;
     const heights = new Float32Array(RES * RES);
-    for (let j = 0; j < RES; j++) for (let i = 0; i < RES; i++) {
+    for (let j = 0; j < RES; j++) {
+      for (let i = 0; i < RES; i++) {
       heights[j * RES + i] = world.heightAt(CENTER.x - HALF + (i + 0.5) * cell, CENTER.z - HALF + (j + 0.5) * cell, CALM);
+      }
+      if(performance.now()>=deadline){await nextFrame();deadline=performance.now()+3;}
     }
     const image = new ImageData(RES, RES);
     const light = [-0.55, 0.7, -0.45]; // from the north-west, above (x, y, z)
     const ll = Math.hypot(...light);
     const tint = new THREE.Color(), paper = new THREE.Color(0x2b2416);
-    for (let j = 0; j < RES; j++) for (let i = 0; i < RES; i++) {
+    for (let j = 0; j < RES; j++) {
+      for (let i = 0; i < RES; i++) {
       const h = heights[j * RES + i];
       const hx = heights[j * RES + Math.min(RES - 1, i + 1)] - heights[j * RES + Math.max(0, i - 1)];
       const hz = heights[Math.min(RES - 1, j + 1) * RES + i] - heights[Math.max(0, j - 1) * RES + i];
@@ -159,18 +268,27 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
       image.data[o + 1] = Math.min(255, tint.g * 255 * k);
       image.data[o + 2] = Math.min(255, tint.b * 255 * k);
       image.data[o + 3] = 255;
+      }
+      if(performance.now()>=deadline){await nextFrame();deadline=performance.now()+3;}
     }
     relief = document.createElement('canvas');
     relief.width = relief.height = RES;
     relief.getContext('2d').putImageData(image, 0, 0);
+    reliefBuilding=false;
+    overlay.querySelector('.map-loading').hidden=true;
+    if(open)draw(performance.now()/1000);
   }
 
   // Drawing
   const toMap = (x, z) => [((x - CENTER.x + HALF) / (2 * HALF)) * size, ((z - CENTER.z + HALF) / (2 * HALF)) * size];
 
   function resize() {
-    const css = Math.floor(Math.min(innerHeight - 170, innerWidth - 120, 860));
+    const frame=overlay.querySelector('.map-frame');
+    // Keep the atlas scale from dc3b219, independently of journal controls.
+    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 170, innerWidth - 120, 860)))}px`);
+    const css=Math.max(1,Math.floor(Math.min(frame.clientWidth,frame.clientHeight)));
     const dpr = Math.min(devicePixelRatio, 2);
+    if(canvas.width===Math.round(css*dpr)&&canvas.style.width===`${css}px`)return;
     canvas.style.width = canvas.style.height = `${css}px`;
     canvas.width = canvas.height = Math.round(css * dpr);
     size = canvas.width;
@@ -191,7 +309,8 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
     const u = size / 1000; // drawing unit
     ctx.clearRect(0, 0, size, size);
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(relief, 0, 0, size, size);
+    if(relief)ctx.drawImage(relief, 0, 0, size, size);
+    else {ctx.fillStyle='#211d13';ctx.fillRect(0,0,size,size);}
 
     // Vignette: the page darkens toward its edges.
     const vignette = ctx.createRadialGradient(size / 2, size / 2, size * 0.3, size / 2, size / 2, size * 0.75);
@@ -280,15 +399,19 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
       ctx.fillStyle = '#0f0c07';
       ctx.fill();
       ctx.lineWidth = 3 * u;
-      ctx.strokeStyle = GOLD;
+      ctx.strokeStyle = l.color||GOLD;
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(x, y, 3 * u, 0, Math.PI * 2);
-      ctx.fillStyle = GOLD;
+      ctx.fillStyle = l.color||GOLD;
       ctx.fill();
-      const lx = x + l.side * 16 * u, align = l.side > 0 ? 'left' : 'right';
-      label(l.name, lx, y - (l.note ? 6 * u : 0), { font: `bold ${17 * u}px Georgia, serif`, color: '#f3e3b5', align });
-      if (l.note) label(l.note, lx, y + 13 * u, { font: `italic ${13 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align });
+      const lx = l.callout?size*.04:x+l.side*16*u,ly=l.callout?size*l.labelY:y,align=l.callout?'left':l.side>0?'left':'right';
+      if(l.callout){
+        ctx.strokeStyle=l.color;ctx.lineWidth=u;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,ly+24*u);ctx.lineTo(lx,ly+24*u);ctx.stroke();
+        if(selected?.id===l.id){ctx.beginPath();ctx.arc(x,y,14*u,0,Math.PI*2);ctx.stroke();}
+      }
+      label(l.name, lx, ly - (l.note ? 6 * u : 0), { font: `bold ${17 * u}px Georgia, serif`, color: l.color||'#f3e3b5', align });
+      if (l.note) label(l.note, lx, ly + 13 * u, { font: `italic ${13 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align });
     }
 
     // Embers, the hound / dog.
@@ -363,34 +486,61 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
   // viaGesture: closed by M, ✕ or a click, which may recapture the mouse. Escape can't: browsers
   // reserve it for leaving pointer lock, so it shows a one-click resume prompt instead of the intro.
   function setOpen(next, viaGesture = true) {
+    if (next && state.cinematic) return;
     if (next === open) return;
+    clearTimeout(closeTimer);
     open = next;
-    overlay.classList.toggle('open', open);
+    button.setAttribute('aria-expanded',String(open));
     state.mapOpen = open;
     if (!open) {
-      if (!state.awaitResume) return; // the map was opened from the menu: nothing to resume
-      if (viaGesture) resume();
-      else resumeHint.classList.add('on');
+      overlay.classList.add('closing');
+      closeTimer=setTimeout(()=>{
+        if(open)return;
+        overlay.classList.remove('open','closing');overlay.inert=true;overlay.setAttribute('aria-hidden','true');document.body.classList.remove('grimoire-open');
+        if(!state.awaitResume&&!state.locked)returnFocus?.focus({preventScroll:true});
+      },reducedMotion.matches?0:430);
+      if (state.awaitResume) {
+        // Keep recapture inside the initiating click/key gesture, not an animation timer.
+        if (viaGesture) resume();
+        else resumeHint.classList.add('on');
+      }
       return;
     }
+    returnFocus=document.activeElement;
+    overlay.inert=false;overlay.setAttribute('aria-hidden','false');
+    document.body.classList.add('grimoire-open');
+    overlay.classList.remove('closing');overlay.classList.add('open');
+    setPage('atlas');
     if (state.locked) { // opened while playing: free the mouse for the map, stay in play mode
       state.awaitResume = true;
       document.exitPointerLock();
     }
-    if (!relief) buildRelief(); // ~100k height samples, once per page
+    if (!relief) buildRelief().catch(error=>{
+      reliefBuilding=false;overlay.querySelector('.map-loading').textContent='Terrain shading unavailable. Landmarks and quest hints remain available.';
+      console.error('Could not shade the atlas.',error);
+    });
+    updateQuests();
     resize();
     draw(performance.now() / 1000);
-    if (!state.locked) overlay.querySelector('header button').focus({ preventScroll: true });
+    overlay.querySelector('.map-close').focus({ preventScroll: true });
   }
 
   button.addEventListener('click', () => setOpen(!open));
-  overlay.querySelector('header button').addEventListener('click', () => setOpen(false));
+  overlay.querySelector('.map-close').addEventListener('click', () => setOpen(false));
   overlay.addEventListener('click', event => { if (event.target === overlay) setOpen(false); });
   addEventListener('keydown', event => {
-    if (event.code === 'KeyM' && !event.repeat) setOpen(!open);
-    else if (event.code === 'Escape' && open) setOpen(false, false);
+    if(event.ctrlKey||event.metaKey||event.altKey||/INPUT|TEXTAREA|SELECT/.test(event.target.tagName)||event.target.isContentEditable)return;
+    if (event.code === 'KeyM' && !event.repeat) {event.preventDefault();setOpen(!open);}
+    else if (event.code === 'Escape' && open) {event.preventDefault();setOpen(false, false);}
+    else if(event.code==='Tab'&&open){
+      const focusable=[...overlay.querySelectorAll('button:not(:disabled), summary')].filter(b=>!b.closest('[inert]')&&b.getClientRects().length);
+      const first=focusable[0],last=focusable.at(-1);
+      if(event.shiftKey&&(document.activeElement===first||!overlay.contains(document.activeElement))){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!overlay.contains(document.activeElement))){event.preventDefault();first?.focus();}
+    }
   });
   addEventListener('resize', () => { if (open) resize(); });
+  new ResizeObserver(()=>{if(open){resize();draw(performance.now()/1000);}}).observe(overlay.querySelector('.map-frame'));
 
   return {
     get open() { return open; },
@@ -400,7 +550,8 @@ export function createWorldMap({ world, player, state, quest, companion, navigat
       const now = performance.now();
       if (now - lastDraw < 66) return; // ~15 fps is plenty for a map
       lastDraw = now;
-      draw(now / 1000);
+      updateQuests();
+      if(overlay.dataset.page==='atlas')draw(now / 1000);
     }
   };
 }

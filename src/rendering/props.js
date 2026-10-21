@@ -1,3 +1,5 @@
+import { createFrameQueue } from '../models/streaming.js';
+
 // Stylized Nature MegaKit (Quaternius, CC0) dressing for the Grimoire Tower lands.
 // Layout follows real landscapes: groves instead of even scatter, bushes on forest edges,
 // flowers in open meadows, rock outcrops on slopes, and stone trails toward the four kingdoms.
@@ -102,6 +104,9 @@ export function createProps({ scene, world, blockers, onReady }) {
   let ready = false;
   let builtKey = '';
   let builtAt = 0;
+  let rebuilding = null;
+  let rebuildingName = null, wantedKey = '';
+  const preparation = createFrameQueue();
 
   // Landscape fields (all 0..1)
   const forest = (x, z) => smooth(noise(x * 0.011 + 13, z * 0.011 - 7), 0.5, 0.66);
@@ -244,18 +249,21 @@ export function createProps({ scene, world, blockers, onReady }) {
   }
 
   let shown = {}; // model name -> props currently drawn, in instance order
-  function rebuild(position) {
+  function* rebuild(position) {
     const buckets = {};
     for (const chunk of chunks.values()) {
       for (const p of chunk.userData.props || []) {
         if (Math.hypot(p.x - position.x, p.z - position.z) > (p.far ? FAR : NEAR)) continue;
         (buckets[p.model] ||= []).push(p);
       }
+      yield;
     }
     for (const [name, modelParts] of Object.entries(parts)) {
+      rebuildingName = name;
       const list = buckets[name] || [];
       const aligned = ALIGNED.test(name);
-      for (const p of list) {
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
         const ground = chaosResponse(p);
         // Stones: rotate +Y onto the surface normal (-gx, 1, -gz), then spin about it.
         yawQuat.setFromAxisAngle(up, p.rot);
@@ -265,25 +273,32 @@ export function createProps({ scene, world, blockers, onReady }) {
         dummy.scale.setScalar(p.scale);
         dummy.updateMatrix();
         p.matrix = (p.matrix || new THREE.Matrix4()).copy(dummy.matrix);
+        if (i % 16 === 15) yield;
       }
       for (const part of modelParts) {
         ensure(part, list.length);
-        list.forEach((p, k) => part.mesh.setMatrixAt(k, p.matrix));
+        for (let k = 0; k < list.length; k++) {
+          part.mesh.setMatrixAt(k, list[k].matrix);
+          if (k % 64 === 63) yield;
+        }
         part.mesh.count = list.length;
         part.mesh.instanceMatrix.needsUpdate = true;
       }
+      shown[name] = list;
+      for (const p of list) p.hidden = false;
+      writeDissolve(0, [[name, list]]);
+      rebuildingName = null;
+      yield;
     }
-    shown = buckets;
-    for (const list of Object.values(shown)) for (const p of list) p.hidden = false; // matrices were just rewritten
-    writeDissolve(0);
   }
 
   // Ease each prop toward its target every frame (rebuilds are throttled) and upload to the GPU.
   // The shadow pass does not run the dissolve shader, so a fully dissolved prop is also scaled to
   // zero; otherwise its shadow would stay behind.
   const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
-  function writeDissolve(ease) {
-    for (const [name, list] of Object.entries(shown)) {
+  function writeDissolve(ease, entries = Object.entries(shown)) {
+    for (const [name, list] of entries) {
+      if (ease > 0 && name === rebuildingName) continue;
       if (!parts[name]) continue;
       // Settled models need no upload (ease 0 means a rebuild just reordered instances).
       if (ease > 0 && list.every(p => Math.abs(p.target - p.dissolve) < 1e-4)) continue;
@@ -305,43 +320,63 @@ export function createProps({ scene, world, blockers, onReady }) {
     }
   }
 
-  // Load every model once; each mesh inside it becomes one instanced part.
+  // Limit concurrent parses and install one mesh per frame. Cached downloads
+  // must not turn into dozens of installation callbacks in the same frame.
   const loader = new THREE.GLTFLoader();
-  Promise.all(MODELS.map(name => new Promise(resolve => loader.load(`${DIR}${name}.gltf`, gltf => {
-    gltf.scene.updateMatrixWorld(true);
-    heights[name] = new THREE.Box3().setFromObject(gltf.scene).max.y;
-    parts[name] = [];
-    gltf.scene.traverse(object => {
-      if (!object.isMesh) return;
-      const mesh = new THREE.InstancedMesh(object.geometry.clone().applyMatrix4(object.matrixWorld), object.material, 16);
-      mesh.count = 0;
-      mesh.castShadow = SHADOW.test(name);
-      mesh.receiveShadow = true;
-      mesh.frustumCulled = false;
-      (Array.isArray(object.material) ? object.material : [object.material]).forEach(addDissolve);
-      root.add(mesh);
-      const part = { mesh, capacity: 16 };
-      setDissolveCapacity(part);
-      parts[name].push(part);
-    });
-    resolve();
-  }, undefined, error => { console.warn(`Prop ${name} could not load.`, error); resolve(); }))))
+  const remaining = [...MODELS];
+  async function loadNext() {
+    while (remaining.length) {
+      const name = remaining.shift();
+      try {
+        const gltf = await new Promise((resolve, reject) => loader.load(`${DIR}${name}.gltf`, resolve, undefined, reject));
+        gltf.scene.updateMatrixWorld(true);
+        heights[name] = new THREE.Box3().setFromObject(gltf.scene).max.y;
+        parts[name] = [];
+        const meshes = [];
+        gltf.scene.traverse(object => { if (object.isMesh) meshes.push(object); });
+        for (const object of meshes) await new Promise((resolve, reject) => preparation.push(() => {
+          try {
+            const mesh = new THREE.InstancedMesh(object.geometry.clone().applyMatrix4(object.matrixWorld), object.material, 16);
+            mesh.count = 0;
+            mesh.castShadow = SHADOW.test(name);
+            mesh.receiveShadow = true;
+            mesh.frustumCulled = false;
+            (Array.isArray(object.material) ? object.material : [object.material]).forEach(addDissolve);
+            root.add(mesh);
+            const part = { mesh, capacity: 16 };
+            setDissolveCapacity(part);
+            parts[name].push(part);
+            resolve();
+          } catch (error) { reject(error); }
+        }));
+      } catch (error) { console.warn(`Prop ${name} could not load.`, error); }
+    }
+  }
+  Promise.all(Array.from({ length: 3 }, loadNext))
     .then(() => { ready = true; builtKey = ''; onReady?.(root); });
 
   let lastFrame = performance.now();
   return {
     decorate,
+    get prepared() { return ready && !rebuilding && builtKey !== '' && builtKey === wantedKey; },
     update(position, terrainVersion) {
+      preparation.run();
       if (!ready) return;
       const now = performance.now();
       const dt = Math.min(0.1, (now - lastFrame) / 1000);
       lastFrame = now;
       // ponytail: props lag terrain reshapes by up to 0.2 s; reseat per frame if it shows during chaos.
       const key = `${Math.round(position.x / 8)},${Math.round(position.z / 8)},${terrainVersion},${world.formed},${chunks.size}`;
-      if (key !== builtKey && now - builtAt >= 200) {
+      wantedKey = key;
+      if (!rebuilding && key !== builtKey && now - builtAt >= 200) {
         builtKey = key;
         builtAt = now;
-        rebuild(position);
+        rebuilding = rebuild({ x: position.x, z: position.z });
+      }
+      const deadline = performance.now() + 3;
+      while (rebuilding) {
+        if (rebuilding.next().done) { rebuilding = null; break; }
+        if (performance.now() >= deadline) break;
       }
       writeDissolve(1 - Math.exp(-2.5 * dt)); // ~1 s to dissolve or regrow
     }

@@ -89,9 +89,11 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
   // Route state
   let route = null;   // { points: [{x, z, stop?}], stops, signature }
   let job = null;     // planning in progress, one leg per frame
+  let destination=null;
   let lastPlan = -Infinity, plannedVersion = -1, ribbonKey = '', ribbonAt = -Infinity, time = 0, shown = true;
 
   // Where to go (unordered). The hound's ember travels with the hound, so it is a moving stop.
+  // Only the ember quest is routed; map destinations (e.g. Neris) are found by exploring.
   function stops() {
     if (quest.stage === 'return') return [{ id: 'shrine', x: shrine.x, z: shrine.z, name: 'SHRINE' }];
     if (quest.stage !== 'cursed') return [];
@@ -116,7 +118,8 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
       from = left.splice(best, 1)[0];
       ordered.push(from);
     }
-    ordered.push(list[list.length - 1]);
+    const finish=list.find(s=>s.id==='shrine');
+    if(finish)ordered.push(finish);
     job = { stops: ordered, legs: [], signature: signatureOf(list), from: { x: player.position.x, z: player.position.z } };
     lastPlan = time;
     plannedVersion = version();
@@ -214,10 +217,14 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
   }
 
   return {
+    setDestination(target){destination={...target,id:target.id||'map-destination'};route=job=null;shown=true;},
+    clearDestination(){destination=null;route=job=null;},
+    get destination(){return destination?{...destination}:null;},
     get visible() { return shown; },
     get points() { return route?.points ?? null; }, // for the world map
     toggle() { shown = !shown; return shown; },
-    update(dt) {
+    update(dt, cinematic = false) {
+      if (cinematic) { ribbon.visible = false; hud.classList.remove('on'); return; }
       time += dt;
       material.uniforms.uTime.value = time;
       const list = stops();
@@ -248,6 +255,6 @@ export function createNavigation({ scene, camera, player, quest, companion, terr
       hud.classList.add('on');
       pointArrow(from);
     },
-    reset() { route = job = null; ribbonKey = ''; geometry.setDrawRange(0, 0); }
+    reset() { destination=null;route = job = null; ribbonKey = ''; geometry.setDrawRange(0, 0); }
   };
 }

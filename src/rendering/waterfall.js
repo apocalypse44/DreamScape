@@ -451,6 +451,7 @@ export function createWaterfall({ scene, world, onReady }) {
   let time = 0;
   let terrainVersion = -1;
   const hint = document.createElement('small');
+  hint.dataset.kingdom = 'GRIMOIRE TOWER';
   document.querySelector('.compass').appendChild(hint);
   function update(dt, playerPosition) {
     time += dt;

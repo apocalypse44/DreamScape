@@ -1,5 +1,5 @@
-// Kamui warp: a screen-space space-time vortex (after Kakashi's Kamui in Naruto), used for the Sky
-// Garden gateway and the curse / cure moments.
+// Kamui warp: a screen-space space-time vortex (after Kakashi's Kamui in Naruto), used for
+// demo spawns only (keys 1–5 and their buttons).
 //
 // It is domain warping applied to the rendered image instead of the terrain: each output pixel looks
 // the scene up somewhere else, colour(p) = scene(warp(p)). warp() rotates p around the vortex centre by

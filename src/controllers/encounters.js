@@ -2,6 +2,7 @@
 // game.js calls update() each frame; companion.js calls updateDog(); the quest calls the ember hooks.
 import { makeRng, subSeed } from '../models/rng.js';
 import { SHRINE } from '../models/quest.js';
+import { isInsideSpadeCastle } from '../models/spadeCastle.js';
 import { NPC_ASSETS, NPC_HEIGHT, HINTS, PET_DISTANCE, PET_TIME, PET_CHAOS_DROP, CHAOS_CALM } from '../models/encounterConfig.js';
 import { loadModel } from '../rendering/models.js';
 import { unlockAudio } from '../rendering/fx.js';
@@ -62,10 +63,12 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
   });
 
   return {
+    get keeper() { return people?.keeper ?? null; },
     update(dt, t) {
       embers.setWorldVisible(stage() === 'cursed');
       embers.update(dt, t, player.position, state.chaos);
-      people?.update(dt, { playerPos: player.position, sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'), chaos: state.chaos, camera, renderer });
+      people?.update(dt, { playerPos: player.position, sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'), chaos: state.chaos, camera, renderer,
+        cinematic: state.cinematic, speaker: state.cinematicSpeaker });
       if (isInputActive() && canPet() && dogBrain.state !== 'pet') {
         promptPos.copy(dog.object.position);
         promptPos.y += 1.4;
@@ -77,7 +80,8 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
 
     // Called by companion.js after it moves the dog. True when a mood controls the dog this frame.
     updateDog(dt, t) {
-      const elevated = feetAboveGround() > 1.5;
+      // Indoors counts as elevated too: the fetch ball lands on base terrain, which inside Spade castle is the hall floor.
+      const elevated = feetAboveGround() > 1.5 || isInsideSpadeCastle(player.position);
       return dogBrain.update(dt, t, {
         playerPos: player.position,
         sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'),

@@ -105,6 +105,8 @@ export class People {
     return this._create({ kind: 'keeper', home: pos, tint: NPC_TINTS.keeper, line: lineFn, yaw });
   }
 
+  get keeper() { return this.npcs.find(n => n.kind === 'keeper') ?? null; }
+
   spawnWanderers(homes, hints) {
     for (const [biome, home] of Object.entries(homes)) {
       const text = hints[biome] || '...';
@@ -137,6 +139,14 @@ export class People {
       n.root.position.y = this.terrainHeight(n.root.position.x, n.root.position.z);
 
       n.mixer?.update(dt);
+      if (info.cinematic) {
+        const speaking = n.kind === 'keeper' && info.speaker === 'SHRINE KEEPER';
+        n.state = speaking ? 'talk' : 'idle';
+        n.player.play(speaking ? this.clips.talk || this.clips.idle : this.clips.idle);
+        if (n.kind === 'keeper') turnTowards(n.root, p.x, p.z, dt, 5);
+        n.bubble.hide();
+        continue;
+      }
       n.timer -= dt;
       n.animationTime += dt;
       if (n.fallbackParts) {

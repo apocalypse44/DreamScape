@@ -1,4 +1,4 @@
-/* Procedural ground detail for Theatre mode; props.js dresses the land. */
+/* Persistent procedural ground detail; props.js dresses the land. */
 // The texture is near-white grain multiplied by each chunk's per-vertex kingdom colour,
 // so every kingdom keeps its own ground and borders stay on the real 350 m circle.
 export function createGrass({ hash, chunks }) {
@@ -18,20 +18,20 @@ export function createGrass({ hash, chunks }) {
   groundTexture.minFilter = THREE.LinearMipmapLinearFilter;
   groundTexture.generateMipmaps = true;
   groundTexture.needsUpdate = true;
-  const applied = new WeakMap();
-  const updateGround = enabled => {
+  const applied = new WeakSet();
+  const updateGround = () => {
     for (const chunk of chunks.values()) {
       const material = chunk.userData.material;
-      if (applied.get(material) === enabled) continue;
-      applied.set(material, enabled);
-      material.map = enabled ? groundTexture : null;
+      if (applied.has(material)) continue;
+      applied.add(material);
+      material.map = groundTexture;
       material.needsUpdate = true;
     }
   };
   return {
-    update(enabled) {
-      updateGround(enabled);
-      const text = enabled ? 'Grass: ground texture' : 'Grass: off';
+    update() {
+      updateGround();
+      const text = 'Grass: ground texture';
       if (status.textContent !== text) status.textContent = text;
     }
   };

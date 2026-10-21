@@ -4,6 +4,7 @@
 // minimal obelisk gates. Emblems are extruded 2D suit shapes. Everything is lit by emissive materials
 // only (no extra lights), so the gates cost a handful of draw calls.
 import { CLOVER_ENTRANCE } from '../models/cloverTerrain.js';
+import { SPADE_GATE } from '../models/spade.js';
 import { trailPoint } from './props.js';
 import { fitText } from './canvasText.js';
 
@@ -173,7 +174,6 @@ export function createKingdomGates({ scene, world, onReady }) {
   const MINIMAL = [
     { road: 1, name: 'HEART KINGDOM', shapes: () => heartShape(1.6), colour: 0xff6b6b, glow: 0xd8262b, stone: 0x5e2a2a, ink: '#ffd7d2', ground: '#3a1416' },
     { road: 2, name: 'DIAMOND KINGDOM', shapes: () => diamondShape(1.6), colour: 0xffd36b, glow: 0xd89a1a, stone: 0x8a7550, ink: '#fff1c6', ground: '#3d2e12' },
-    { road: 3, name: 'SPADE KINGDOM', shapes: () => spadeShapes(1.6), colour: 0xb9a6ff, glow: 0x6a4bd8, stone: 0x3a3352, ink: '#e6ddff', ground: '#1e1a33' },
   ];
   for (const k of MINIMAL) {
     const gate = new THREE.Group();
@@ -200,6 +200,8 @@ export function createKingdomGates({ scene, world, onReady }) {
     const at = trailPoint(world.noise, k.road, world.kingdomStart - 6);
     place(gate, k.name, at.x, at.z, half, 0.75);
   }
+  // Spade's authored fortress gate is rendered by spade.js; keep its travel/map entry.
+  gates.push({ group: new THREE.Group(), name: 'SPADE KINGDOM', ...SPADE_GATE });
   onReady?.(root);
 
   let time = 0;

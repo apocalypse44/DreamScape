@@ -3,12 +3,15 @@ import { ridgeTerrain, ridgeArea } from './ridge.js';
 import { plazaPathArea, plazaTerrain } from './plaza.js';
 import { cloverGround, cloverArea, cloverApproach } from './cloverTerrain.js';
 import { skyLakeTerrain, skyLakeArea } from './skyIsland.js';
-const landmarkTerrain = (x, z, original) => cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original)))));
+import { spadeGround, spadeArea, spadeStableArea } from './spade.js';
+import { nextChunkPrefetch } from './streaming.js';
+const landmarkTerrain = (x, z, original) => spadeGround(x, z, cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original))))));
 
 export function createWorld({ scene, state, player, onChunk }) {
   const CHUNK_SIZE = 64;
   const SEGMENTS = 36;
   let viewRadius = 2;
+  let pendingChunks = 0;
   // ?seed= in the URL recreates the same world; a random seed is written back so reloads match.
   const params = new URLSearchParams(location.search);
   const seed = Number.parseInt(params.get('seed'), 10) || Math.floor(Math.random() * 8999) + 1000;
@@ -24,7 +27,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     north: { name:"CLOVER KINGDOM", route:"N · NORTH", banner:"#8fe36b", ground:0x2e8656, fog:0x071b18, sky:0xbdebd3, roughness:0.1, kind:"trees" },
     east:  { name:"HEART KINGDOM", route:"E · EAST", banner:"#ff6b6b", ground:0x8a3328, fog:0x290a09, sky:0xff765b, roughness:0.92, kind:"crystals" },
     south: { name:"DIAMOND KINGDOM", route:"S · SOUTH", banner:"#ffd36b", ground:0xc29c5e, fog:0x291e13, sky:0xffd28a, roughness:0.32, kind:"pillars" },
-    west:  { name:"SPADE KINGDOM", route:"W · WEST", banner:"#b9a6ff", ground:0x5a4a8c, fog:0x161225, sky:0xc4b5ff, roughness:0.48, kind:"wisps" }
+    west:  { name:"SPADE KINGDOM", route:"W · WEST", banner:"#b9a6ff", ground:0xaab9d1, fog:0x161e35, sky:0xa9bce7, roughness:0.48, kind:"wisps" }
   };
 
   function hash(x, z) {
@@ -121,6 +124,7 @@ export function createWorld({ scene, state, player, onChunk }) {
   // Same result as blendHeight on all five layers, but skips noise the blend would weight by zero:
   // flat plains (hill = 0) need no layers, calm-blended hills need no warped layer.
   function heightFor(x, z, shift) {
+    if(spadeStableArea(x,z))return spadeGround(x,z,0);
     const hill = hillMask(x, z);
     if (hill <= 0) return landmarkTerrain(x, z, FLAT_Y);
     const base = calmBase(x, z), weight = chaosWeight(x, z);
@@ -128,6 +132,19 @@ export function createWorld({ scene, state, player, onChunk }) {
     return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), rough, base, weight, hill, shift));
   }
   const terrainHeight = (x, z) => heightFor(x, z, terrainShift);
+  // The ground exactly as drawn: chunk meshes are a grid of flat triangles, so between vertices they sit
+  // above or below the smooth terrainHeight (by up to ~0.3 m on sharp chaos ridges). Standing uses this
+  // so feet meet the visible surface. Triangles split like PlaneGeometry: (a, b, d) and (b, c, d).
+  const CELL = CHUNK_SIZE / SEGMENTS; // chunk edges fall on multiples of CELL, so one global grid
+  function surfaceHeight(x, z) {
+    const gx = Math.floor(x / CELL), gz = Math.floor(z / CELL);
+    const fx = x / CELL - gx, fz = z / CELL - gz;
+    const x0 = gx * CELL, z0 = gz * CELL, x1 = x0 + CELL, z1 = z0 + CELL;
+    const hb = terrainHeight(x0, z1), hd = terrainHeight(x1, z0);
+    if (fx + fz <= 1) { const ha = terrainHeight(x0, z0); return ha + (hd - ha) * fx + (hb - ha) * fz; }
+    const hc = terrainHeight(x1, z1);
+    return hc + (hb - hc) * (1 - fx) + (hd - hc) * (1 - fz);
+  }
   // Height the ground would settle at for a given score; used to put items on chaos-only peaks.
   const heightAt = (x, z, chaos) => heightFor(x, z, shiftFor(chaos));
 
@@ -141,7 +158,6 @@ export function createWorld({ scene, state, player, onChunk }) {
   const trunkMat = new THREE.MeshLambertMaterial({ color: 0x243526 });
   const leafMat = new THREE.MeshLambertMaterial({ color: 0x7fb06a });
   const crystalMat = new THREE.MeshPhongMaterial({ color: 0xff5a42, emissive: 0x5d0b06, shininess: 85 });
-  const mistLeafMat = new THREE.MeshPhongMaterial({ color:0x897ab5, emissive:0x21173f });
   const stoneMat = new THREE.MeshLambertMaterial({ color:0xb89a68 });
   const ruinMat = new THREE.MeshLambertMaterial({ color:0x67746a });
 
@@ -161,13 +177,16 @@ export function createWorld({ scene, state, player, onChunk }) {
   }
 
   function createDecor(group, cx, cz, biome) {
+    // Spade is dressed by its authored town and fortress, across the entire
+    // kingdom rather than only inside the castle's reserved footprint.
+    if (biome.kind === "wisps") return;
     const points = poissonPoints(cx, cz, biome.kind === "crystals" ? 7 : 8, biome.kind === "hub" ? 9 : 14);
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz)) return;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6)) return;
       const kind = biomeAt(wx, wz).kind;
-      if (kind === "hub" || kind === "trees") return; // Grimoire + Clover lands are dressed by rendering/props.js
+      if (kind === "hub" || kind === "trees" || kind === "wisps") return; // these kingdoms have authored dressing
       const y = terrainHeight(wx, wz);
       const object = new THREE.Group();
       if (biome.kind === "trees" || biome.kind === "hub") {
@@ -192,14 +211,6 @@ export function createWorld({ scene, state, player, onChunk }) {
           object.add(side);
         }
         addCollider(group, wx, wz, 0.9);
-      } else if (biome.kind === "wisps") {
-        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-        trunk.position.y = 1.7;
-        const crown = new THREE.Mesh(new THREE.SphereGeometry(1.25, 7, 5), mistLeafMat);
-        crown.position.y = 3.7;
-        object.add(trunk, crown);
-        object.scale.setScalar(0.65 + hash(i, cx) * 0.75);
-        addCollider(group, wx, wz, 0.8 * object.scale.x);
       } else {
         const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.75,3.5,6),stoneMat);
         pillar.position.y = 1.7;
@@ -221,7 +232,7 @@ export function createWorld({ scene, state, player, onChunk }) {
 
   // Tiny WFC-style pass: each cell collapses to a tile allowed by left/up neighbors.
   function createWfcRuins(group, cx, cz, biome) {
-    if (biome.kind === "hub") return;
+    if (biome.kind === "hub" || biome.kind === "wisps") return;
     const rules = { empty:["empty","pillar","arch"], pillar:["empty","pillar"], arch:["empty","pillar"] };
     const cells = [];
     for (let z = 0; z < 3; z++) for (let x = 0; x < 3; x++) {
@@ -234,7 +245,9 @@ export function createWorld({ scene, state, player, onChunk }) {
       if (tile === "empty") continue;
       const lx = -18 + x*18, lz = -18 + z*18;
       const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz)) continue;
+      // Mixed border chunks must not place a neighbouring kingdom's ruin in Spade.
+      if (biomeAt(wx, wz).kind === "wisps") continue;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6)) continue;
       const y = terrainHeight(wx,wz);
       const ruin = new THREE.Group();
       const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
@@ -261,6 +274,10 @@ export function createWorld({ scene, state, player, onChunk }) {
     for (let i = 0; i < positions.count; i++) {
       const wx = cx * CHUNK_SIZE + positions.getX(i);
       const wz = cz * CHUNK_SIZE + positions.getZ(i);
+      if(spadeStableArea(wx,wz)){
+        positions.setY(i,spadeGround(wx,wz,0));
+        continue; // fixed city ground needs no noise layers or chaos reshaping
+      }
       parts[i * 5] = lowHeight(wx, wz);
       parts[i * 5 + 1] = roughHeight(wx, wz);
       parts[i * 5 + 2] = calmBase(wx, wz);
@@ -304,16 +321,24 @@ export function createWorld({ scene, state, player, onChunk }) {
   function updateChunks() {
     const cx = Math.floor((player.position.x + CHUNK_SIZE / 2) / CHUNK_SIZE);
     const cz = Math.floor((player.position.z + CHUNK_SIZE / 2) / CHUNK_SIZE);
+    const missing = [];
     for (let x = cx - viewRadius; x <= cx + viewRadius; x++) {
       for (let z = cz - viewRadius; z <= cz + viewRadius; z++) {
-        if (!chunks.has(chunkKey(x, z))) createChunk(x, z);
+        if (!chunks.has(chunkKey(x, z))) missing.push({ x, z });
       }
     }
+    // Spawn/teleport preparation is spread over frames, nearest ground first.
+    // Normal walking still benefits from the existing speculative prefetch.
+    missing.sort((a, b) => (a.x - cx) ** 2 + (a.z - cz) ** 2 - (b.x - cx) ** 2 - (b.z - cz) ** 2);
+    if (missing.length) createChunk(missing[0].x, missing[0].z);
+    pendingChunks = Math.max(0, missing.length - 1);
     for (const [key, chunk] of chunks) {
       if (Math.abs(chunk.userData.cx - cx) > viewRadius + 1 || Math.abs(chunk.userData.cz - cz) > viewRadius + 1) {
         removeChunk(key, chunk);
       }
     }
+    const ahead=nextChunkPrefetch(cx,cz,player.position.x,player.position.z,viewRadius,(x,z)=>chunks.has(chunkKey(x,z)));
+    if(!missing.length && ahead)createChunk(ahead.x,ahead.z); // one chunk total per frame
   }
 
   function removeChunk(key, chunk) {
@@ -359,10 +384,11 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
-  return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
-    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z),
+    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6),
     get formed() { return formed; },
+    get pendingChunks() { return pendingChunks; },
     get terrainVersion() { return terrainVersion; },
     get viewRadius() { return viewRadius; },
     set viewRadius(value) {
@@ -382,7 +408,6 @@ export function createWorld({ scene, state, player, onChunk }) {
       [trunkMat, { roughness: 0.95, metalness: 0 }],
       [leafMat, { roughness: 0.8, metalness: 0 }],
       [crystalMat, { roughness: 0.18, metalness: 0.35 }],
-      [mistLeafMat, { roughness: 0.38, metalness: 0.12 }],
       [stoneMat, { roughness: 0.85, metalness: 0 }],
       [ruinMat, { roughness: 0.9, metalness: 0 }]
     ]

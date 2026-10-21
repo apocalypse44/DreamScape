@@ -1,0 +1,162 @@
+/* Lightweight title screen, visible before engine and world assets load. */
+.intro-screen {
+  --dream-gold: #d3c99e;
+  --magic: #b8dc87;
+  z-index: 30; display: grid; grid-template-rows: auto 1fr auto;
+  align-items: stretch; padding: 30px clamp(28px, 6vw, 100px) 34px;
+  background: radial-gradient(ellipse at 77% 42%, #182b2b 0%, transparent 45%),
+    radial-gradient(ellipse at 10% 100%, #172526 0%, transparent 55%), #080f14;
+  overflow: auto; isolation: isolate;
+}
+.intro-screen::after { content: ''; position: absolute; inset: 14px; border: 1px solid #d3c99e17; pointer-events: none; z-index: -1; }
+.dream-stars { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .3;
+  background-image: radial-gradient(1px 1px at 15px 35px, #e6e3bd 95%, transparent), radial-gradient(1px 1px at 75px 89px, #b9daca 95%, transparent);
+  background-size: 137px 157px, 211px 229px; }
+.intro-masthead { display: flex; align-items: center; gap: 22px; color: #8c9b98; font: 9px/1.5 'DM Mono', monospace; letter-spacing: .18em; }
+.intro-wordmark { color: var(--dream-gold); font: 21px Georgia, serif; letter-spacing: .12em; padding-right: 22px; border-right: 1px solid #d3c99e35; }
+.intro-edition { margin-left: auto; font-size: 8px; }
+.intro-body { width: 100%; max-width: 1420px; margin: auto; display: grid; grid-template-columns: 1.15fr 1fr; gap: 32px; align-items: center; padding: 35px 0; }
+.intro-copy { width: 100%; min-width: 0; }
+.intro-screen .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; color: var(--dream-gold); font-size: 8px; letter-spacing: .21em; }
+.eyebrow > span { width: 22px; height: 1px; background: var(--dream-gold); }
+.intro-screen h1 { font: 400 clamp(58px, 7.4vw, 115px)/1 Georgia, 'Times New Roman', serif; letter-spacing: -.045em; color: #eeecdf; text-shadow: none; }
+.intro-screen h1 > span { display: block; margin-top: 18px; color: var(--dream-gold); font: italic 21px/1.3 Georgia, serif; letter-spacing: .015em; }
+.intro-screen .lede { margin: 23px 0 28px; font-size: 12px; line-height: 1.9; color: #9aa9a5; }
+.lore-card { max-width: 440px; padding: 19px 0 0; border-top: 1px solid #d3c99e30; }
+.lore-heading { display: flex; justify-content: space-between; gap: 12px; color: #a79e80; font: 8px 'DM Mono', monospace; letter-spacing: .16em; }
+.lore-heading > span:last-child { color: #687d7c; white-space: nowrap; }
+.lore-card h2 { min-height: 1.25em; margin: 14px 0 9px; font: 400 22px/1.25 Georgia, serif; color: #d5dccc; }
+.lore-card > p { min-height: 4.8em; margin: 0; max-width: 410px; font: 11px/1.8 'Manrope', sans-serif; color: #8fa29c; }
+.lore-navigation { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+.lore-navigation > span { flex: 1; padding-right: 12px; color: #a4ad94; font: italic 10px/1.6 Georgia, serif; }
+.lore-navigation button { flex: 0 0 28px; height: 26px; padding: 0; border: 1px solid #d3c99e30; background: transparent; color: var(--dream-gold); cursor: pointer; }
+.lore-navigation button:hover, .lore-navigation button:focus-visible { background: #d3c99e18; border-color: var(--dream-gold); }
+.dream-sigil { position: relative; width: min(100%, 450px); aspect-ratio: 1; justify-self: center; color: var(--dream-gold); }
+.sigil-halo { position: absolute; inset: 18%; border-radius: 50%; background: radial-gradient(circle, #99b87f12, transparent 70%); }
+.sigil-orbit { position: absolute; border-radius: 50%; border: 1px solid #d3c99e24; animation: dream-orbit 100s linear infinite; }
+.orbit-outer { inset: 5%; border-style: dashed; border-color: #d3c99e30; }
+.orbit-outer::before, .orbit-inner::before { content: ''; position: absolute; width: 5px; height: 5px; top: 14%; left: 14%; background: #d6d7ac; border-radius: 50%; box-shadow: 0 0 12px #ccda95; }
+.orbit-inner { inset: 13%; animation-direction: reverse; border-color: #d3c99e18; }
+.orbit-inner::before { width: 3px; height: 3px; }
+.sigil-tower { position: absolute; width: 68%; height: 79%; left: 16%; top: 8%; animation: dream-float 7s ease-in-out infinite; }
+.kingdom-mark { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 7px; font: 23px/1 Georgia, serif; }
+.kingdom-mark small { color: #87988e; font: 7px 'DM Mono', monospace; letter-spacing: .19em; }
+.mark-north { left: 50%; top: -2%; transform: translateX(-50%); color: #b3c69a; }
+.mark-east { right: -4%; top: 46%; color: #c19994; }
+.mark-south { left: 50%; bottom: -2%; transform: translateX(-50%); color: #d3c99e; }
+.mark-west { left: -4%; top: 46%; color: #ad9dbb; }
+.sigil-caption { position: absolute; left: 0; right: 0; bottom: 12%; text-align: center; color: #c4c9a7; font: 8px 'DM Mono', monospace; letter-spacing: .3em; }
+.sigil-caption small { display: block; margin-top: 8px; font-size: 6px; letter-spacing: .2em; color: #71847d; }
+.intro-footer { display: grid; grid-template-columns: 1fr minmax(280px, 380px); gap: 50px; align-items: end; border-top: 1px solid #d3c99e20; padding-top: 21px; }
+.intro-screen .intro-controls { max-width: 380px; margin: 0 0 5px; color: #627675; font: 7px/2.8 'DM Mono', monospace; letter-spacing: .08em; word-spacing: 3px; }
+.intro-screen .intro-controls span { color: #b4bfa9; margin-right: 2px; }
+.loading-panel { min-width: 0; }
+.loading-heading { display: flex; align-items: center; gap: 10px; }
+.loading-spark { width: 5px; height: 5px; background: var(--dream-gold); transform: rotate(45deg); animation: dream-pulse 2.4s ease-in-out infinite; }
+.intro-screen .startup-status { min-height: 0; margin: 0; color: #bac4ae; font: 9px/1.5 'DM Mono', monospace; }
+.loading-stages { display: flex; gap: 10px; list-style: none; padding: 0; margin: 12px 0 15px; }
+.loading-stages li { flex: 1; color: #61736e; font: 6px 'DM Mono', monospace; letter-spacing: .12em; }
+.loading-stages li > span { display: block; height: 2px; background: #34433b; margin-bottom: 7px; overflow: hidden; }
+.loading-stages li[aria-current] { color: #cfcbab; }
+.loading-stages li[aria-current] > span::after { content: ''; display: block; width: 45%; height: 100%; background: #d3c99e; animation: dream-loading 1.8s ease-in-out infinite; }
+.loading-stages li.complete { color: #9fae8f; }
+.loading-stages li.complete > span { background: #aebc8b; }
+.intro-screen #enterWorld { width: 100%; min-width: 0; padding: 14px 16px; border-color: #d3c99e45; color: #d7d3b7; background: #d3c99e07; font-size: 8px; letter-spacing: .16em; }
+.intro-screen #enterWorld:disabled { opacity: .45; }
+.intro-screen #enterWorld:not(:disabled) { background: #c7d4a5; border-color: #c7d4a5; color: #14201a; }
+.intro-screen #enterWorld:hover:not(:disabled) { background: #e0e8cb; box-shadow: 0 0 25px #b9c99018; }
+.intro-screen[data-load-phase='ready'] .loading-spark { animation: none; background: #c6df9d; }
+.intro-screen.hidden *, .intro-screen.hidden *::before, .intro-screen.hidden *::after { animation-play-state: paused !important; }
+body:not(.playing) .grain { visibility: hidden; animation-play-state: paused; }
+body:not(.playing) #chaosReadout { visibility: hidden; }
+@keyframes dream-orbit { to { transform: rotate(360deg); } }
+@keyframes dream-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes dream-pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes dream-loading { 0% { transform: translateX(-105%); } 100% { transform: translateX(325%); } }
+@media (max-width: 900px) { .intro-body { grid-template-columns: 1.3fr 1fr; gap: 30px; } .dream-sigil { width: 90%; } .intro-edition { display: none; } .intro-footer { gap: 25px; grid-template-columns: 1fr 300px; } }
+@media (max-width: 620px) {
+  .intro-screen { padding: 25px 28px; }
+  .intro-masthead { font-size: 7px; gap: 13px; } .intro-wordmark { font-size: 18px; padding-right: 13px; }
+  .intro-body { display: block; padding: 28px 0 22px; }
+  .intro-screen h1 { font-size: clamp(48px, 12vw, 72px); } .intro-screen h1 > span { font-size: 18px; margin-top: 13px; }
+  .intro-screen .lede { margin: 16px 0 22px; }
+  .intro-footer { grid-template-columns: 1fr; gap: 18px; padding-top: 18px; }
+  .intro-controls { order: 2; } .lore-card h2 { font-size: 21px; } .lore-card > p { min-height: 4.8em; }
+}
+@media (max-height: 690px) and (min-width: 621px) { .intro-screen { padding-top: 22px; padding-bottom: 24px; } .intro-body { padding: 20px 0; } .intro-screen h1 { font-size: 74px; } .intro-screen .lede { margin: 16px 0 20px; } .dream-sigil { width: 330px; } .lore-card { padding-top: 14px; } }
+@media (prefers-reduced-motion: reduce) { .intro-screen *, .intro-screen *::before, .intro-screen *::after { animation: none !important; transition: none !important; } .loading-stages li[aria-current] > span::after { width: 100%; } }
+
+/* Grimoire selection and the optional mana-catching menu game. */
+.intro-screen .eyebrow { color: var(--magic); }
+.intro-screen h1 > span { color: var(--magic); transition: color .35s; }
+.intro-screen .lede { margin-bottom: 23px; }
+.dream-sigil { display: block; width: min(90%, 400px); margin: 15px 0 100px; color: var(--magic); }
+.sigil-tower { display: none; }
+.sigil-halo { inset: 9%; background: radial-gradient(circle, color-mix(in srgb, var(--magic) 15%, transparent), transparent 70%); transition: background .5s; }
+.sigil-orbit { border-color: color-mix(in srgb, var(--magic) 30%, transparent); pointer-events: none; }
+.orbit-inner { border-style: double; border-width: 3px; }
+.orbit-outer::after { content: '✧  ·  ᛉ  ·  ✧  ·  ᛟ  ·  ✧  ·  ᛜ  ·  ✧'; position: absolute; inset: 12px; text-align: center; padding-top: 13px; color: var(--magic); opacity: .3; font: 11px Georgia, serif; letter-spacing: 7px; }
+.kingdom-mark { z-index: 4; width: 68px; min-height: 62px; padding: 9px 5px; border: 1px solid #d3c99e28; border-radius: 5px; background: #101b20; cursor: pointer; transition: border-color .2s, box-shadow .2s, background .2s; }
+.kingdom-mark small { color: inherit; font-size: 7px; }
+.kingdom-mark:hover, .kingdom-mark:focus-visible { border-color: currentColor; background: #203030; outline-offset: 4px; }
+.kingdom-mark[aria-pressed='true'] { border-color: var(--magic); box-shadow: 0 0 22px color-mix(in srgb, var(--magic) 18%, transparent), inset 0 0 20px color-mix(in srgb, var(--magic) 8%, transparent); color: var(--magic); }
+.mark-north { top: -6%; } .mark-east { right: -8%; top: 43%; } .mark-west { left: -8%; top: 43%; } .mark-south { bottom: -6%; }
+.grimoire-wrap { position: absolute; z-index: 2; left: 31%; top: 24%; width: 38%; height: 49%; transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, -8deg)); transition: transform .15s ease-out; }
+.grimoire-book { position: relative; width: 100%; height: 100%; border: 0; padding: 0; background: transparent; color: var(--magic); cursor: pointer; perspective: 850px; filter: drop-shadow(12px 20px 15px #0007); }
+.grimoire-book:focus-visible { outline: 1px solid var(--magic); outline-offset: 12px; }
+.book-cover, .book-pages { position: absolute; inset: 0; border-radius: 3px 8px 8px 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.book-cover { background: repeating-linear-gradient(12deg, transparent 0 3px, #0001 3px 4px), linear-gradient(120deg, #1b2a24, #0b1314); border: 2px solid var(--magic); transform-origin: 0 50%; transition: transform .7s cubic-bezier(.2,.6,.2,1); backface-visibility: hidden; box-shadow: inset 0 0 0 5px #0a1315, inset 0 0 0 6px #9da66c50; }
+.book-heading { font: 8px Georgia, serif; letter-spacing: .22em; margin-bottom: 16px; }
+.book-crest { font: 72px/.95 Georgia, serif; text-shadow: 0 0 20px color-mix(in srgb, var(--magic) 40%, transparent); transition: color .3s; }
+.book-inscription { margin-top: 19px; color: #b4b99e; font: 5px 'DM Mono', monospace; letter-spacing: .15em; }
+.book-spine { position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: #c9cd8d25; }
+.book-corner { position: absolute; width: 21px; height: 21px; border-color: var(--magic); border-style: solid; opacity: .8; }
+.corner-tl { left: 10px; top: 10px; border-width: 1px 0 0 1px; } .corner-tr { right: 10px; top: 10px; border-width: 1px 1px 0 0; }
+.corner-bl { left: 10px; bottom: 10px; border-width: 0 0 1px 1px; } .corner-br { right: 10px; bottom: 10px; border-width: 0 1px 1px 0; }
+.book-pages { padding: 16px 12px; color: #414936; border: 3px solid #a99c74; border-right: 6px double #b2a581; background: repeating-linear-gradient(0deg, transparent 0 22px, #706b4320 22px 23px), #d9d2b2; }
+.page-heading { font: 9px Georgia, serif; letter-spacing: .2em; }
+.page-symbol { font: 42px/1.4 Georgia, serif; }
+.page-spell { max-width: 110px; font: italic 11px/1.5 Georgia, serif; }
+.page-footnote { position: absolute; bottom: 10px; font: 5px 'DM Mono', monospace; letter-spacing: .1em; }
+.grimoire-book[aria-expanded='true'] .book-cover { transform: rotateY(-145deg); }
+.dream-sigil[data-kingdom='spade'] .book-cover { background-color: #1d142f; background-image: linear-gradient(120deg, #2b2042, #100d1a); }
+.dream-sigil[data-kingdom='heart'] .book-cover { background-image: linear-gradient(120deg, #20413d, #0c1b22); }
+.dream-sigil[data-kingdom='diamond'] .book-cover { background-image: linear-gradient(120deg, #403520, #1e1710); }
+.mana-rune { position: absolute; z-index: 5; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid color-mix(in srgb, var(--magic) 50%, transparent); border-radius: 50%; color: var(--magic); background: #101d23; font: 21px Georgia, serif; cursor: pointer; box-shadow: 0 0 16px color-mix(in srgb, var(--magic) 16%, transparent); animation: rune-hover 4s ease-in-out infinite; transition: opacity .3s, box-shadow .2s; }
+.mana-rune:hover, .mana-rune:focus-visible { background: #344536; box-shadow: 0 0 23px color-mix(in srgb, var(--magic) 45%, transparent); outline-offset: 3px; }
+.rune-one { left: 22%; top: 16%; } .rune-two { right: 16%; top: 26%; animation-delay: -1s; }
+.rune-three { left: 16%; bottom: 24%; animation-delay: -2s; } .rune-four { right: 22%; bottom: 15%; animation-delay: -3s; }
+.mana-rune.collected { opacity: .15; animation: none; cursor: default; box-shadow: none; border-style: dashed; }
+.sigil-caption { bottom: 16%; pointer-events: none; font-size: 6px; letter-spacing: .12em; }
+.sigil-caption small { font-size: 5px; letter-spacing: .1em; }
+.mana-game { position: absolute; top: calc(100% + 37px); left: 8%; width: 84%; text-align: center; }
+.mana-heading { display: flex; justify-content: space-between; color: #9cae9d; font: 7px 'DM Mono', monospace; letter-spacing: .16em; }
+.mana-heading > span:last-child { color: var(--magic); }
+.mana-pips { display: flex; gap: 6px; margin: 9px 0; }
+.mana-pips i { flex: 1; height: 3px; background: #32433e; transition: background .3s, box-shadow .3s; }
+.mana-pips i.filled { background: var(--magic); box-shadow: 0 0 9px color-mix(in srgb, var(--magic) 45%, transparent); }
+.mana-game p { margin: 0; color: #96a79b; font: italic 10px/1.5 Georgia, serif; }
+#resetMana { margin-top: 7px; padding: 3px 8px; border: 0; background: transparent; color: var(--magic); font: 7px 'DM Mono', monospace; letter-spacing: .15em; cursor: pointer; }
+#resetMana:hover { text-decoration: underline; }
+.dream-sigil.awakened .orbit-inner { box-shadow: inset 0 0 30px color-mix(in srgb, var(--magic) 20%, transparent), 0 0 20px color-mix(in srgb, var(--magic) 15%, transparent); }
+.dream-sigil.awakened .book-cover { box-shadow: inset 0 0 0 5px #0a1315, inset 0 0 0 6px var(--magic), 0 0 32px color-mix(in srgb, var(--magic) 35%, transparent); }
+.mana-spark { position: absolute; z-index: 6; width: 3px; height: 3px; background: var(--magic); pointer-events: none; animation: mana-burst .7s ease-out forwards; }
+.mana-particles { position: absolute; z-index: 6; inset: 0; overflow: hidden; pointer-events: none; }
+@keyframes rune-hover { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes mana-burst { to { transform: translate(var(--spark-x), var(--spark-y)); opacity: 0; } }
+@media (max-height: 800px) and (min-width: 621px) {
+  .intro-screen { padding-top: 22px; padding-bottom: 22px; }
+  .dream-sigil { width: 300px; margin-bottom: 95px; } .intro-body { padding: 15px 0; }
+  .intro-screen h1 { font-size: 76px; } .intro-screen h1 > span { margin-top: 12px; }
+  .intro-screen .eyebrow { margin-bottom: 16px; } .intro-screen .lede { margin: 14px 0 17px; }
+  .lore-card { padding-top: 14px; } .lore-card h2 { font-size: 21px; margin: 12px 0 8px; }
+  .lore-card > p { min-height: 4.2em; } .intro-footer { padding-top: 16px; }
+}
+@media (max-width: 620px) {
+  .dream-sigil { width: min(78vw, 310px); margin: 45px auto 125px; }
+  .intro-body { padding-top: 28px; }
+  .intro-screen .eyebrow { font-size: 7px; letter-spacing: .12em; }
+  .kingdom-mark { width: 58px; min-height: 54px; font-size: 21px; }
+  .kingdom-mark small { font-size: 6px; } .mark-west { left: -10%; } .mark-east { right: -10%; }
+}
+@media (prefers-reduced-motion: reduce) { .grimoire-wrap { transform: none; } }
