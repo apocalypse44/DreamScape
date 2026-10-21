@@ -37,6 +37,7 @@ import { createDemoSpawns } from '../views/demoSpawns.js';
 import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
 import { createHoundCutscene } from './houndScene.js';
 import { createDoorScene } from './doorScene.js';
+import { createInventory } from '../models/inventory.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
 
@@ -80,8 +81,10 @@ export function startGame(ui) {
   const heavenly = createHeavenlyFalls({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   let doorScene = null; // created below, with the camera controls
+  const inventory = createInventory({ onAdd: (id, item) => toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500) });
   const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
-    onChapterComplete: () => doorScene.queue(9) }); // after Neris's sigil lines have been read
+    chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
+    onChapterComplete: () => { inventory.add('lantern-sigil'); doorScene.queue(9); } }); // cutscene after Neris's sigil lines
   shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
   const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
@@ -95,7 +98,7 @@ export function startGame(ui) {
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, spade, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
+  const worldMap = createWorldMap({ world, player, state, quest, spade, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
@@ -121,6 +124,7 @@ export function startGame(ui) {
   function reset() {
     houndScene.reset();
     doorScene.reset();
+    inventory.reset();
     music.reset();
     Object.assign(state, START);
     keys.clear();
@@ -205,7 +209,7 @@ export function startGame(ui) {
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music, player, movement };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music, player, movement, inventory };
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({

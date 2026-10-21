@@ -10,7 +10,8 @@ import { buildSpadeCampaign } from './spadeCampaign.js';
 // Large forms are procedural and available immediately. Ten curated modules stream
 // on approach, then render in batches (one draw per source mesh, not per building).
 // onChapterComplete: Neris's quest is done (the game plays the castle doors' cutscene).
-export function createSpade({ scene, world, onReady, notify, onChapterComplete }) {
+// chapterReady(): whether Neris's chapter may begin (the Ember Hound is cured).
+export function createSpade({ scene, world, onReady, notify, onChapterComplete, chapterReady }) {
   const root = new THREE.Group(); root.name = 'Spade · The Swarm Remembers'; scene.add(root);
   const details = new THREE.Group(); root.add(details);
   const obstacles = new THREE.Group(); root.add(obstacles);
@@ -173,7 +174,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete }
   platforms.push(...echo.model.platforms);
   const castle = buildCastleInterior({root,add,block,module,label,notify,echo:echo.model});
   const story=buildSpadeStory({root,add,block,label,height:spadeHeight,ground:world.surfaceHeight,road:materials.road});
-  const campaign=buildSpadeCampaign({root,ward:story.ward,notify,platforms,onChapterComplete,crownKnown:()=>castle.discovery.complete});
+  const campaign=buildSpadeCampaign({root,ward:story.ward,notify,platforms,onChapterComplete,ready:chapterReady,crownKnown:()=>castle.discovery.complete});
   // Flush after interior construction so its repeated steps, shelves and rails
   // join the same batches instead of adding a draw call for every object.
   for (const [key, placements] of batches) {

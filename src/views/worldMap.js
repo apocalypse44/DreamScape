@@ -96,7 +96,14 @@ function drawClover(ctx, x, y, size, fill, stroke) {
 }
 
 // canvas: the game's canvas, used to free and recapture the mouse around the map.
-export function createWorldMap({ world, player, state, quest, spade, companion, navigation, gates = [], canvas: gameCanvas }) {
+// Satchel item icons (inline SVG, drawn in the grimoire's ink colour).
+const ITEM_ICONS = {
+  spade: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10 6 4 9 4 13.5c0 2.6 2 4.3 4.3 4.3 1.3 0 2.4-.6 3.1-1.4L10 22h4l-1.4-5.6c.7.8 1.8 1.4 3.1 1.4 2.3 0 4.3-1.7 4.3-4.3C20 9 14 6 12 2z" fill="currentColor"/></svg>',
+  hook: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v11a4 4 0 1 1-4-4"/><path d="M9 5l3-3 3 3"/><path d="M12 13c0 4 3 7 7 7"/></svg>',
+};
+
+// inventory: the player's satchel (models/inventory.js), listed on the quest page.
+export function createWorldMap({ world, player, state, quest, spade, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   // Baseline atlas rules precede the responsive grimoire stylesheet.
@@ -130,7 +137,7 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
     <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
-    <section class="quest-page" aria-labelledby="grimoireQuestHeading" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Close the grimoire to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section></div>
+    <section class="quest-page" aria-labelledby="grimoireQuestHeading" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Close the grimoire to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><section class="satchel" aria-labelledby="satchelHeading"><h4 id="satchelHeading">Satchel</h4><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p></section><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section></div>
     <div class="book-bottom"><span>THE FOURFOLD GRIMOIRE</span><span>M / ESC · CLOSE THE BOOK</span></div>
     </div>`;
   overlay.dataset.page='atlas';
@@ -152,10 +159,24 @@ export function createWorldMap({ world, player, state, quest, spade, companion, 
   let closeTimer=null,returnFocus=button,questSignature='';
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
   const questList=overlay.querySelector('.quest-list'),questCards=new Map();
+  const satchelList=overlay.querySelector('.satchel-items'),satchelEmpty=overlay.querySelector('.satchel-empty');
+  function updateSatchel(items){
+    satchelEmpty.hidden=items.length>0;
+    satchelList.replaceChildren(...items.map(item=>{
+      const row=document.createElement('li');row.className='satchel-item';
+      row.innerHTML=`${ITEM_ICONS[item.icon]??''}<div><span class="satchel-kind"></span><strong></strong><p></p></div>`;
+      row.querySelector('.satchel-kind').textContent=item.kind;
+      row.querySelector('strong').textContent=item.name;
+      row.querySelector('p').textContent=item.text;
+      return row;
+    }));
+  }
   function updateQuests(){
-    const tasks=grimoireQuests(quest,spade),signature=JSON.stringify(tasks);
+    const tasks=grimoireQuests(quest,spade),items=inventory?.items??[];
+    const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
     if(signature===questSignature)return;
     questSignature=signature;
+    updateSatchel(items);
     overlay.querySelector('.journal-summary').textContent=`${tasks.filter(t=>t.done).length} / ${tasks.length} OATHS SEALED`;
     for(const task of tasks){
       let card=questCards.get(task.id);

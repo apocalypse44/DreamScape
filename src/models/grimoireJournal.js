@@ -4,6 +4,8 @@ export function grimoireQuests(quest, spade) {
   const archive=spade?.castle.discovery.count??0;
   const witness=Boolean(spade?.echo.recovered),crown=Boolean(spade?.castle.discovery.complete);
   const campaign=spade?.campaign,chapter=campaign?.stage??'meet';
+  // Neris's chapter waits for the cure (it never runs ahead of the hound quest).
+  const early=stage!=='cured'&&chapter==='meet';
   // Spade castle's doors stay sealed until Neris's chapter is complete.
   const sealed=chapter!=='complete',SEALED='The castle doors are sealed by the Triad’s ward. Finish The Swarm Remembers with Neris to open them.';
   return [
@@ -15,10 +17,11 @@ export function grimoireQuests(quest, spade) {
           :'Gather the remaining embers, then return to the shrine. Chaos reveals their high resting places.')
         :'Explore with your companion. Walk softly and approach calmly; E lets you pet it. If chaos awakens its curse, the shrine knows the cure.',
       stamp:'PACT RESTORED',destination:stage==='cured'?'spade-refuge':'quest'},
-    {id:'swarm',chapter:'II · THE SPADE KINGDOM',title:'The Swarm Remembers',done:chapter==='complete',locked:false,
-      progress:{meet:'Neris waits at the Lantern Refuge',lanterns:`${campaign?.lit??0}/3 memory lanterns lit`,
+    {id:'swarm',chapter:'II · THE SPADE KINGDOM',title:'The Swarm Remembers',done:chapter==='complete',locked:early,
+      progress:early?'Begins after the Ember Hound is cured':{meet:'Neris waits at the Lantern Refuge',lanterns:`${campaign?.lit??0}/3 memory lanterns lit`,
         anchor:`${campaign?.strikes??0}/3 strikes on the border anchor`,report:'The border anchor has fallen',complete:'Lantern Sigil earned'}[chapter],
-      hint:{meet:'Enter the Lantern Refuge in calm: the first house on your right beyond the Spade gate.',
+      hint:early?'Cure the Ember Hound at the Grimoire Tower shrine first. Then Neris will receive you in Spade.'
+        :{meet:'Enter the Lantern Refuge in calm: the first house on your right beyond the Spade gate.',
         lanterns:'Hold E to gather the wisps and lead them to each dark lantern above the avenue posts. Hold them there while the world is calm.',
         anchor:'At the border-anchor plaza, stir chaos to open the ward, gather the flock, then hold Q so enough wisps strike it together. F recalls them.',
         report:'Return to Neris at the Lantern Refuge in calm.',

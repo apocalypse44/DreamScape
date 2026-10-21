@@ -32,6 +32,16 @@
 #worldMap .quest-card[data-status='complete'] h4 { color: #365b3d; }
 #worldMap .quest-card[data-status='complete'] .quest-state { color: #315d43; border-color: #446d4560; }
 #worldMap .quest-colophon { margin: 13px 0 0; color: #7c6740; text-align: center; font: italic 10px/1.5 Georgia, serif; }
+/* Satchel: carried sigils and tools, below the quests. */
+#worldMap .satchel { flex: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid #836d3c50; }
+#worldMap .satchel h4 { margin: 0 0 8px; color: #87703f; font: 8px 'DM Mono', monospace; letter-spacing: .14em; text-transform: uppercase; }
+#worldMap .satchel-items { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; max-height: 150px; overflow-y: auto; }
+#worldMap .satchel-item { display: flex; gap: 10px; align-items: flex-start; }
+#worldMap .satchel-icon { flex: none; width: 28px; height: 28px; padding: 5px; border: 1px solid #8a714866; border-radius: 50%; color: #3c3222; }
+#worldMap .satchel-kind { display: block; color: #87703f; font: 6px 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; }
+#worldMap .satchel-item strong { display: block; color: #3c3222; font: 400 15px/1.3 Georgia, serif; }
+#worldMap .satchel-item p { margin: 2px 0 0; color: #5d503a; font: 11px/1.5 Georgia, serif; }
+#worldMap .satchel-empty { margin: 0; color: #776340; font: italic 11px/1.5 Georgia, serif; }
 #worldMap .map-loading { position: absolute; margin: 0; color: #bda673; font: italic 11px Georgia, serif; }
 #worldMap .map-loading[hidden] { display: none; }
 #worldMap .map-location-detail { font-size: 10px; min-height: 3em; align-self: stretch; }

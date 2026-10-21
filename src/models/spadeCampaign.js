@@ -29,12 +29,13 @@ const say = (kind, text, ms = 7000) => ({ kind, text, ms });
 // lanternY(site) / wardY: heights of the lantern orbs and the ward centre.
 // crownKnown(): whether the castle's Hollow Crown bindings are understood; until then Neris sends the
 // player into the castle before the journey north to Clover.
-export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown = () => false } = {}) {
+// ready(): whether the chapter may begin (the Ember Hound must be cured first, so the story stays in order).
+export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown = () => false, ready = () => true } = {}) {
   const ward = { x: WARD.x, y: wardY, z: WARD.z };
-  let stage, lit, charge, hits, windowAt, cooldown, strikes, time, gateOpen;
+  let stage, lit, charge, hits, windowAt, cooldown, strikes, time, gateOpen, turnedAway;
   function reset() {
     stage = 'meet'; lit = new Set(); charge = new Map(); hits = new Set();
-    windowAt = 0; cooldown = 0; strikes = 0; time = 0; gateOpen = false;
+    windowAt = 0; cooldown = 0; strikes = 0; time = 0; gateOpen = false; turnedAway = false;
   }
   reset();
 
@@ -113,6 +114,15 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
     update(dt, position, chaos, swarm) {
       time += dt;
       const calmInRefuge = chaos < CALM && insideRefuge(position);
+      if (stage === 'meet' && !ready()) {
+        // Too early: Neris says so once per visit to the refuge.
+        if (!insideRefuge(position)) turnedAway = false;
+        else if (calmInRefuge && !turnedAway) {
+          turnedAway = true;
+          return say('waiting', 'NERIS · You came west too soon. Your companion’s curse is still unbroken. Finish what you began at the Grimoire Tower, then come back to me.', 8000);
+        }
+        return null;
+      }
       if (stage === 'meet' && calmInRefuge) {
         stage = 'lanterns';
         return say('neris', 'NERIS · They scatter because they are frightened. Gather them before you ask them to fight. Hold E to call the wisps and lead them to the three dark lanterns along the avenue while the world is calm.', 10000);

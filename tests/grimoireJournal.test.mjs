@@ -17,8 +17,15 @@ test('grimoire hints follow the hound quest without marking an unfinished cure c
   assert.equal(grimoireQuests(quest,spade)[0].destination,'spade-refuge');
   assert.match(grimoireQuests(quest,spade)[0].hint,/Neris/);
 });
-test('the swarm chapter follows the campaign stage and seals only with the Lantern Sigil',()=>{
+test('the swarm chapter waits for the hound cure',()=>{
   const {quest,spade}=fixture();
+  const swarm=()=>grimoireQuests(quest,spade)[1];
+  assert.equal(swarm().locked,true);assert.match(swarm().hint,/Ember Hound/);
+  quest.stage='cured';
+  assert.equal(swarm().locked,false);assert.match(swarm().hint,/Lantern Refuge/);
+});
+test('the swarm chapter follows the campaign stage and seals only with the Lantern Sigil',()=>{
+  const {quest,spade}=fixture();quest.stage='cured';
   const swarm=()=>grimoireQuests(quest,spade)[1];
   assert.equal(swarm().done,false);assert.match(swarm().hint,/Lantern Refuge/);assert.equal(swarm().destination,'spade-refuge');
   Object.assign(spade.campaign,{stage:'lanterns',lit:2});assert.match(swarm().progress,/2\/3/);

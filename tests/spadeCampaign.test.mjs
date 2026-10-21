@@ -62,6 +62,19 @@ test('strikes need chaos, enough distinct wisps, and break the anchor after thre
   assert.equal(c.strikes, 0);
 });
 
+test('Neris turns the player away until the hound is cured, once per visit', () => {
+  let cured = false;
+  const c = createSpadeCampaign({ ready: () => cured });
+  assert.equal(c.update(DT, REFUGE, 0, null).kind, 'waiting');
+  assert.equal(c.update(DT, REFUGE, 0, null), null);            // not repeated while inside
+  c.update(DT, { x: 0, y: 0, z: 0 }, 0, null);                  // leave the refuge
+  assert.equal(c.update(DT, REFUGE, 0, null).kind, 'waiting');  // said again on the next visit
+  assert.equal(c.stage, 'meet');
+  cured = true;
+  assert.equal(c.update(DT, REFUGE, 0, null).kind, 'neris');
+  assert.equal(c.stage, 'lanterns');
+});
+
 test('castle doors stay sealed until the chapter is complete and the gate is opened', () => {
   const c = atAnchor(), door = c.doorVolume;
   assert.ok(door.contains(door.x, 0));

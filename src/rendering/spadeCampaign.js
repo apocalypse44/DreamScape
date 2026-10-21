@@ -37,10 +37,11 @@ function buildDoors(root) {
 }
 
 // onChapterComplete: runs when Neris grants the Lantern Sigil (the game queues the doors' cutscene).
-export function buildSpadeCampaign({ root, ward, notify, crownKnown, platforms, onChapterComplete }) {
+// ready(): the chapter may begin (the game passes "the Ember Hound is cured").
+export function buildSpadeCampaign({ root, ward, notify, crownKnown, ready, platforms, onChapterComplete }) {
   const lanternY = site => spadeHeight(site.x) + 5.2; // just above the avenue post's lamp
   const wardAt = new THREE.Vector3(WARD.x, spadeHeight(WARD.x) + 4, WARD.z);
-  const model = createSpadeCampaign({ lanternY, wardY: wardAt.y, crownKnown });
+  const model = createSpadeCampaign({ lanternY, wardY: wardAt.y, crownKnown, ready });
   platforms.push(model.doorVolume);
   const doors = buildDoors(root);
   let doorOpen = 0, noticeAt = -Infinity;
