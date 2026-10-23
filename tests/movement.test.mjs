@@ -36,6 +36,46 @@ function fixture(terrainHeight = () => 0, platforms = [], options = {}) {
 }
 function frames(f, count, dt = 1 / 60) { for (let i = 0; i < count; i++) f.controller.update(dt); }
 
+test('the Living Road is walkable out and back with solid rocks, guide pedestals and real bridge activation', async () => {
+  const { createCloverCampaign, CLOVER_STORY, livingRoadGround } = await import(moduleUrl(new URL('../src/models/cloverCampaign.js', import.meta.url)));
+  const { ROOT_HEADINGS, ROOT_LANDINGS, ROOT_OBSTACLES } = await import(moduleUrl(new URL('../src/models/cloverGrowth.js', import.meta.url)));
+  const model = createCloverCampaign();
+  const staticColliders = [
+    ...ROOT_OBSTACLES.map(p => ({ ...p, minY:12, maxY:15.5 })),
+    ...ROOT_LANDINGS.slice(0,3).map(p => ({ x:p.x,z:p.z,radius:.7,minY:12,maxY:12.55 })),
+  ];
+  const f = fixture((x,z)=>livingRoadGround(x,z,cloverGround(x,z,1.5)), [...CLOVER_SURFACES,...model.platforms],
+    {staticColliders,courseRecovery:p=>model.recovery(p)});
+  f.controller.teleport({x:0,z:-437,top:12});
+  const walk=(x,z)=>{
+    f.keys.add('KeyW');let count=0;
+    while(Math.hypot(x-f.player.position.x,z-f.player.position.z)>.2&&count++<1600){
+      f.state.yaw=Math.atan2(-(x-f.player.position.x),-(z-f.player.position.z));f.controller.update(1/120);
+    }
+    f.keys.clear();frames(f,3);
+    assert.ok(count<1600,`root route blocked toward ${x},${z} at ${f.player.position.x},${f.player.position.z}`);
+    assert.ok(Math.abs(f.player.position.y-14.05)<.01,'a root crossing lost support');
+  };
+  for(const p of [[-10,-430],[-28,-430],[-28,-420],[-39,-416]])walk(...p);
+  assert.equal(model.interact(f.player.position,'calm').kind,'meet');
+  const grow=()=>{
+    const i=model.generation;
+    while(model.guides[i]!==ROOT_HEADINGS[i])model.interact(f.player.position,'calm');
+    assert.equal(model.interact(f.player.position,'chaos').kind,'growing');
+    for(let n=0;n<150;n++)model.update(1/60,f.player);
+  };
+  walk(-31.8,-418.4);grow();walk(-65.8,-418.4);
+  grow();walk(-66.4,-422);walk(-66.4,-453.4);
+  grow();walk(-104,-453.4);
+  assert.equal(model.interact(f.player.position,'calm').kind,'sigil');
+  for(const p of [[-66.4,-453.4],[-66.4,-418.4],[-31.8,-418.4],[-30,-416]])walk(...p);
+  assert.equal(model.interact(f.player.position,'calm').kind,'hook');
+  // A real falling player recovers onto a safe landing, with completed roots intact.
+  f.player.position.set(-85,8,-455);f.player.velocity.y=-10;f.player.grounded=false;frames(f,1);
+  assert.equal(f.player.position.y,14.05);assert.equal(model.generation,3);
+  assert.equal(model.sigil,true);assert.equal(model.hook,true);
+});
+
 test('castle curtain modules block walking from both sides above the retaining wall',async()=>{
   const {spadeVolumes,spadeColliders,SPADE_CURTAIN_MODULES}=await import(moduleUrl(new URL('../src/models/spade.js',import.meta.url)));
   const volumes=spadeVolumes(),colliders=spadeColliders(volumes);

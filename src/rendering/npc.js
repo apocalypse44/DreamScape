@@ -12,6 +12,7 @@ const REFUSE = 12;      // chaotic player within this range: NPC turns and shake
 
 // idle: clip when alone · path: walking loop (points around a home) · body: M or F · tint: robe color
 export const VILLAGERS = [
+  { name: 'Iven', body: 'M', tint: 0x395336, home: [-40, -414], y: 12, idle: 'Idle_FoldArms_Loop', robe: 0x30452b },
   { name: 'Shrine Keeper', body: 'F', tint: 0x2f6f8f, home: [4, -6], idle: 'Idle_FoldArms_Loop' },
   { name: 'Mage', body: 'M', tint: 0x7a2f2f, home: [-20, -16], idle: 'Spell_Simple_Idle_Loop' },
   { name: 'Lantern Guard', body: 'M', tint: 0x3b3b3b, home: [7, -42], idle: 'Idle_Lantern_Loop' },
@@ -102,7 +103,9 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
       if (def.robe) {
         // Rides on the NPC's group (feet origin, turns with her); legs and hips stay hidden inside.
         const height = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
-        const cloth = new THREE.MeshStandardMaterial({ color: def.robe, roughness: 0.9, side: THREE.DoubleSide });
+        const cloth = def.name === 'Iven'
+          ? new THREE.MeshBasicMaterial({ color: def.robe, side: THREE.DoubleSide, toneMapped: false })
+          : new THREE.MeshStandardMaterial({ color: def.robe, roughness: 0.9, side: THREE.DoubleSide });
         const gold = new THREE.MeshStandardMaterial({ color: 0xb8954a, roughness: 0.5, metalness: 0.4 });
         const profile = ROBE_PROFILE.map(([r, y]) => new THREE.Vector2(r * height, y * height));
         const robe = new THREE.Mesh(new THREE.LatheGeometry(profile, 18), cloth);

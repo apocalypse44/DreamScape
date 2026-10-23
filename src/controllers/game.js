@@ -41,8 +41,10 @@ import { createInventory } from '../models/inventory.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
 import { buildDiamondCampaign } from '../rendering/diamondCampaign.js'; // Diamond chapter
+import { buildCloverCampaign } from '../rendering/cloverCampaign.js';
 
 export function startGame(ui) {
+  const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
   const startup = createStartupReadiness();
   const stopObservingLoads = observeStartupLoading(THREE.DefaultLoadingManager, startup);
   const startupStatus = document.querySelector('#startupStatus');
@@ -66,6 +68,7 @@ export function startGame(ui) {
     world,
     state,
     player,
+    demoCured: unlockAll, // Development-only preset; normal play still requires the real cure.
     onEmberPickup: (index, count, total) => encounters.pickupEmber(index, count, total),
     onEmberPosition: (index, position) => encounters.setEmberPosition(index, position),
     onOfferEmbers: onDone => encounters.startOffering(onDone),
@@ -86,6 +89,13 @@ export function startGame(ui) {
   const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
     chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
     onChapterComplete: () => { inventory.add('lantern-sigil'); doorScene.queue(9); } }); // cutscene after Neris's sigil lines
+  // --- Clover chapter: The Living Road ---
+  const livingRoad = buildCloverCampaign({ scene, world, keys, notify: toast,
+    ready: () => inventory.has('lantern-sigil') && (unlockAll || spade.castle.discovery.complete),
+    onSigil: () => inventory.add('root-sigil'), onHook: () => inventory.add('tide-hook'),
+    onReady: root => atmosphere?.prepare?.(root) });
+  shrine.colliders.push(...livingRoad.colliders);
+  // --- end Clover chapter ---
   shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
   // --- Diamond chapter: the Shatterglass Relay beyond the Diamond gate ---
   const diamond = buildDiamondCampaign({ scene, gate: gates.gates.find(g => /diamond/i.test(g.name)) ?? gates.gates[3],
@@ -96,7 +106,7 @@ export function startGame(ui) {
   const orin = VILLAGERS.find(v => v.name === 'Orin');
   if (orin) orin.home = [diamond.model.layout.orin.x, diamond.model.layout.orin.z];
   // --- end Diamond chapter ---
-  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms];
+  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
   // Standing and feet use the ground as drawn (flat mesh triangles), not the smooth height between vertices.
   const surfaceAt = createSurfaceAt(platforms, world.surfaceHeight);
@@ -105,17 +115,18 @@ export function startGame(ui) {
     .flatMap(colliders => colliders.filter(c => !c.off && c.minY === undefined));
   const companion = createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation: {
     height: terrainHeight, obstacles: groundObstacles, version: () => world.terrainVersion,
+    followRoute: (position, target) => livingRoad.model.companionTarget(position, target),
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, spade, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
+  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
       toast('NEXT · FIND NERIS AT THE LANTERN REFUGE · SPADE KINGDOM', 6000);
     },
     obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
-      clover.root, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
+      clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
   doorScene = createDoorScene({ camera, state, keys, onOpen: () => spade.openGate() });
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
@@ -128,6 +139,7 @@ export function startGame(ui) {
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     allowFallRecovery: player => !spade.isInsideCastle(player.position),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
+      : livingRoad.model.ownsArea(player.position) ? livingRoad.recovery(player)
       : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
@@ -161,6 +173,8 @@ export function startGame(ui) {
     skyIsland.reset();
     spade.reset();
     diamond.reset(); // Diamond chapter
+    livingRoad.reset(); // Clover chapter: R clears growth, discoveries and both earned items.
+    if (unlockAll) inventory.add('lantern-sigil'); // Reapply only the earlier-chapter demo prerequisite.
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -176,12 +190,13 @@ export function startGame(ui) {
   atmosphere.prepare?.(skyIsland.root);
   atmosphere.prepare?.(spade.root);
   atmosphere.prepare?.(diamond.root); // Diamond chapter
+  atmosphere.prepare?.(livingRoad.root); // Clover chapter
   const grass = createGrass({ hash, chunks });
-  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root, spade.obstacles] });
+  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles] });
   const character = createCharacter({ scene, state, player, surfaceAt });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
-    isInputActive: () => state.locked && !houndScene.active && !skyIsland.journey.atDoor(player.position),
+    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position),
     // NPCs keep out of landmarks and anything the player collides with (shrine tower, trees, rocks).
     blocked: (x, z) => world.isLandmarkArea(x, z) ||
       [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
@@ -221,7 +236,7 @@ export function startGame(ui) {
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music, player, movement, inventory };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
@@ -306,7 +321,7 @@ export function startGame(ui) {
     if (!skyIsland.journey.blocked && !houndScene.active) movement.update(startup.ready ? dt : 0);
     props.update(player.position, world.terrainVersion);
     if (!houndScene.active) quest.update();
-    houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
+    if (!unlockAll) houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
       !skyIsland.journey.blocked && player.grounded);
     companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation);
     if (!houndScene.active) quest.updateHoundEmber(companion.position);
@@ -314,6 +329,7 @@ export function startGame(ui) {
     gates.update(playDt);
     if (!houndScene.active) spade.update(dt, player, state, swarm);
     if (!houndScene.active) diamond.update(dt, player, state); // Diamond chapter
+    livingRoad.update(dt, player, state, startup.ready && !houndScene.active && !doorScene.active && !skyIsland.journey.blocked); // Clover chapter
     heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
@@ -338,6 +354,7 @@ export function startGame(ui) {
     const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete;
     updateQuestHUD(ui, quest, quest.stage !== 'cured' ? quest.goal
       : diamond.model.available ? diamond.model.goal // Diamond chapter, once the Tide Sigil is held
+      : livingRoad.model.available ? livingRoad.model.goal // Clover chapter, after the Spade discoveries
       : castleNext ? `SPADE CASTLE · ${spade.castle.discovery.objective.toUpperCase()}` : spade.campaign.goal);
     encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");

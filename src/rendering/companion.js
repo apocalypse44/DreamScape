@@ -190,6 +190,7 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
 
       // Cursed: lead the player to the next ember. Otherwise: walk at the player's right side.
       const ember = quest.stage === 'cursed' ? quest.nextEmber() : null;
+      const authoredRoute = !cursed ? navigation?.followRoute?.(position, player.position) : null;
       // Carrying its ember, the hound keeps away from a nearby player (flees in chaos, waits when
       // calm so it can be approached); farther away it leads as usual. 12/18 m hysteresis avoids jitter.
       const playerDistance = Math.hypot(position.x - player.position.x, position.z - player.position.z);
@@ -212,6 +213,8 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
           const away = Math.atan2(player.position.x - ember.x, player.position.z - ember.z);
           goal.set(ember.x + Math.sin(away) * 3, 0, ember.z + Math.cos(away) * 3);
         }
+      } else if (authoredRoute) {
+        goal.set(authoredRoute.x, 0, authoredRoute.z);
       } else {
         // Player right = (cos yaw, -sin yaw); see player.js movement basis. On narrow bridges
         // and ledges the side slot can hang over a drop, so pull it in or swap sides until the
@@ -234,8 +237,8 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       // keeps pace instead of chasing a moving point. Leading and guarding: plain seek to the goal
       // (guarding must not inherit the player's velocity, or a calm approach pushes the hound away).
       let vx, vz;
-      if (ember || houndGuarding) {
-        const seek = distance > 1 ? Math.min(22, distance * 2.5 + 1) / distance : 0;
+      if (ember || houndGuarding || authoredRoute) {
+        const seek = distance > (authoredRoute ? .25 : 1) ? Math.min(22, distance * 2.5 + 1) / distance : 0;
         vx = dx * seek; vz = dz * seek;
       } else {
         vx = player.velocity.x + dx * 4; vz = player.velocity.z + dz * 4;
@@ -260,7 +263,7 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       body.mixer?.update(dt);
       animateFallback(body, dt);
 
-      if (updateMoods(dt)) {
+      if (!authoredRoute && updateMoods(dt)) {
         position.copy(body.root.position);
         yaw = body.root.rotation.y;
       }

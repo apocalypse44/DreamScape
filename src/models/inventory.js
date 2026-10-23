@@ -3,9 +3,11 @@
 export const ITEMS = {
   'lantern-sigil': { name: 'Lantern Sigil', kind: 'Sigil', icon: 'spade',
     text: 'Neris’s light, freely given when the border settlement was freed. The first of the Accord’s four sigils.' },
-  // Planned: found in a chest after Clover's chapter; fires at glowing crystal anchors (story doc, "The Tide Hook").
+  // Awarded by Clover's Archive chest after restoring the Living Road.
   'tide-hook': { name: 'Tide Hook', kind: 'Tool', icon: 'hook',
     text: 'A grapple Heart’s guardians used to cross the crystal banks. It catches only on glowing crystal anchors.' },
+  'root-sigil': { name: 'Root Sigil', kind: 'Sigil', icon: 'root',
+    text: 'The original branching pattern recovered at Clover’s Stormleaf Scar. It separates the Triad’s true bindings from Veyr’s decoys.' },
   // --- Diamond chapter ---
   // Placeholder so Diamond can be tested before Heart merges. When Heart's branch adds its own
   // 'tide-sigil' entry, keep Heart's and delete this one.

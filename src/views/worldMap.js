@@ -12,6 +12,9 @@ import { SKY, SUMMIT_DOOR } from '../models/skyIsland.js';
 import { SHRINE } from '../models/quest.js';
 import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 import { grimoireQuests } from '../models/grimoireJournal.js';
+import { CLOVER_MAP_LOCATIONS } from '../models/cloverCampaign.js';
+
+const STORY_LOCATIONS = [...SPADE_MAP_LOCATIONS, ...CLOVER_MAP_LOCATIONS];
 
 const CENTER = { x: 0, z: -90 }; // shifted north so the Clover terraces and Sky Garden fit
 const HALF = 650;                // metres from the centre to the map edge
@@ -32,6 +35,7 @@ const LANDMARKS = [
   { name: 'CLOVER SUMMIT', note: 'Sky gateway', x: SUMMIT_DOOR.x, z: SUMMIT_DOOR.z, side: -1 },
   { name: 'SKY GARDEN', note: 'Heavenly Falls below', x: SKY.x, z: SKY.z, side: 1, floating: true },
   ...SPADE_MAP_LOCATIONS.map(p=>({...p,side:1,color:'#c5afff',callout:true})),
+  ...CLOVER_MAP_LOCATIONS.map(p=>({...p,side:-1,color:'#a8d58b',callout:true})),
 ];
 
 const CSS = `
@@ -98,12 +102,13 @@ function drawClover(ctx, x, y, size, fill, stroke) {
 // canvas: the game's canvas, used to free and recapture the mouse around the map.
 // Satchel item icons (inline SVG, drawn in the grimoire's ink colour).
 const ITEM_ICONS = {
+  root: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M12 8L6 4M12 12l6-7M12 16l-7-3M12 19l7-5"/></svg>',
   spade: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10 6 4 9 4 13.5c0 2.6 2 4.3 4.3 4.3 1.3 0 2.4-.6 3.1-1.4L10 22h4l-1.4-5.6c.7.8 1.8 1.4 3.1 1.4 2.3 0 4.3-1.7 4.3-4.3C20 9 14 6 12 2z" fill="currentColor"/></svg>',
   hook: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v11a4 4 0 1 1-4-4"/><path d="M9 5l3-3 3 3"/><path d="M12 13c0 4 3 7 7 7"/></svg>',
 };
 
 // inventory: the player's satchel (models/inventory.js), listed on the quest page.
-export function createWorldMap({ world, player, state, quest, spade, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
+export function createWorldMap({ world, player, state, quest, spade, clover, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   // Baseline atlas rules precede the responsive grimoire stylesheet.
@@ -172,7 +177,7 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
     }));
   }
   function updateQuests(){
-    const tasks=grimoireQuests(quest,spade),items=inventory?.items??[];
+    const tasks=grimoireQuests(quest,spade,clover),items=inventory?.items??[];
     const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
     if(signature===questSignature)return;
     questSignature=signature;
@@ -194,7 +199,8 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
       card.querySelector('.quest-state').textContent=task.done?'OATH FULFILLED':task.locked?'AWAITING REVELATION':'UNSEALED';
       card.querySelector('.completion-seal span').textContent=task.stamp;
       const route=card.querySelector('.quest-route');route.dataset.journalRoute=task.destination;
-      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR':'MARK CASTLE ENTRANCE';
+      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR'
+        :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':'MARK CASTLE ENTRANCE';
     }
   }
   function setPage(page){
@@ -215,12 +221,20 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
   });
   let selected=null;
   const locationDetail=overlay.querySelector('.map-location-detail');
+  const destinations = overlay.querySelector('.spade-destinations');
+  destinations.setAttribute('aria-label', 'Story destinations');
+  for (const location of CLOVER_MAP_LOCATIONS) {
+    const button = document.createElement('button'); button.type = 'button';
+    button.dataset.spade = location.id; button.setAttribute('aria-pressed', 'false'); button.textContent = location.name;
+    destinations.append(button);
+  }
+  locationDetail.textContent = 'Choose a story location to read its approach directions. Elevated root crossings are found by exploring, not ground A*.';
   overlay.querySelector('.spade-destinations').addEventListener('click',event=>{
     const target=event.target.closest('button');if(!target)return;
     if(target.hasAttribute('data-quest-route')){
       selected=null;navigation.clearDestination?.();locationDetail.textContent='Quest navigation restored.';
     }else{
-      selected=SPADE_MAP_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
+      selected=STORY_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
       navigation.setDestination?.({...selected.destination,id:selected.id});
       locationDetail.textContent=`${selected.name} · X ${Math.round(selected.x)} / Z ${selected.z}. ${selected.directions}`;
     }

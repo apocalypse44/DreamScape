@@ -18,9 +18,11 @@ test('Spade hints use reachable door distances and include all three destination
 });
 test('Clover destinations describe summit travel and do not leak to other kingdoms', () => {
   const lines = landmarkHintLines('CLOVER KINGDOM', { x: 0, z: -400 });
-  assert.equal(lines.length, 2);
-  assert.match(lines[0], /CLOVER SUMMIT/);
-  assert.match(lines[1], /SKY GARDEN.*VIA SUMMIT GATEWAY/);
+  assert.equal(lines.length, 4);
+  assert.match(lines[0], /ROOTKEEPER ARCHIVE/);
+  assert.match(lines[1], /STORMLEAF SCAR/);
+  assert.match(lines[2], /CLOVER SUMMIT/);
+  assert.match(lines[3], /SKY GARDEN.*VIA SUMMIT GATEWAY/);
   for (const kingdom of ['GRIMOIRE TOWER', 'HEART KINGDOM', 'DIAMOND KINGDOM']) {
     assert.deepEqual(landmarkHintLines(kingdom, { x: 0, z: 0 }), []);
   }

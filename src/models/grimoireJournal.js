@@ -1,5 +1,5 @@
 // Read live quest state without inventing completion or future campaign rewards.
-export function grimoireQuests(quest, spade) {
+export function grimoireQuests(quest, spade, clover) {
   const stage=quest.stage,embers=quest.embers.filter(e=>e.taken).length;
   const archive=spade?.castle.discovery.count??0;
   const witness=Boolean(spade?.echo.recovered),crown=Boolean(spade?.castle.discovery.complete);
@@ -48,5 +48,15 @@ export function grimoireQuests(quest, spade) {
         :archive<3||!witness?'Restore all three archive testimonies and the erased witness first. Then inspect the bindings in calm on the second floor.'
         :'Climb to the second-floor observatory. Approach the three bindings at the rear of the hall in calm.',
       stamp:'BINDINGS REVEALED',destination:'spade-castle'},
+    {id:'living-road',chapter:'III · THE CLOVER KINGDOM',title:'The Living Road',done:Boolean(clover?.hook),locked:!clover?.available,
+      progress:!clover?.available?'Requires the Lantern Sigil and the Hollow Crown testimony'
+        :clover.hook?'Root Sigil and Tide Hook earned':clover.sigil?'Root Sigil earned · Archive chest unlocked'
+        :`${clover.generation}/3 root crossings restored`,
+      hint:!clover?.available?'Finish Neris’s chapter and inspect the Hollow Crown bindings in Spade. Then find Iven west of Clover’s upper terrace.'
+        :clover.hook?'The Root Sigil distinguishes true bindings from decoys. Carry the Tide Hook east to Heart and find Sera. Its crystal anchors await the Heart chapter.'
+        :clover.sigil?'Return over the permanent root bridges to the Rootkeeper Archive. Open Iven’s chest in calm with E to receive the Tide Hook.'
+        :clover.generation===3?'Cross the restored road to the Stormleaf Scar. Read its original binding pattern in calm with E.'
+        :'Find Iven at the Archive. At each leaf-marked junction, E turns its guide in calm and grows roots in chaos. Follow west, north, west. Completed crossings remain in both modes.',
+      stamp:'LIVING ROAD RESTORED',destination:clover?.generation===3&&!clover?.sigil?'clover-scar':'clover-archive'},
   ];
 }

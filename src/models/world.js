@@ -5,7 +5,8 @@ import { cloverGround, cloverArea, cloverApproach } from './cloverTerrain.js';
 import { skyLakeTerrain, skyLakeArea } from './skyIsland.js';
 import { spadeGround, spadeArea, spadeStableArea } from './spade.js';
 import { nextChunkPrefetch } from './streaming.js';
-const landmarkTerrain = (x, z, original) => spadeGround(x, z, cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original))))));
+import { livingRoadGround, livingRoadArea } from './cloverCampaign.js';
+const landmarkTerrain = (x, z, original) => livingRoadGround(x, z, spadeGround(x, z, cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original)))))));
 
 export function createWorld({ scene, state, player, onChunk }) {
   const CHUNK_SIZE = 64;
@@ -184,7 +185,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6)) return;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5)) return;
       const kind = biomeAt(wx, wz).kind;
       if (kind === "hub" || kind === "trees" || kind === "wisps") return; // these kingdoms have authored dressing
       const y = terrainHeight(wx, wz);
@@ -247,7 +248,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
       // Mixed border chunks must not place a neighbouring kingdom's ruin in Spade.
       if (biomeAt(wx, wz).kind === "wisps") continue;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6)) continue;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5)) continue;
       const y = terrainHeight(wx,wz);
       const ruin = new THREE.Group();
       const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
@@ -386,7 +387,7 @@ export function createWorld({ scene, state, player, onChunk }) {
 
   return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
-    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6),
+    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6) || livingRoadArea(x, z, 5),
     get formed() { return formed; },
     get pendingChunks() { return pendingChunks; },
     get terrainVersion() { return terrainVersion; },

@@ -29,6 +29,13 @@ function setup(callbacks = {}) {
   return { quest: createQuest({ world, state, player, ...callbacks }), state, player };
 }
 
+test('the explicit Clover demo preset keeps the companion cured through chaos and repeated resets', () => {
+  const {quest,state}=setup({demoCured:true});quest.reset();
+  assert.equal(quest.stage,'cured');assert.ok(quest.embers.every(e=>e.taken));
+  state.chaos=.95;quest.update();assert.equal(quest.stage,'cured');
+  quest.reset();assert.equal(quest.stage,'cured');assert.equal(quest.houndCarrying,false);
+});
+
 test('Phase 3 pickups orbit through an offering before curing and reset to their start positions', () => {
   const pickups = [];
   let completeOffering;
