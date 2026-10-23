@@ -6,6 +6,14 @@ export const ITEMS = {
   // Planned: found in a chest after Clover's chapter; fires at glowing crystal anchors (story doc, "The Tide Hook").
   'tide-hook': { name: 'Tide Hook', kind: 'Tool', icon: 'hook',
     text: 'A grapple Heart’s guardians used to cross the crystal banks. It catches only on glowing crystal anchors.' },
+  // --- Diamond chapter ---
+  // Placeholder so Diamond can be tested before Heart merges. When Heart's branch adds its own
+  // 'tide-sigil' entry, keep Heart's and delete this one.
+  'tide-sigil': { name: 'Tide Sigil', kind: 'Sigil', icon: 'spade',
+    text: 'The stolen current Sera’s water spirit released at the siphon core. It points south, to Diamond.' },
+  'prism-sigil': { name: 'Prism Sigil', kind: 'Sigil', icon: 'spade',
+    text: 'The Shatterglass Relay’s unbroken pattern, repaired with Orin’s freed workers. Its inversion circuit can expose the Triad’s armor.' },
+  // --- end Diamond chapter ---
 };
 
 // onAdd(id, item): called once when a new item enters the satchel (e.g. to show a toast).

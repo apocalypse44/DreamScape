@@ -40,6 +40,7 @@ import { createDoorScene } from './doorScene.js';
 import { createInventory } from '../models/inventory.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
+import { buildDiamondCampaign } from '../rendering/diamondCampaign.js'; // Diamond chapter
 
 export function startGame(ui) {
   const startup = createStartupReadiness();
@@ -86,6 +87,15 @@ export function startGame(ui) {
     chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
     onChapterComplete: () => { inventory.add('lantern-sigil'); doorScene.queue(9); } }); // cutscene after Neris's sigil lines
   shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
+  // --- Diamond chapter: the Shatterglass Relay beyond the Diamond gate ---
+  const diamond = buildDiamondCampaign({ scene, gate: gates.gates.find(g => /diamond/i.test(g.name)) ?? gates.gates[3],
+    surfaceHeight: world.surfaceHeight, keys, notify: toast,
+    ready: () => inventory.has('tide-sigil'),            // Heart's Tide Sigil opens the chapter
+    onChapterComplete: () => inventory.add('prism-sigil') });
+  // Orin stands beside the relay, wherever the Diamond gate really is.
+  const orin = VILLAGERS.find(v => v.name === 'Orin');
+  if (orin) orin.home = [diamond.model.layout.orin.x, diamond.model.layout.orin.z];
+  // --- end Diamond chapter ---
   const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
   // Standing and feet use the ground as drawn (flat mesh triangles), not the smooth height between vertices.
@@ -107,7 +117,7 @@ export function startGame(ui) {
     obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
       clover.root, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
   doorScene = createDoorScene({ camera, state, keys, onOpen: () => spade.openGate() });
-  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z }))], onReady: root => atmosphere?.prepare?.(root) });
+  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
   startup.begin(performance.now());
@@ -150,6 +160,7 @@ export function startGame(ui) {
     clover.reset();
     skyIsland.reset();
     spade.reset();
+    diamond.reset(); // Diamond chapter
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -164,6 +175,7 @@ export function startGame(ui) {
   atmosphere.prepare?.(clover.root);
   atmosphere.prepare?.(skyIsland.root);
   atmosphere.prepare?.(spade.root);
+  atmosphere.prepare?.(diamond.root); // Diamond chapter
   const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, skyIsland.root, spade.obstacles] });
   const character = createCharacter({ scene, state, player, surfaceAt });
@@ -210,6 +222,7 @@ export function startGame(ui) {
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
   window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, startup, music, player, movement, inventory };
+  window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -300,6 +313,7 @@ export function startGame(ui) {
     kingdomBorder.update(playDt);
     gates.update(playDt);
     if (!houndScene.active) spade.update(dt, player, state, swarm);
+    if (!houndScene.active) diamond.update(dt, player, state); // Diamond chapter
     heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
@@ -323,6 +337,7 @@ export function startGame(ui) {
     // After the cure: the Spade chapter's objective, then the castle's next step once the sigil is earned.
     const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete;
     updateQuestHUD(ui, quest, quest.stage !== 'cured' ? quest.goal
+      : diamond.model.available ? diamond.model.goal // Diamond chapter, once the Tide Sigil is held
       : castleNext ? `SPADE CASTLE · ${spade.castle.discovery.objective.toUpperCase()}` : spade.campaign.goal);
     encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");

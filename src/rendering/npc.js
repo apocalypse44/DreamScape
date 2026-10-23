@@ -19,7 +19,10 @@ export const VILLAGERS = [
   { name: 'Ring Walker', body: 'F', tint: 0x4f7a3a, home: [0, 0], path: 'ring' },
   { name: 'Traveller', body: 'M', tint: 0x5a4a7a, home: [-34, 30], path: 'wander' },
   // Spade resistance guide, inside the Lantern Refuge (y: the refuge floor). Hooded, carrying a wisp lantern.
-  { name: 'Neris', body: 'F', tint: 0x2e2448, home: [-368, -20], y: 1.65, idle: 'Idle_Lantern_Loop', hood: 0x1f1833, lantern: 0xd9c8ff, robe: 0x241c3a }
+  { name: 'Neris', body: 'F', tint: 0x2e2448, home: [-368, -20], y: 1.65, idle: 'Idle_Lantern_Loop', hood: 0x1f1833, lantern: 0xd9c8ff, robe: 0x241c3a },
+  // Diamond artificer beside the Shatterglass Relay. The game moves `home` to the relay at startup;
+  // this default matches a Diamond gate at (0, 344).
+  { name: 'Orin', body: 'M', tint: 0x6a5f4a, home: [11, 374], idle: 'Idle_FoldArms_Loop', robe: 0x3f4656 }
 ];
 // Full robe silhouette, shoulders to floor, as [radius, height] fractions of the model's height.
 // Hem → hips → belted waist → chest → shoulders → collar.

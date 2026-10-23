@@ -11,4 +11,4 @@ if errorlevel 1 (
     echo.
     echo Could not run the demo. Check the error above and make sure Python 3 is installed.
     pause
-)
+)git 
