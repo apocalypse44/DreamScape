@@ -12,6 +12,9 @@ import { SKY, SUMMIT_DOOR } from '../models/skyIsland.js';
 import { SHRINE } from '../models/quest.js';
 import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 import { grimoireQuests } from '../models/grimoireJournal.js';
+import { CLOVER_MAP_LOCATIONS } from '../models/cloverCampaign.js';
+
+const STORY_LOCATIONS = [...SPADE_MAP_LOCATIONS, ...CLOVER_MAP_LOCATIONS];
 
 const CENTER = { x: 0, z: -90 }; // shifted north so the Clover terraces and Sky Garden fit
 const HALF = 650;                // metres from the centre to the map edge
@@ -32,6 +35,7 @@ const LANDMARKS = [
   { name: 'CLOVER SUMMIT', note: 'Sky gateway', x: SUMMIT_DOOR.x, z: SUMMIT_DOOR.z, side: -1 },
   { name: 'SKY GARDEN', note: 'Heavenly Falls below', x: SKY.x, z: SKY.z, side: 1, floating: true },
   ...SPADE_MAP_LOCATIONS.map(p=>({...p,side:1,color:'#c5afff',callout:true})),
+  ...CLOVER_MAP_LOCATIONS.map(p=>({...p,side:-1,color:'#a8d58b',callout:true})),
 ];
 
 const CSS = `
@@ -98,12 +102,13 @@ function drawClover(ctx, x, y, size, fill, stroke) {
 // canvas: the game's canvas, used to free and recapture the mouse around the map.
 // Satchel item icons (inline SVG, drawn in the grimoire's ink colour).
 const ITEM_ICONS = {
+  root: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M12 8L6 4M12 12l6-7M12 16l-7-3M12 19l7-5"/></svg>',
   spade: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10 6 4 9 4 13.5c0 2.6 2 4.3 4.3 4.3 1.3 0 2.4-.6 3.1-1.4L10 22h4l-1.4-5.6c.7.8 1.8 1.4 3.1 1.4 2.3 0 4.3-1.7 4.3-4.3C20 9 14 6 12 2z" fill="currentColor"/></svg>',
   hook: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v11a4 4 0 1 1-4-4"/><path d="M9 5l3-3 3 3"/><path d="M12 13c0 4 3 7 7 7"/></svg>',
 };
 
-// inventory: the player's satchel (models/inventory.js), listed on the quest page.
-export function createWorldMap({ world, player, state, quest, spade, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
+// The atlas, quest log and carried inventory each have an independent book page.
+export function createWorldMap({ world, player, state, quest, spade, clover, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   // Baseline atlas rules precede the responsive grimoire stylesheet.
@@ -129,7 +134,8 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
     <header><canvas class="seal" width="44" height="44" aria-hidden="true" style="border:0"></canvas>
       <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
       <button type="button" class="map-close" aria-label="Close map">✕</button></header>
-    <div class="book-spread"><section class="map-page" aria-label="World atlas">
+    <nav class="book-tabs" aria-label="Grimoire pages"><button type="button" data-book-page="atlas" aria-current="page">I · ATLAS</button><button type="button" data-book-page="quests">II · QUESTS</button><button type="button" data-book-page="satchel">III · SATCHEL</button></nav>
+    <div class="book-spread"><section class="map-page" data-book-panel="atlas" aria-label="World atlas">
     <div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></div>
     <div class="map-toolbar"><details class="map-destinations"><summary>DESTINATIONS</summary><div class="destination-panel"><nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
     <p class="map-location-detail" aria-live="polite">Choose a Spade location to read its directions.</p>
@@ -137,7 +143,8 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
     <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
-    <section class="quest-page" aria-labelledby="grimoireQuestHeading" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Close the grimoire to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><section class="satchel" aria-labelledby="satchelHeading"><h4 id="satchelHeading">Satchel</h4><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p></section><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section></div>
+    <section class="quest-page" data-book-panel="quests" aria-labelledby="grimoireQuestHeading" aria-hidden="true" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Return to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section>
+    <section class="satchel-page" data-book-panel="satchel" aria-labelledby="satchelHeading" aria-hidden="true" inert><button type="button" class="page-turn" data-book-page="quests"><span aria-hidden="true">←</span> QUEST LOG</button><p class="page-kicker">III · WHAT YOU CARRY</p><h3 id="satchelHeading">Satchel</h3><p class="quest-intro">The sigils and tools gathered along your journey.</p><p class="satchel-summary" role="status"></p><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p><p class="quest-colophon">Every treasure carries a memory.</p></section></div>
     <div class="book-bottom"><span>THE FOURFOLD GRIMOIRE</span><span>M / ESC · CLOSE THE BOOK</span></div>
     </div>`;
   overlay.dataset.page='atlas';
@@ -162,6 +169,7 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
   const satchelList=overlay.querySelector('.satchel-items'),satchelEmpty=overlay.querySelector('.satchel-empty');
   function updateSatchel(items){
     satchelEmpty.hidden=items.length>0;
+    overlay.querySelector('.satchel-summary').textContent=`${items.length} ${items.length===1?'ITEM':'ITEMS'} CARRIED`;
     satchelList.replaceChildren(...items.map(item=>{
       const row=document.createElement('li');row.className='satchel-item';
       row.innerHTML=`${ITEM_ICONS[item.icon]??''}<div><span class="satchel-kind"></span><strong></strong><p></p></div>`;
@@ -172,7 +180,7 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
     }));
   }
   function updateQuests(){
-    const tasks=grimoireQuests(quest,spade),items=inventory?.items??[];
+    const tasks=grimoireQuests(quest,spade,clover),items=inventory?.items??[];
     const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
     if(signature===questSignature)return;
     questSignature=signature;
@@ -194,15 +202,23 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
       card.querySelector('.quest-state').textContent=task.done?'OATH FULFILLED':task.locked?'AWAITING REVELATION':'UNSEALED';
       card.querySelector('.completion-seal span').textContent=task.stamp;
       const route=card.querySelector('.quest-route');route.dataset.journalRoute=task.destination;
-      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR':'MARK CASTLE ENTRANCE';
+      route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR'
+        :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':task.destination==='clover-sky-chest'?'MARK THE SKY GARDEN CHEST':'MARK CASTLE ENTRANCE';
     }
   }
   function setPage(page){
+    if(!['atlas','quests','satchel'].includes(page))return;
     overlay.dataset.page=page;
-    overlay.querySelector('.map-page').inert=page!=='atlas';
-    overlay.querySelector('.quest-page').inert=page!=='quests';
+    overlay.querySelectorAll('[data-book-panel]').forEach(panel=>{
+      const active=panel.dataset.bookPanel===page;
+      panel.inert=!active;panel.setAttribute('aria-hidden',String(!active));
+    });
+    overlay.querySelectorAll('.book-tabs [data-book-page]').forEach(button=>{
+      if(button.dataset.bookPage===page)button.setAttribute('aria-current','page');
+      else button.removeAttribute('aria-current');
+    });
     if(page==='atlas'){resize();draw(performance.now()/1000);}
-    overlay.querySelector(`[data-book-page="${page==='atlas'?'quests':'atlas'}"]`).focus({preventScroll:true});
+    overlay.querySelector(`.book-tabs [data-book-page="${page}"]`).focus({preventScroll:true});
   }
   overlay.addEventListener('click',event=>{
     const tab=event.target.closest('[data-book-page]');if(tab)setPage(tab.dataset.bookPage);
@@ -215,12 +231,20 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
   });
   let selected=null;
   const locationDetail=overlay.querySelector('.map-location-detail');
+  const destinations = overlay.querySelector('.spade-destinations');
+  destinations.setAttribute('aria-label', 'Story destinations');
+  for (const location of CLOVER_MAP_LOCATIONS) {
+    const button = document.createElement('button'); button.type = 'button';
+    button.dataset.spade = location.id; button.setAttribute('aria-pressed', 'false'); button.textContent = location.name;
+    destinations.append(button);
+  }
+  locationDetail.textContent = 'Choose a story location to read its approach directions. Elevated root crossings are found by exploring, not ground A*.';
   overlay.querySelector('.spade-destinations').addEventListener('click',event=>{
     const target=event.target.closest('button');if(!target)return;
     if(target.hasAttribute('data-quest-route')){
       selected=null;navigation.clearDestination?.();locationDetail.textContent='Quest navigation restored.';
     }else{
-      selected=SPADE_MAP_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
+      selected=STORY_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
       navigation.setDestination?.({...selected.destination,id:selected.id});
       locationDetail.textContent=`${selected.name} · X ${Math.round(selected.x)} / Z ${selected.z}. ${selected.directions}`;
     }
@@ -285,7 +309,7 @@ export function createWorldMap({ world, player, state, quest, spade, inventory, 
   function resize() {
     const frame=overlay.querySelector('.map-frame');
     // Keep the atlas scale from dc3b219, independently of journal controls.
-    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 170, innerWidth - 120, 860)))}px`);
+    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 210, innerWidth - 120, 860)))}px`);
     const css=Math.max(1,Math.floor(Math.min(frame.clientWidth,frame.clientHeight)));
     const dpr = Math.min(devicePixelRatio, 2);
     if(canvas.width===Math.round(css*dpr)&&canvas.style.width===`${css}px`)return;

@@ -249,7 +249,7 @@ export function createSkyIsland({ scene, world, onReady }) {
   }
   sign('SKY GARDEN · PRESS E',SUMMIT_DOOR.x,25,SUMMIT_DOOR.z,4.5);
   sign('CLOVER SUMMIT · PRESS E',SKY_DOOR.x,65,SKY_DOOR.z,4.5);
-  sign('STARLIGHT LEDGES →',SKY.x+17,65.4,SKY.z-5,3.3);
+  sign('CHEST · STARLIGHT LEDGES →',SKY.x+17,65.4,SKY.z-5,4.2);
   const fade=document.createElement('div');fade.setAttribute('aria-hidden','true');
   Object.assign(fade.style,{position:'fixed',inset:'0',background:'#b2ffec',opacity:'0',pointerEvents:'none',zIndex:'1000'}); document.body.appendChild(fade);
   const hint=document.createElement('div');hint.setAttribute('role','status');

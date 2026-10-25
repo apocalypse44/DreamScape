@@ -82,7 +82,7 @@ function raiseEmber(world, ember, isActive) {
   return platforms;
 }
 
-export function createQuest({ world, state, player, onEmberPickup, onEmberPosition, onOfferEmbers, onHoundDrop }) {
+export function createQuest({ world, state, player, onEmberPickup, onEmberPosition, onOfferEmbers, onHoundDrop, demoCured = false }) {
   const embers = placeEmbers(world);
   let courseActive = false, courseEngaged = false;
   const courseCentre = { x: embers[0].x, z: embers[0].z };
@@ -203,13 +203,13 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
     wantsChaos() { return stage === 'cursed'; },
 
     reset() {
-      stage = 'companion';
+      stage = demoCured ? 'cured' : 'companion';
       offering = false;
       courseActive = courseEngaged = false;
       houndCarrying = false;
       houndDistance = Infinity;
       embers.forEach((ember, index) => {
-        Object.assign(ember, emberStartPositions[index], { taken: false });
+        Object.assign(ember, emberStartPositions[index], { taken: demoCured });
       });
       quest.update();
     }

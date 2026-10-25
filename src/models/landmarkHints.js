@@ -1,5 +1,6 @@
 import { SPADE_MAP_LOCATIONS } from './spadeStory.js';
 import { SUMMIT_DOOR, SKY } from './skyIsland.js';
+import { CLOVER_MAP_LOCATIONS } from './cloverCampaign.js';
 
 const localLandmarks = {
   'SPADE KINGDOM': SPADE_MAP_LOCATIONS.map(p => ({
@@ -8,6 +9,7 @@ const localLandmarks = {
     note: p.id === 'spade-castle' ? 'HOLLOW GATE INSIDE · TRIAD FLOOR 2' : p.note,
   })),
   'CLOVER KINGDOM': [
+    ...CLOVER_MAP_LOCATIONS,
     { name: 'CLOVER SUMMIT', ...SUMMIT_DOOR, note: 'SKY GATEWAY' },
     { name: 'SKY GARDEN', ...SKY, note: 'VIA SUMMIT GATEWAY' },
   ],
