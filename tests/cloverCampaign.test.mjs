@@ -58,14 +58,32 @@ test('sigil requires reaching the Scar at its height in calm after restoring the
   assert.equal(model.interact(position(CLOVER_STORY.scar), 'calm').kind, 'sigil');
   assert.equal(model.sigil, true); assert.equal(model.interact(position(CLOVER_STORY.scar), 'calm'), null);
 });
-test('the hook is in Clover, sealed until the Scar is read, and awarded exactly once', () => {
+test('the Sky Garden ledge chest requires the Scar and perch height, and awards exactly once', () => {
   const model = restored(), at = position(CLOVER_STORY.chest);
   assert.equal(model.interact(at, 'calm').kind, 'sealed');
   model.interact(position(CLOVER_STORY.scar), 'calm');
+  assert.equal(CLOVER_STORY.chest.top, 68);
+  for (const top of [12,24,64,66]) assert.equal(model.interact({ ...at, y: top + 2.05 }, 'calm'), null, 'the chest requires the highest perch, not terrain or the lower ledges');
   assert.equal(model.interact(at, 'chaos').kind, 'calm');
   assert.equal(model.interact(at, 'calm').kind, 'hook'); assert.equal(model.hook, true);
   assert.equal(model.interact(at, 'calm').kind, 'taken');
   assert.match(model.goal, /HEART/);
+});
+
+test('Scar and Iven give the full chest route before the reward and the Heart lead afterward', () => {
+  const model=restored();
+  const scar=model.interact(position(CLOVER_STORY.scar),'calm');
+  const iven=model.interact(position(CLOVER_STORY.iven),'calm');
+  assert.equal(scar.ms,8000);assert.equal(iven.ms,8000);
+  for(const text of [scar.text,iven.text,model.goal,model.hint(position(CLOVER_STORY.scar),'calm')]) {
+    assert.match(text,/terraces/i);assert.match(text,/teleporter/i);assert.match(text,/Sky Garden/i);assert.match(text,/Starlight Ledges/i);
+  }
+  model.interact(position(CLOVER_STORY.chest),'calm');
+  const completion=model.interact(position(CLOVER_STORY.iven),'calm');
+  assert.equal(completion.ms,8000);
+  const completed=completion.text;
+  assert.match(completed,/complete/);assert.match(completed,/east to Heart/);assert.match(completed,/Sera/);
+  assert.doesNotMatch(completed,/climb|highest|open my chest/i);
 });
 test('falls return to a visited safe junction and cannot erase growth or earned rewards', () => {
   const model = restored(); model.interact(position(CLOVER_STORY.scar), 'calm');

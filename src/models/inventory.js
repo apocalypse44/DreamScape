@@ -3,7 +3,7 @@
 export const ITEMS = {
   'lantern-sigil': { name: 'Lantern Sigil', kind: 'Sigil', icon: 'spade',
     text: 'Neris’s light, freely given when the border settlement was freed. The first of the Accord’s four sigils.' },
-  // Awarded by Clover's Archive chest after restoring the Living Road.
+  // Awarded by Iven's Sky Garden ledge chest after restoring the Living Road and reading the Scar.
   'tide-hook': { name: 'Tide Hook', kind: 'Tool', icon: 'hook',
     text: 'A grapple Heart’s guardians used to cross the crystal banks. It catches only on glowing crystal anchors.' },
   'root-sigil': { name: 'Root Sigil', kind: 'Sigil', icon: 'root',

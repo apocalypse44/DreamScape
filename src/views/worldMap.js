@@ -107,7 +107,7 @@ const ITEM_ICONS = {
   hook: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v11a4 4 0 1 1-4-4"/><path d="M9 5l3-3 3 3"/><path d="M12 13c0 4 3 7 7 7"/></svg>',
 };
 
-// inventory: the player's satchel (models/inventory.js), listed on the quest page.
+// The atlas, quest log and carried inventory each have an independent book page.
 export function createWorldMap({ world, player, state, quest, spade, clover, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
   const style = document.createElement('style');
   style.textContent = CSS;
@@ -134,7 +134,8 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
     <header><canvas class="seal" width="44" height="44" aria-hidden="true" style="border:0"></canvas>
       <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
       <button type="button" class="map-close" aria-label="Close map">✕</button></header>
-    <div class="book-spread"><section class="map-page" aria-label="World atlas">
+    <nav class="book-tabs" aria-label="Grimoire pages"><button type="button" data-book-page="atlas" aria-current="page">I · ATLAS</button><button type="button" data-book-page="quests">II · QUESTS</button><button type="button" data-book-page="satchel">III · SATCHEL</button></nav>
+    <div class="book-spread"><section class="map-page" data-book-panel="atlas" aria-label="World atlas">
     <div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></div>
     <div class="map-toolbar"><details class="map-destinations"><summary>DESTINATIONS</summary><div class="destination-panel"><nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
     <p class="map-location-detail" aria-live="polite">Choose a Spade location to read its directions.</p>
@@ -142,7 +143,8 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
     <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
       <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
       <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
-    <section class="quest-page" aria-labelledby="grimoireQuestHeading" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Close the grimoire to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><section class="satchel" aria-labelledby="satchelHeading"><h4 id="satchelHeading">Satchel</h4><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p></section><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section></div>
+    <section class="quest-page" data-book-panel="quests" aria-labelledby="grimoireQuestHeading" aria-hidden="true" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Return to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section>
+    <section class="satchel-page" data-book-panel="satchel" aria-labelledby="satchelHeading" aria-hidden="true" inert><button type="button" class="page-turn" data-book-page="quests"><span aria-hidden="true">←</span> QUEST LOG</button><p class="page-kicker">III · WHAT YOU CARRY</p><h3 id="satchelHeading">Satchel</h3><p class="quest-intro">The sigils and tools gathered along your journey.</p><p class="satchel-summary" role="status"></p><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p><p class="quest-colophon">Every treasure carries a memory.</p></section></div>
     <div class="book-bottom"><span>THE FOURFOLD GRIMOIRE</span><span>M / ESC · CLOSE THE BOOK</span></div>
     </div>`;
   overlay.dataset.page='atlas';
@@ -167,6 +169,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
   const satchelList=overlay.querySelector('.satchel-items'),satchelEmpty=overlay.querySelector('.satchel-empty');
   function updateSatchel(items){
     satchelEmpty.hidden=items.length>0;
+    overlay.querySelector('.satchel-summary').textContent=`${items.length} ${items.length===1?'ITEM':'ITEMS'} CARRIED`;
     satchelList.replaceChildren(...items.map(item=>{
       const row=document.createElement('li');row.className='satchel-item';
       row.innerHTML=`${ITEM_ICONS[item.icon]??''}<div><span class="satchel-kind"></span><strong></strong><p></p></div>`;
@@ -200,15 +203,22 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
       card.querySelector('.completion-seal span').textContent=task.stamp;
       const route=card.querySelector('.quest-route');route.dataset.journalRoute=task.destination;
       route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR'
-        :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':'MARK CASTLE ENTRANCE';
+        :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':task.destination==='clover-sky-chest'?'MARK THE SKY GARDEN CHEST':'MARK CASTLE ENTRANCE';
     }
   }
   function setPage(page){
+    if(!['atlas','quests','satchel'].includes(page))return;
     overlay.dataset.page=page;
-    overlay.querySelector('.map-page').inert=page!=='atlas';
-    overlay.querySelector('.quest-page').inert=page!=='quests';
+    overlay.querySelectorAll('[data-book-panel]').forEach(panel=>{
+      const active=panel.dataset.bookPanel===page;
+      panel.inert=!active;panel.setAttribute('aria-hidden',String(!active));
+    });
+    overlay.querySelectorAll('.book-tabs [data-book-page]').forEach(button=>{
+      if(button.dataset.bookPage===page)button.setAttribute('aria-current','page');
+      else button.removeAttribute('aria-current');
+    });
     if(page==='atlas'){resize();draw(performance.now()/1000);}
-    overlay.querySelector(`[data-book-page="${page==='atlas'?'quests':'atlas'}"]`).focus({preventScroll:true});
+    overlay.querySelector(`.book-tabs [data-book-page="${page}"]`).focus({preventScroll:true});
   }
   overlay.addEventListener('click',event=>{
     const tab=event.target.closest('[data-book-page]');if(tab)setPage(tab.dataset.bookPage);
@@ -299,7 +309,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
   function resize() {
     const frame=overlay.querySelector('.map-frame');
     // Keep the atlas scale from dc3b219, independently of journal controls.
-    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 170, innerWidth - 120, 860)))}px`);
+    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 210, innerWidth - 120, 860)))}px`);
     const css=Math.max(1,Math.floor(Math.min(frame.clientWidth,frame.clientHeight)));
     const dpr = Math.min(devicePixelRatio, 2);
     if(canvas.width===Math.round(css*dpr)&&canvas.style.width===`${css}px`)return;

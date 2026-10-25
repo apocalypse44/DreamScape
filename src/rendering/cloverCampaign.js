@@ -4,6 +4,7 @@ import { ROOT_START, ROOT_LANDINGS, ROOT_OBSTACLES, ROOT_HEADINGS, ROOT_LIMITS, 
 import { fitText } from './canvasText.js';
 import { cloverGroundTexture } from './cloverDressing.js';
 import { guideYaw, visibleRoadSegments } from './cloverRoadLayout.js';
+import { SKY, SKY_ARRIVAL, SKY_JUMPS, SUMMIT_DOOR } from '../models/skyIsland.js';
 
 export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil, onHook, onReady }) {
   const model = createCloverCampaign({ seed: world.seed, ready });
@@ -45,7 +46,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     const back = face.clone(); back.rotation.y += Math.PI;
     back.position.add(new THREE.Vector3(-Math.sin(yaw) * .03, 0, -Math.cos(yaw) * .03)); root.add(back);
   }
-  function sign(title, subtitle, x, y, z, width, yaw = 0) {
+  function sign(title, subtitle, x, y, z, width, yaw = 0, floor = ROOT_START.top) {
     // Both readable faces sit in front of a slim backing, with posts behind the
     // lettering. All boards are beside the road and above the player's head.
     const nx = Math.sin(yaw), nz = Math.cos(yaw), halfHeight = width / 8;
@@ -54,8 +55,8 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     for (const side of [-1, 1]) {
       const px = x + Math.cos(yaw) * side * width * .38;
       const pz = z - Math.sin(yaw) * side * width * .38;
-      const height = y + halfHeight - ROOT_START.top;
-      box(px, ROOT_START.top + height / 2, pz, .12, height, .12, bark, true);
+      const height = y + halfHeight - floor;
+      box(px, floor + height / 2, pz, .12, height, .12, bark, true);
     }
     plaque(title, subtitle, x + nx * .085, y, z + nz * .085, width, yaw, false);
     plaque(title, subtitle, x - nx * .085, y, z - nz * .085, width, yaw + Math.PI, false);
@@ -176,16 +177,25 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
   const sigil = new THREE.Mesh(new THREE.OctahedronGeometry(.8), mat(0xb5e7a4, { emissive: 0x467b32, emissiveIntensity: .8 }));
   sigil.position.set(scar.x, 14, scar.z); root.add(sigil);
   sign('STORMLEAF SCAR', 'The original pattern survives · Read in calm', scar.x, 14.8, scar.z - 7, 4.5);
-  // The tool is earned here, not in Spade. Only its lid animates; no new light is added.
+  // The reward finishes the terrace climb, gateway journey and Starlight jumps.
   const chestAt = CLOVER_STORY.chest;
-  box(chestAt.x, 12.5, chestAt.z, 1.6, 1, 1, bark, true);
-  // The player approaches from the north. Hinge on the south/rear edge so
-  // the lid rises away from the player and settles just past vertical.
-  const lid = new THREE.Group(); lid.position.set(chestAt.x, 13, chestAt.z + .5); root.add(lid);
-  const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(1.65, .25, 1.05), gold); lidMesh.position.z = -.5; lid.add(lidMesh);
+  box(chestAt.x, chestAt.top + .5, chestAt.z, 1.6, 1, 1, bark, true);
+  // The ledge route approaches from the south. Hinge on the north/rear edge.
+  const lid = new THREE.Group(); lid.position.set(chestAt.x, chestAt.top + 1, chestAt.z - .5); root.add(lid);
+  const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(1.65, .25, 1.05), gold); lidMesh.position.z = .5; lid.add(lidMesh);
   const hook = new THREE.Mesh(new THREE.TorusGeometry(.25, .055, 6, 16, Math.PI * 1.6), ink);
-  hook.position.set(chestAt.x, 13.6, chestAt.z); root.add(hook);
-  sign('ARCHIVE CHEST', 'Read the Scar to break the seal', chestAt.x, 14.6, chestAt.z + 1.4, 2.4);
+  hook.position.set(chestAt.x, chestAt.top + 1.6, chestAt.z); root.add(hook);
+  sign('IVEN’S SKY CHEST', 'The Root Sigil opens the way to Heart', chestAt.x, chestAt.top + 2.6, chestAt.z - 1.4, 2.8, 0, chestAt.top);
+  function routeBoard(title, subtitle, x, z, floor, target, width = 3.6) {
+    sign(title, subtitle, x, floor + 2.6, z, width, 0, floor);
+    const arrow = symbol(arrowPoints, gold);
+    arrow.position.set(x, floor + .04, z - 1.8);
+    arrow.rotation.y = Math.atan2(-(target.x - x), -(target.z - (z - 1.8)));
+    root.add(arrow);
+  }
+  routeBoard('CHEST VIA SKY GARDEN', 'Gateway south along the summit path · Press E', 6, -530, 24, SUMMIT_DOOR);
+  routeBoard('TELEPORT TO THE CHEST', 'Press E at gateway · Then climb Starlight Ledges', 8, SUMMIT_DOOR.z - 5, SUMMIT_DOOR.top, SUMMIT_DOOR);
+  routeBoard('CHEST: STARLIGHT LEDGES', 'Follow the signs · Jump to the highest perch', SKY.x + 6, SKY_ARRIVAL.z - 2, SKY.top, SKY_JUMPS[0]);
 
   const roots = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), rootMaterial, ROOT_LIMITS.segments);
   const preview = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), previewMaterial, ROOT_LIMITS.segments);
@@ -288,6 +298,8 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       const hint = model.hint(player.position, state.mode);
       prompt.hidden ||= !hint;
       dialogue.hidden = dialogueTime <= 0 || !active || !state.locked || state.mapOpen || state.cinematic;
+      // Fade within the message lifetime, then remove it completely at expiry.
+      dialogue.style.opacity = String(Math.min(1, dialogueTime / .4));
       if (hint && prompt.textContent !== hint) prompt.textContent = hint;
       debug.hidden = !debugOn || !close || !state.locked || state.cinematic || state.mapOpen;
       // Only the currently growing roots animate their matrices. Otherwise update on
@@ -295,7 +307,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       const atGuide = model.interaction(player.position)?.kind === 'guide';
       if (close && (seen !== model.version || model.pending || atGuide || inspecting !== atGuide || debugOn)) refresh(player, state);
       inspecting = atGuide;
-      open += ((model.hook ? 1 : 0) - open) * (1 - Math.exp(-5 * dt)); lid.rotation.x = open * 1.9;
+      open += ((model.hook ? 1 : 0) - open) * (1 - Math.exp(-5 * dt)); lid.rotation.x = -open * 1.9;
       hook.visible = model.sigil && !model.hook; hook.rotation.y += dt;
       sigil.rotation.y += dt * .4; sigil.visible = !model.sigil;
     },

@@ -50,13 +50,13 @@ export function grimoireQuests(quest, spade, clover) {
       stamp:'BINDINGS REVEALED',destination:'spade-castle'},
     {id:'living-road',chapter:'III · THE CLOVER KINGDOM',title:'The Living Road',done:Boolean(clover?.hook),locked:!clover?.available,
       progress:!clover?.available?'Requires the Lantern Sigil and the Hollow Crown testimony'
-        :clover.hook?'Root Sigil and Tide Hook earned':clover.sigil?'Root Sigil earned · Archive chest unlocked'
+        :clover.hook?'Root Sigil and Tide Hook earned':clover.sigil?'Root Sigil earned · Sky Garden chest unlocked'
         :`${clover.generation}/3 root crossings restored`,
       hint:!clover?.available?'Finish Neris’s chapter and inspect the Hollow Crown bindings in Spade. Then find Iven west of Clover’s upper terrace.'
         :clover.hook?'The Root Sigil distinguishes true bindings from decoys. Carry the Tide Hook east to Heart and find Sera. Its crystal anchors await the Heart chapter.'
-        :clover.sigil?'Return over the permanent root bridges to the Rootkeeper Archive. Open Iven’s chest in calm with E to receive the Tide Hook.'
+        :clover.sigil?'Return across the roots and climb Clover Terraces to the summit. Press E at the glowing gateway to enter the floating Sky Garden. Follow the Starlight Ledges signs and jump to the highest perch. Open Iven’s chest in calm with E for the Tide Hook.'
         :clover.generation===3?'Cross the restored road to the Stormleaf Scar. Read its original binding pattern in calm with E.'
         :'Find Iven at the Archive. At each leaf-marked junction, E turns its guide in calm and grows roots in chaos. Follow west, north, west. Completed crossings remain in both modes.',
-      stamp:'LIVING ROAD RESTORED',destination:clover?.generation===3&&!clover?.sigil?'clover-scar':'clover-archive'},
+      stamp:'LIVING ROAD RESTORED',destination:clover?.sigil&&!clover?.hook?'clover-sky-chest':clover?.generation===3&&!clover?.sigil?'clover-scar':'clover-archive'},
   ];
 }

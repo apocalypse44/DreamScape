@@ -1,4 +1,5 @@
 import { cloneSkinned } from './anim.js';
+import { createIvenStyle } from './ivenStyle.js';
 
 // Villagers of the Grimoire Tower: Quaternius mannequins + Universal Animation Library clips (CC0).
 // They share the library's own skeleton, so every clip plays without retargeting.
@@ -12,7 +13,7 @@ const REFUSE = 12;      // chaotic player within this range: NPC turns and shake
 
 // idle: clip when alone · path: walking loop (points around a home) · body: M or F · tint: robe color
 export const VILLAGERS = [
-  { name: 'Iven', body: 'M', tint: 0x395336, home: [-40, -414], y: 12, idle: 'Idle_FoldArms_Loop', robe: 0x30452b },
+  { name: 'Iven', body: 'M', tint: 0x293c37, home: [-40, -414], y: 12, idle: 'Idle_Loop', style: 'scholar' },
   { name: 'Shrine Keeper', body: 'F', tint: 0x2f6f8f, home: [4, -6], idle: 'Idle_FoldArms_Loop' },
   { name: 'Mage', body: 'M', tint: 0x7a2f2f, home: [-20, -16], idle: 'Spell_Simple_Idle_Loop' },
   { name: 'Lantern Guard', body: 'M', tint: 0x3b3b3b, home: [7, -42], idle: 'Idle_Lantern_Loop' },
@@ -89,7 +90,10 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
         if (!object.isMesh) return;
         object.castShadow = true;
         object.frustumCulled = false;
-        if (object.material.name === 'M_Main') {
+        if (def.style === 'scholar') {
+          // Cover both mannequin materials, including its purple joint panels.
+          object.material = new THREE.MeshBasicMaterial({ color:def.tint, toneMapped:false, skinning:Boolean(object.isSkinnedMesh) });
+        } else if (object.material.name === 'M_Main') {
           object.material = object.material.clone();
           object.material.color.set(def.tint);
         }
@@ -100,12 +104,11 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
       const collider = { x: def.home[0], z: def.home[1], radius: 0.45 };
       colliders.push(collider);
       const npc = { def, group, collider, mixer: new THREE.AnimationMixer(model), actions: {}, current: null, t: 0 };
+      if (def.style === 'scholar') npc.style = createIvenStyle({ model, group, root });
       if (def.robe) {
         // Rides on the NPC's group (feet origin, turns with her); legs and hips stay hidden inside.
         const height = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
-        const cloth = def.name === 'Iven'
-          ? new THREE.MeshBasicMaterial({ color: def.robe, side: THREE.DoubleSide, toneMapped: false })
-          : new THREE.MeshStandardMaterial({ color: def.robe, roughness: 0.9, side: THREE.DoubleSide });
+        const cloth = new THREE.MeshStandardMaterial({ color: def.robe, roughness: 0.9, side: THREE.DoubleSide });
         const gold = new THREE.MeshStandardMaterial({ color: 0xb8954a, roughness: 0.5, metalness: 0.4 });
         const profile = ROBE_PROFILE.map(([r, y]) => new THREE.Vector2(r * height, y * height));
         const robe = new THREE.Mesh(new THREE.LatheGeometry(profile, 18), cloth);
@@ -176,6 +179,7 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
         npc.collider.x = group.position.x;
         npc.collider.z = group.position.z;
         npc.mixer.update(dt);
+        npc.style?.update();
         if (npc.hood || npc.lantern) group.updateMatrixWorld(true);
         if (npc.hood && npc.head) {
           npc.head.getWorldPosition(npc.hood.position).y += HOOD_LIFT;

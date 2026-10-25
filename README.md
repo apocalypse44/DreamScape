@@ -39,12 +39,12 @@ For demos, `dreamscape.clock.setHour(18)` sets the time and
 Clover now has a story chapter beside its existing terraces. After Neris's Lantern Sigil and the
 Spade castle discoveries, find **Iven at the Rootkeeper Archive**, west of the third terrace.
 **E in calm** turns growth guides; **E in chaos** grows roots across gaps. Restore the three
-crossings, read the Stormleaf Scar for the **Root Sigil**, then return to the Archive chest for
+crossings, read the Stormleaf Scar for the **Root Sigil**, then climb Clover Terraces, take the summit teleporter to Sky Garden, and jump the Starlight Ledges to Iven’s chest for
 the **Tide Hook**. The summit and Sky Garden remain available. Heart owns the hook's grapple mechanics.
 
 For a direct development demo, use `?seed=1234&unlock=all`, then press **2** for Clover's gate.
 **L** near the puzzle shows the optional L-system study. See [the chapter notes](CLOVER_LIVING_ROAD.md)
-for the route, limits, integration and reset behavior.
+for the route, limits, integration and reset behavior. The grimoire has separate Atlas, Quests and Satchel pages.
 
 ## Requirements
 

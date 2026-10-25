@@ -196,7 +196,7 @@ export function startGame(ui) {
   const character = createCharacter({ scene, state, player, surfaceAt });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
-    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position),
+    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
     // NPCs keep out of landmarks and anything the player collides with (shrine tower, trees, rocks).
     blocked: (x, z) => world.isLandmarkArea(x, z) ||
       [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]

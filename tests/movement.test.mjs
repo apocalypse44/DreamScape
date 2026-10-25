@@ -36,7 +36,7 @@ function fixture(terrainHeight = () => 0, platforms = [], options = {}) {
 }
 function frames(f, count, dt = 1 / 60) { for (let i = 0; i < count; i++) f.controller.update(dt); }
 
-test('the Living Road is walkable out and back with solid rocks, guide pedestals and real bridge activation', async () => {
+test('the full Clover reward route traverses roots, terraces, gateway and Starlight ledges with recovery', async () => {
   const { createCloverCampaign, CLOVER_STORY, livingRoadGround } = await import(moduleUrl(new URL('../src/models/cloverCampaign.js', import.meta.url)));
   const { ROOT_HEADINGS, ROOT_LANDINGS, ROOT_OBSTACLES } = await import(moduleUrl(new URL('../src/models/cloverGrowth.js', import.meta.url)));
   const model = createCloverCampaign();
@@ -44,17 +44,19 @@ test('the Living Road is walkable out and back with solid rocks, guide pedestals
     ...ROOT_OBSTACLES.map(p => ({ ...p, minY:12, maxY:15.5 })),
     ...ROOT_LANDINGS.slice(0,3).map(p => ({ x:p.x,z:p.z,radius:.7,minY:12,maxY:12.55 })),
   ];
-  const f = fixture((x,z)=>livingRoadGround(x,z,cloverGround(x,z,1.5)), [...CLOVER_SURFACES,...model.platforms],
-    {staticColliders,courseRecovery:p=>model.recovery(p)});
+  const journey=createSkyJourney(),chest=CLOVER_STORY.chest;
+  staticColliders.push({x:chest.x,z:chest.z,radius:.65,minY:chest.top,maxY:chest.top+1});
+  const f = fixture((x,z)=>livingRoadGround(x,z,cloverGround(x,z,1.5)), [...CLOVER_SURFACES,...model.platforms,...SKY_PLATFORMS],
+    {staticColliders,courseRecovery:p=>journey.visiting?journey.recovery(p):model.recovery(p)});
   f.controller.teleport({x:0,z:-437,top:12});
-  const walk=(x,z)=>{
+  const walk=(x,z,top=12)=>{
     f.keys.add('KeyW');let count=0;
     while(Math.hypot(x-f.player.position.x,z-f.player.position.z)>.2&&count++<1600){
       f.state.yaw=Math.atan2(-(x-f.player.position.x),-(z-f.player.position.z));f.controller.update(1/120);
     }
     f.keys.clear();frames(f,3);
     assert.ok(count<1600,`root route blocked toward ${x},${z} at ${f.player.position.x},${f.player.position.z}`);
-    assert.ok(Math.abs(f.player.position.y-14.05)<.01,'a root crossing lost support');
+    assert.ok(Math.abs(f.player.position.y-2.05-top)<.01,'the Clover route lost support');
   };
   for(const p of [[-10,-430],[-28,-430],[-28,-420],[-39,-416]])walk(...p);
   assert.equal(model.interact(f.player.position,'calm').kind,'meet');
@@ -69,7 +71,32 @@ test('the Living Road is walkable out and back with solid rocks, guide pedestals
   grow();walk(-104,-453.4);
   assert.equal(model.interact(f.player.position,'calm').kind,'sigil');
   for(const p of [[-66.4,-453.4],[-66.4,-418.4],[-31.8,-418.4],[-30,-416]])walk(...p);
+  assert.equal(model.interact(f.player.position,'calm'),null,'the old Archive chest location no longer grants the hook');
+  for(const p of [[-28,-420,12],[-28,-430,12],[-10,-430,12],[0,-437,12],[-18,-444,12],
+    [-18,-473,15],[-18,-496,18],[-18,-519,21],[-18,-541,24],[2,-541,24],[2,-534,24],[4.5,-532,24]])walk(...p);
+  assert.equal(model.interact(f.player.position,'calm'),null,'the old summit chest location is now only a sign');
+  walk(2,-503,24);
+  const travel=()=>{
+    journey.update(0,f.player.position,false,true);let target;
+    for(let i=0;i<240;i++)target=journey.update(1/60,f.player.position,true,true).target||target;
+    assert.ok(target,'gateway did not complete its journey');f.controller.teleport(target);return target;
+  };
+  assert.deepEqual(travel(),SKY_ARRIVAL);
+  walk(109,-560,64);
+  for(const p of [...SKY_JUMPS,SKY_SECRET]) {
+    f.player.jumpBuffer=.15;f.keys.add('KeyW');let count=0;
+    while(Math.hypot(p.x-f.player.position.x,p.z-f.player.position.z)>.25&&count++<240){
+      f.state.yaw=Math.atan2(-(p.x-f.player.position.x),-(p.z-f.player.position.z));f.controller.update(1/120);
+    }
+    f.keys.clear();frames(f,60);assert.ok(count<240,'a Starlight jump was blocked');
+    assert.ok(Math.abs(f.player.position.y-p.top-2.05)<.001,'a Starlight landing lost support');
+  }
+  assert.ok(SKY_SECRET.contains(chest.x,chest.z),'the chest must sit on the highest ledge');
+  walk(chest.destination.x,chest.destination.z,68);
   assert.equal(model.interact(f.player.position,'calm').kind,'hook');
+  f.player.position.set(136,59,-552);f.player.velocity.y=-10;f.player.grounded=false;frames(f,1);
+  assert.equal(f.player.position.y,66.05);assert.equal(model.hook,true);
+  assert.deepEqual(travel(),SUMMIT_ARRIVAL);
   // A real falling player recovers onto a safe landing, with completed roots intact.
   f.player.position.set(-85,8,-455);f.player.velocity.y=-10;f.player.grounded=false;frames(f,1);
   assert.equal(f.player.position.y,14.05);assert.equal(model.generation,3);

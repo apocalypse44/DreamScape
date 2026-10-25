@@ -58,18 +58,18 @@ test('active parkour hints and completion inscriptions remain useful without fut
   const tasks=grimoireQuests(quest,spade);
   assert.equal(tasks[WITNESS].hint,spade.echo.objective);
   assert.equal(new Set(tasks.map(t=>t.stamp)).size,6);
-  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar'].includes(t.destination)));
+  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest'].includes(t.destination)));
   assert.equal(grimoireQuests(quest,undefined)[CROWN].done,false);
   assert.equal(grimoireQuests(quest,undefined)[1].done,false);
 });
 
-test('the Living Road journal tracks real growth, the Scar and the Archive chest separately',()=>{
+test('the existing Living Road entry directs the player from the Scar through the teleporter to the Sky Garden chest',()=>{
   const {quest,spade}=fixture();
   const clover={available:false,generation:0,sigil:false,hook:false};
   const card=()=>grimoireQuests(quest,spade,clover).find(t=>t.id==='living-road');
   assert.equal(card().locked,true);assert.equal(card().done,false);
   clover.available=true;clover.generation=3;
   assert.equal(card().locked,false);assert.equal(card().done,false);assert.equal(card().destination,'clover-scar');
-  clover.sigil=true;assert.equal(card().destination,'clover-archive');assert.equal(card().done,false);
+  clover.sigil=true;assert.equal(card().destination,'clover-sky-chest');assert.match(card().hint,/summit/);assert.equal(card().done,false);
   clover.hook=true;assert.equal(card().done,true);assert.match(card().hint,/Heart/);
 });

@@ -32,9 +32,7 @@
 #worldMap .quest-card[data-status='complete'] h4 { color: #365b3d; }
 #worldMap .quest-card[data-status='complete'] .quest-state { color: #315d43; border-color: #446d4560; }
 #worldMap .quest-colophon { margin: 13px 0 0; color: #7c6740; text-align: center; font: italic 10px/1.5 Georgia, serif; }
-/* Satchel: carried sigils and tools, below the quests. */
-#worldMap .satchel { flex: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid #836d3c50; }
-#worldMap .satchel h4 { margin: 0 0 8px; color: #87703f; font: 8px 'DM Mono', monospace; letter-spacing: .14em; text-transform: uppercase; }
+/* Carried sigils and tools have their own full-height parchment page. */
 #worldMap .satchel-items { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; max-height: 150px; overflow-y: auto; }
 #worldMap .satchel-item { display: flex; gap: 10px; align-items: flex-start; }
 #worldMap .satchel-icon { flex: none; width: 28px; height: 28px; padding: 5px; border: 1px solid #8a714866; border-radius: 50%; color: #3c3222; }
@@ -66,6 +64,22 @@ body.grimoire-open #chaosReadout { visibility: hidden; }
 #worldMap .page-turn span { font: 24px Georgia, serif; }
 #worldMap .page-turn:hover, #worldMap .page-turn:focus-visible { outline: 1px solid #d8b25a; background: #c5a75d25; }
 #worldMap .quest-page .page-turn { align-self: flex-start; color: #65512e; margin-bottom: 12px; border-color: #836d3c66; }
+#worldMap .book-tabs { display:flex; flex-shrink:0; gap:6px; border-bottom:1px solid #b59b6040; padding-bottom:6px; }
+#worldMap .book-tabs button { flex:1; padding:8px 4px; border:1px solid transparent; background:transparent; color:#b9a475; cursor:pointer; font:9px 'DM Mono',monospace; letter-spacing:.06em; }
+#worldMap .book-tabs button[aria-current='page'], #worldMap .book-tabs button:focus-visible { color:#ffe1a2; border-color:#b59b6080; background:#c5a75d20; outline:none; }
+#worldMap .satchel-page { position:absolute; inset:0; min-width:0; min-height:0; display:flex; flex-direction:column; padding:19px 22px 16px; color:#332d21; background:linear-gradient(90deg,#9d8e69 0,#d2c29b 4%,#e0d3b2 14%,#d8c9a6 96%,#b09e73 100%); box-shadow:inset 12px 0 14px #44341735; z-index:1; transform:rotateY(12deg); transform-origin:0 50%; opacity:0; visibility:hidden; backface-visibility:hidden; transition:transform .7s cubic-bezier(.25,.65,.2,1),opacity .7s,visibility 0s .7s; }
+#worldMap[data-page='satchel'] .map-page { transform:rotateY(-100deg); opacity:0; pointer-events:none; visibility:hidden; }
+#worldMap[data-page='satchel'] .satchel-page { transform:rotateY(0); opacity:1; visibility:visible; transition:transform .7s cubic-bezier(.25,.65,.2,1),opacity .7s; }
+#worldMap .satchel-page h3 { margin:12px 0 5px; color:#332d21; font:400 30px/1.1 Georgia,serif; }
+#worldMap .satchel-page .page-kicker { color:#776135; }
+#worldMap .satchel-page .page-turn { align-self:flex-start; color:#65512e; margin-bottom:12px; border-color:#836d3c66; }
+#worldMap .satchel-summary { margin:13px 0 7px; padding-bottom:10px; border-bottom:1px solid #836d3c50; color:#65532e; font:8px/1.5 'DM Mono',monospace; letter-spacing:.1em; }
+#worldMap .satchel-page .satchel-items { flex:1; min-height:0; max-height:none; align-content:start; gap:0; overflow-y:auto; padding-right:8px; }
+#worldMap .satchel-page .satchel-item { padding:14px 0; border-bottom:1px solid #8b74403b; }
+#worldMap .satchel-page .satchel-icon { width:42px; height:42px; padding:8px; }
+#worldMap .satchel-page .satchel-kind { font-size:8px; margin-bottom:5px; }
+#worldMap .satchel-page .satchel-item strong { font-size:20px; }
+#worldMap .satchel-page .satchel-item p { font-size:13px; line-height:1.6; }
 #worldMap.open:not(.closing) .atlas { animation: grimoire-unfold .25s ease-out both; }
 #worldMap.closing .atlas { animation: grimoire-fold .42s ease-in both; pointer-events: none; }
 @keyframes grimoire-unfold { from { opacity: 0; transform: translateY(15px) scale(.96); } to { opacity: 1; transform: none; } }
@@ -78,6 +92,7 @@ body.grimoire-open #chaosReadout { visibility: hidden; }
   #worldMap header .seal { width: 30px; height: 30px; }
   #worldMap .book-spread { height: calc(var(--map-size) + 78px); }
   #worldMap .quest-page { padding: 17px; }
+  #worldMap .satchel-page { padding:17px; }
   #worldMap .quest-list { max-height: calc(100dvh - 330px); }
   #worldMap .book-bottom { font-size: 6px; letter-spacing: 0; }
 }
@@ -92,6 +107,7 @@ body.grimoire-open #chaosReadout { visibility: hidden; }
   #worldMap .book-spread { height: calc(var(--map-size) + 78px); }
   #worldMap .quest-list { max-height: none; }
   #worldMap .quest-page { padding: 12px; }
+  #worldMap .satchel-page { padding:12px; }
   #worldMap .quest-page .page-turn { margin-bottom: 4px; padding: 3px 8px; }
   #worldMap .quest-page h3 { margin: 5px 0; font-size: 22px; }
   #worldMap .quest-intro, #worldMap .quest-colophon { display: none; }
