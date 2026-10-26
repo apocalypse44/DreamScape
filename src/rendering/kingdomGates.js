@@ -34,22 +34,30 @@ function spadeShapes(s = 1) {
   stem.moveTo(-0.06 * s, -0.25 * s); stem.lineTo(0.06 * s, -0.25 * s); stem.lineTo(0.22 * s, -0.6 * s); stem.lineTo(-0.22 * s, -0.6 * s); stem.closePath();
   return [leaf, stem];
 }
-// Four heart leaves around a centre, plus a stem: the clover of the Clover Kingdom.
-function cloverShapes(s = 1) {
+// The Black Clover four-leaf clover: four separate, deeply notched heart leaves in an X, tips
+// toward the centre with clear gaps between them (wider leaves merge into one blob), plus a stem.
+export function cloverShapes(s = 1) {
+  const k = 0.95 * s; // leaves stay inside the ring's inner edge
+  const leafPath = new THREE.Shape(); // tip at the origin, lobes up to y = 0.6 k
+  leafPath.moveTo(0, 0);
+  leafPath.bezierCurveTo(-0.07 * k, 0.1 * k, -0.31 * k, 0.2 * k, -0.3 * k, 0.4 * k);
+  leafPath.bezierCurveTo(-0.29 * k, 0.6 * k, -0.06 * k, 0.63 * k, 0, 0.43 * k); // deep heart notch
+  leafPath.bezierCurveTo(0.06 * k, 0.63 * k, 0.29 * k, 0.6 * k, 0.3 * k, 0.4 * k);
+  leafPath.bezierCurveTo(0.31 * k, 0.2 * k, 0.07 * k, 0.1 * k, 0, 0);
   const shapes = [];
   for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2 + Math.PI / 4;
+    const a = i * Math.PI / 2 + Math.PI / 4, gap = 0.05 * s;
     const leaf = new THREE.Shape();
-    const pts = heartShape(0.62 * s).getPoints(24).map(p => {
-      const y = p.y + 0.31 * s; // leaf tip at the centre, lobes outward
+    leaf.setFromPoints(leafPath.getPoints(24).map(p => {
+      const y = p.y + gap; // pushed off the centre so neighbouring leaves stay apart
       return new THREE.Vector2(p.x * Math.cos(a) - y * Math.sin(a), p.x * Math.sin(a) + y * Math.cos(a));
-    });
-    leaf.setFromPoints(pts.map(p => new THREE.Vector2(-p.x, -p.y)));
+    }));
     shapes.push(leaf);
   }
   const stem = new THREE.Shape();
-  stem.moveTo(-0.04 * s, 0); stem.quadraticCurveTo(0.05 * s, -0.4 * s, 0.22 * s, -0.68 * s);
-  stem.lineTo(0.3 * s, -0.63 * s); stem.quadraticCurveTo(0.12 * s, -0.36 * s, 0.05 * s, 0); stem.closePath();
+  // Thin where it runs down the narrow gap between the two lower leaves, widening past them.
+  stem.moveTo(-0.017 * s, -0.25 * s); stem.quadraticCurveTo(-0.02 * s, -0.55 * s, 0.02 * s, -0.8 * s);
+  stem.lineTo(0.08 * s, -0.79 * s); stem.quadraticCurveTo(0.03 * s, -0.55 * s, 0.017 * s, -0.25 * s); stem.closePath();
   shapes.push(stem);
   return shapes;
 }
@@ -85,7 +93,7 @@ function plaque(lines, { width, ink, ground, edge, height = width / 4 }) {
 }
 
 // Banner cloth with the clover emblem, hanging from its top edge.
-function banner(colour) {
+export function banner(colour) {
   const canvas = document.createElement('canvas');
   canvas.width = 256; canvas.height = 640;
   const g = canvas.getContext('2d');
@@ -156,7 +164,7 @@ export function createKingdomGates({ scene, world, onReady }) {
     emblem.add(new THREE.Mesh(extrude(cloverShapes(2.6), 0.35), leaf));
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.13, 8, 40), gold);
     emblem.add(ring);
-    emblem.position.y = 7.8 + span + 0.4;
+    emblem.position.y = 7.8 + span + 1.9; // the ring (radius 1.75) rests on the arch instead of sinking into it
     gate.add(emblem);
     animated.push({ object: emblem, spin: 0.35, bob: 0.15 });
     const board = plaque(['CLOVER KINGDOM', 'Cliff Terraces · Sky Garden'], { width: 6.6, ink: '#e9d28c', ground: '#173a22', edge: '#d8b25a', height: 1.55 });

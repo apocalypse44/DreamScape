@@ -185,7 +185,9 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
-      const targetYaw = state.cinematic ? state.cinematicYaw
+      // Only the hound scene sets cinematicYaw; other scenes keep the current facing (an undefined
+      // target would make the rotation NaN and hide the character for good).
+      const targetYaw = state.cinematic ? state.cinematicYaw ?? root.rotation.y
         : speed > 0.2 ? Math.atan2(player.velocity.x, player.velocity.z) : state.yaw + Math.PI;
       const delta = Math.atan2(Math.sin(targetYaw - root.rotation.y), Math.cos(targetYaw - root.rotation.y));
       root.rotation.y += delta * (1 - Math.exp(-12 * dt));

@@ -6,6 +6,94 @@ import { createCloverDressing, cloverGroundTexture } from './cloverDressing.js';
 import { createCloverSanctuary } from './cloverSanctuary.js';
 import { fitText } from './canvasText.js';
 
+let capLayer = 0;
+// Natural cliff faces: push side vertices in/out along the outward direction with layered
+// noise (strongest mid-cliff, zero at the walking edge so visuals still match collision).
+// Grass caps get a drooping, irregular turf lip instead of a square slab edge.
+function roughen(world, pos, levelOf, p, originY, cap) {
+  const hw = p.width / 2, hd = p.depth / 2;
+  for (let i = 0; i < pos.count; i++) {
+    const level = levelOf(pos.getY(i));
+    if (level > 0.99) continue;
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const dx = x / hw, dz = z / hd, len = Math.hypot(dx, dz);
+    if (len < 0.2) continue;
+    const wx = p.x + x, wy = originY + y, wz = p.z + z;
+    const n = world.noise(wx * 0.21 + wy * 0.13, wz * 0.21 - wy * 0.17) - 0.5 +
+      (world.noise(wx * 0.63 + wy * 0.41, wz * 0.63 - wy * 0.37) - 0.5) * 0.5;
+    const amp = Math.min(2.6, 0.35 * Math.min(p.width, p.depth));
+    const push = cap ? 0.3 + n * 0.5 : (n - 0.2) * amp * (1 - level * level);
+    pos.setX(i, x + dx / len * push);
+    pos.setZ(i, z + dz / len * push);
+    if (cap) pos.setY(i, y - 0.1 - Math.max(0, n) * 0.5);
+  }
+}
+// Terrace cliff block: a tapered, noise-roughened rock body or grass cap whose walking top
+// matches the platform p exactly. Shared with the Living Road's landings.
+// layer: the cap's depth-offset layer. Terrace caps stack (each one higher than the last); a cap
+// that carries small objects (guide pedestals, leaf marks) passes 1 so it cannot draw over them.
+export function cliffBlock(root, world, p, material, cap = false, layer = cap ? ++capLayer : 0) {
+  const capBias = layer * 0.001;
+  if (cap) {
+    material = material.clone(); material.polygonOffset = true;
+    material.polygonOffsetFactor = -layer; material.polygonOffsetUnits = -layer;
+  }
+  // Keep the rock body below the grass cap: coincident top faces caused
+  // the striped depth fighting visible on the plateau and stepping rocks.
+  const bodyTop = p.top - 0.2;
+  const height = cap ? 0.45 : bodyTop - p.bottom;
+  if (p.outline) {
+    const shape = new THREE.Shape();
+    p.outline.forEach(([x, z], i) => i ? shape.lineTo(x, -z) : shape.moveTo(x, -z)); shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: cap ? 1 : 12 });
+    geo.rotateX(Math.PI / 2);
+    const positions = geo.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      // Extrusion starts at the top and descends; narrow the lower cliff rings.
+      const level = 1 + positions.getY(i) / height;
+      const scale = cap || level > 0.99 ? 1 : 0.73 + level * 0.2 + world.hash(positions.getX(i) + p.z, positions.getZ(i)) * 0.06;
+      positions.setXYZ(i, positions.getX(i) * scale, positions.getY(i), -positions.getZ(i) * scale);
+    }
+    roughen(world, positions, y => 1 + y / height, p, cap ? p.top : bodyTop, cap);
+    // The final Z flip preserves the model's exact collision outline.
+    const indices = geo.index;
+    if (!indices) {
+      for (let i = 0; i < positions.count; i += 3) {
+        const x = positions.getX(i + 1), y = positions.getY(i + 1), z = positions.getZ(i + 1);
+        positions.setXYZ(i + 1, positions.getX(i + 2), positions.getY(i + 2), positions.getZ(i + 2));
+        positions.setXYZ(i + 2, x, y, z);
+      }
+    }
+    geo.computeVertexNormals();
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.x + positions.getX(i)) / 12, (p.z + positions.getZ(i)) / 12);
+    const mesh = new THREE.Mesh(geo, material); mesh.position.set(p.x, cap ? p.top + capBias : bodyTop, p.z);
+    mesh.castShadow = mesh.receiveShadow = true; root.add(mesh); return;
+  }
+  const seg = v => Math.max(2, Math.ceil(v / 1.5));
+  const geometry = new THREE.BoxGeometry(p.width, height, p.depth, seg(p.width), cap ? 1 : seg(height), seg(p.depth));
+  roughen(world, geometry.attributes.position, y => (y + height / 2) / height, p,
+    cap ? p.top - height / 2 : (bodyTop + p.bottom) / 2, cap);
+  if (cap) geometry.computeVertexNormals();
+  if (!cap) {
+    const pos = geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const level = (pos.getY(i) + height / 2) / height;
+      const variation = world.hash(pos.getX(i) + p.z, pos.getZ(i) + pos.getY(i) * 7);
+      const taper = level > 0.99 ? 1 : 0.74 + level * 0.18 + variation * 0.1;
+      pos.setX(i, pos.getX(i) * taper); pos.setZ(i, pos.getZ(i) * taper);
+    }
+    geometry.computeVertexNormals();
+  }
+  const mesh = new THREE.Mesh(geometry, material);
+  if (cap) {
+    const pos = geometry.attributes.position, uv = geometry.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.x + pos.getX(i)) / 12, (p.z + pos.getZ(i)) / 12);
+  }
+  mesh.position.set(p.x, cap ? p.top - height / 2 + capBias : (bodyTop + p.bottom) / 2, p.z);
+  mesh.castShadow = mesh.receiveShadow = true; root.add(mesh);
+}
+
 export function createCloverTerrain({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover cliff terraces'; scene.add(root);
   const rock = new THREE.MeshStandardMaterial({ color: 0x4a4136, roughness: 1, flatShading: true });
@@ -17,90 +105,7 @@ export function createCloverTerrain({ scene, world, onReady }) {
   const sanctuary = createCloverSanctuary({ root, world, onReady });
   colliders.push(...sanctuary.colliders);
   for (const p of CLOVER_PLATEAUS) for (const x of [-7, 7]) colliders.push({ x, z: p.z - 3, radius: 0.8 });
-  let capLayer = 0;
-  // Natural cliff faces: push side vertices in/out along the outward direction with layered
-  // noise (strongest mid-cliff, zero at the walking edge so visuals still match collision).
-  // Grass caps get a drooping, irregular turf lip instead of a square slab edge.
-  function roughen(pos, levelOf, p, originY, cap) {
-    const hw = p.width / 2, hd = p.depth / 2;
-    for (let i = 0; i < pos.count; i++) {
-      const level = levelOf(pos.getY(i));
-      if (level > 0.99) continue;
-      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const dx = x / hw, dz = z / hd, len = Math.hypot(dx, dz);
-      if (len < 0.2) continue;
-      const wx = p.x + x, wy = originY + y, wz = p.z + z;
-      const n = world.noise(wx * 0.21 + wy * 0.13, wz * 0.21 - wy * 0.17) - 0.5 +
-        (world.noise(wx * 0.63 + wy * 0.41, wz * 0.63 - wy * 0.37) - 0.5) * 0.5;
-      const amp = Math.min(2.6, 0.35 * Math.min(p.width, p.depth));
-      const push = cap ? 0.3 + n * 0.5 : (n - 0.2) * amp * (1 - level * level);
-      pos.setX(i, x + dx / len * push);
-      pos.setZ(i, z + dz / len * push);
-      if (cap) pos.setY(i, y - 0.1 - Math.max(0, n) * 0.5);
-    }
-  }
-  function block(p, material, cap = false) {
-    const capBias = cap ? ++capLayer * 0.001 : 0;
-    if (cap) {
-      material = material.clone(); material.polygonOffset = true;
-      material.polygonOffsetFactor = -capLayer; material.polygonOffsetUnits = -capLayer;
-    }
-    // Keep the rock body below the grass cap: coincident top faces caused
-    // the striped depth fighting visible on the plateau and stepping rocks.
-    const bodyTop = p.top - 0.2;
-    const height = cap ? 0.45 : bodyTop - p.bottom;
-    if (p.outline) {
-      const shape = new THREE.Shape();
-      p.outline.forEach(([x, z], i) => i ? shape.lineTo(x, -z) : shape.moveTo(x, -z)); shape.closePath();
-      const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: cap ? 1 : 12 });
-      geo.rotateX(Math.PI / 2);
-      const positions = geo.attributes.position;
-      for (let i = 0; i < positions.count; i++) {
-        // Extrusion starts at the top and descends; narrow the lower cliff rings.
-        const level = 1 + positions.getY(i) / height;
-        const scale = cap || level > 0.99 ? 1 : 0.73 + level * 0.2 + world.hash(positions.getX(i) + p.z, positions.getZ(i)) * 0.06;
-        positions.setXYZ(i, positions.getX(i) * scale, positions.getY(i), -positions.getZ(i) * scale);
-      }
-      roughen(positions, y => 1 + y / height, p, cap ? p.top : bodyTop, cap);
-      // The final Z flip preserves the model's exact collision outline.
-      const indices = geo.index;
-      if (!indices) {
-        for (let i = 0; i < positions.count; i += 3) {
-          const x = positions.getX(i + 1), y = positions.getY(i + 1), z = positions.getZ(i + 1);
-          positions.setXYZ(i + 1, positions.getX(i + 2), positions.getY(i + 2), positions.getZ(i + 2));
-          positions.setXYZ(i + 2, x, y, z);
-        }
-      }
-      geo.computeVertexNormals();
-      const uv = geo.attributes.uv;
-      for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.x + positions.getX(i)) / 12, (p.z + positions.getZ(i)) / 12);
-      const mesh = new THREE.Mesh(geo, material); mesh.position.set(p.x, cap ? p.top + capBias : bodyTop, p.z);
-      mesh.castShadow = mesh.receiveShadow = true; root.add(mesh); return;
-    }
-    const seg = v => Math.max(2, Math.ceil(v / 1.5));
-    const geometry = new THREE.BoxGeometry(p.width, height, p.depth, seg(p.width), cap ? 1 : seg(height), seg(p.depth));
-    roughen(geometry.attributes.position, y => (y + height / 2) / height, p,
-      cap ? p.top - height / 2 : (bodyTop + p.bottom) / 2, cap);
-    if (cap) geometry.computeVertexNormals();
-    if (!cap) {
-      const pos = geometry.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        const level = (pos.getY(i) + height / 2) / height;
-        const variation = world.hash(pos.getX(i) + p.z, pos.getZ(i) + pos.getY(i) * 7);
-        const taper = level > 0.99 ? 1 : 0.74 + level * 0.18 + variation * 0.1;
-        pos.setX(i, pos.getX(i) * taper); pos.setZ(i, pos.getZ(i) * taper);
-      }
-      geometry.computeVertexNormals();
-    }
-    const mesh = new THREE.Mesh(geometry, material);
-    if (cap) {
-      const pos = geometry.attributes.position, uv = geometry.attributes.uv;
-      for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.x + pos.getX(i)) / 12, (p.z + pos.getZ(i)) / 12);
-    }
-    mesh.position.set(p.x, cap ? p.top - height / 2 + capBias : (bodyTop + p.bottom) / 2, p.z);
-    mesh.castShadow = mesh.receiveShadow = true; root.add(mesh);
-  }
-  for (const p of [...CLOVER_PLATEAUS, ...CLOVER_JUMPS, ...CLOVER_VALLEY, ...CLOVER_ASCENT_JUMPS]) { block(p, rock); block(p, grass, true); }
+  for (const p of [...CLOVER_PLATEAUS, ...CLOVER_JUMPS, ...CLOVER_VALLEY, ...CLOVER_ASCENT_JUMPS]) { cliffBlock(root, world, p, rock); cliffBlock(root, world, p, grass, true); }
   // Buried angular rock ribs break up the cliff outline below the walking top.
   for (const p of CLOVER_PLATEAUS) for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
     const rib = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rock);

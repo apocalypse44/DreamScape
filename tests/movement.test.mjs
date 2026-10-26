@@ -40,9 +40,11 @@ test('the full Clover reward route traverses roots, terraces, gateway and Starli
   const { createCloverCampaign, CLOVER_STORY, livingRoadGround } = await import(moduleUrl(new URL('../src/models/cloverCampaign.js', import.meta.url)));
   const { ROOT_HEADINGS, ROOT_LANDINGS, ROOT_OBSTACLES } = await import(moduleUrl(new URL('../src/models/cloverGrowth.js', import.meta.url)));
   const model = createCloverCampaign();
+  const { shrineLayout } = await import(moduleUrl(new URL('../src/rendering/cloverArchiveProps.js', import.meta.url)));
   const staticColliders = [
     ...ROOT_OBSTACLES.map(p => ({ ...p, minY:12, maxY:15.5 })),
     ...ROOT_LANDINGS.slice(0,3).map(p => ({ x:p.x,z:p.z,radius:.7,minY:12,maxY:12.55 })),
+    ...shrineLayout().colliders, // the real shrine pillars, road arches and briar thickets
   ];
   const journey=createSkyJourney(),chest=CLOVER_STORY.chest;
   staticColliders.push({x:chest.x,z:chest.z,radius:.65,minY:chest.top,maxY:chest.top+1});
@@ -66,11 +68,12 @@ test('the full Clover reward route traverses roots, terraces, gateway and Starli
     assert.equal(model.interact(f.player.position,'chaos').kind,'growing');
     for(let n=0;n<150;n++)model.update(1/60,f.player);
   };
-  walk(-31.8,-418.4);grow();walk(-65.8,-418.4);
-  grow();walk(-66.4,-422);walk(-66.4,-453.4);
-  grow();walk(-104,-453.4);
+  // Crossings have handrails 1.95 m either side, so the route keeps within 1.4 m of each centre line.
+  walk(-31.8,-418.4);grow();for(const p of [[-36.5,-418.4],[-36.5,-419.2],[-65.8,-419.2]])walk(...p);
+  grow();walk(-67.3,-422.5);walk(-67.3,-453.4);
+  grow();for(const p of [[-70,-453.2],[-72.5,-454.4],[-104,-454.4]])walk(...p);
   assert.equal(model.interact(f.player.position,'calm').kind,'sigil');
-  for(const p of [[-66.4,-453.4],[-66.4,-418.4],[-31.8,-418.4],[-30,-416]])walk(...p);
+  for(const p of [[-72.5,-454.4],[-70,-453.2],[-67.3,-453.4],[-67.3,-422.5],[-65.8,-419.2],[-36.5,-419.2],[-36.5,-418.4],[-31.8,-418.4],[-30,-416]])walk(...p);
   assert.equal(model.interact(f.player.position,'calm'),null,'the old Archive chest location no longer grants the hook');
   for(const p of [[-28,-420,12],[-28,-430,12],[-10,-430,12],[0,-437,12],[-18,-444,12],
     [-18,-473,15],[-18,-496,18],[-18,-519,21],[-18,-541,24],[2,-541,24],[2,-534,24],[4.5,-532,24]])walk(...p);
@@ -101,6 +104,41 @@ test('the full Clover reward route traverses roots, terraces, gateway and Starli
   f.player.position.set(-85,8,-455);f.player.velocity.y=-10;f.player.grounded=false;frames(f,1);
   assert.equal(f.player.position.y,14.05);assert.equal(model.generation,3);
   assert.equal(model.sigil,true);assert.equal(model.hook,true);
+});
+
+test('restored Living Road crossings have handrails; unrestored ones have none', async () => {
+  const { createCloverCampaign, CLOVER_STORY } = await import(moduleUrl(new URL('../src/models/cloverCampaign.js', import.meta.url)));
+  const { ROOT_HEADINGS, ROOT_LANDINGS } = await import(moduleUrl(new URL('../src/models/cloverGrowth.js', import.meta.url)));
+  const model = createCloverCampaign();
+  const sideways = (x, z, yaw) => {
+    const f = fixture(() => -7, model.platforms); f.controller.teleport({ x, z, top: 12 });
+    f.state.yaw = yaw; f.keys.add('KeyW'); frames(f, 240); return f.player.position;
+  };
+  // Crossing 1 runs west along z -420 between x -43 and -62: walk north (-z) and south (+z) off its middle.
+  model.interact({ x: CLOVER_STORY.iven.x, y: 14.05, z: CLOVER_STORY.iven.z }, 'calm');
+  const guide = { x: ROOT_LANDINGS[0].x, y: 14.05, z: ROOT_LANDINGS[0].z };
+  while (model.guides[0] !== ROOT_HEADINGS[0]) model.interact(guide, 'calm');
+  model.interact(guide, 'chaos'); for (let i = 0; i < 150; i++) model.update(1 / 60);
+  assert.equal(model.generation, 1);
+  for (const yaw of [0, Math.PI]) {
+    const p = sideways(-52, -420, yaw);
+    assert.ok(Math.abs(p.z + 420) < 1.95, `walked through a handrail to z ${p.z}`);
+    assert.ok(Math.abs(p.y - 14.05) < .01, 'fell off a railed crossing');
+  }
+  // Crossing 2 has not grown: no rail stands in the air beside it.
+  assert.ok(!model.platforms.some(q => q.name === 'living-road-rail' && q.contains(-68 - 1.95, -437)), 'an unrestored crossing has a rail');
+});
+
+test('the Sanctum balustrade stops a walker at the terrace rim but leaves the grand stair open', async () => {
+  const { SKY_SHRINE, SKY_RAMP } = await import(moduleUrl(new URL('../src/models/skyIsland.js', import.meta.url)));
+  for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1]]) {
+    const f = fixture(() => 0, SKY_PLATFORMS); f.controller.teleport({ x: SKY_SHRINE.x, z: SKY_SHRINE.z, top: 68 });
+    f.state.yaw = Math.atan2(-dx, -dz); f.keys.add('KeyW'); frames(f, 300);
+    assert.ok(Math.abs(f.player.position.y - 70.05) < .01, `walked off the Sanctum toward ${dx},${dz}`);
+  }
+  const f = fixture(() => 0, SKY_PLATFORMS); f.controller.teleport({ x: SKY_RAMP.x, z: SKY_RAMP.z + 4, top: 64.4 });
+  f.state.yaw = 0; f.keys.add('KeyW'); frames(f, 300); // up the stair, north (-z)
+  assert.ok(Math.abs(f.player.position.y - 70.05) < .01, 'the grand stair no longer reaches the Sanctum');
 });
 
 test('castle curtain modules block walking from both sides above the retaining wall',async()=>{
@@ -248,7 +286,7 @@ test('the occupied Lantern Refuge can be entered and exited and its beds stay so
   assert.ok(f.player.position.z>-24.1,'bed blocks walking');
 });
 
-test('sky garden main route climbs the shrine ramp and walks to the lookout', () => {
+test('sky garden main route climbs the grand stair to the Sanctum and walks the garden', () => {
   const f=fixture(()=>0,SKY_PLATFORMS,{staticColliders:[{x:83,z:-563,radius:2,minY:68,maxY:72}]});
   f.controller.teleport(SKY_ARRIVAL);f.keys.add('KeyW');
   for(const [x,z] of SKY_WALK_ROUTE) {

@@ -319,9 +319,10 @@ export function createWorld({ scene, state, player, onChunk }) {
     formed++;
   }
 
-  function updateChunks() {
-    const cx = Math.floor((player.position.x + CHUNK_SIZE / 2) / CHUNK_SIZE);
-    const cz = Math.floor((player.position.z + CHUNK_SIZE / 2) / CHUNK_SIZE);
+  // focus: where to stream around; the player, or a cutscene camera's destination (e.g. the Heart gate).
+  function updateChunks(focus = player.position) {
+    const cx = Math.floor((focus.x + CHUNK_SIZE / 2) / CHUNK_SIZE);
+    const cz = Math.floor((focus.z + CHUNK_SIZE / 2) / CHUNK_SIZE);
     const missing = [];
     for (let x = cx - viewRadius; x <= cx + viewRadius; x++) {
       for (let z = cz - viewRadius; z <= cz + viewRadius; z++) {
@@ -338,7 +339,7 @@ export function createWorld({ scene, state, player, onChunk }) {
         removeChunk(key, chunk);
       }
     }
-    const ahead=nextChunkPrefetch(cx,cz,player.position.x,player.position.z,viewRadius,(x,z)=>chunks.has(chunkKey(x,z)));
+    const ahead=nextChunkPrefetch(cx,cz,focus.x,focus.z,viewRadius,(x,z)=>chunks.has(chunkKey(x,z)));
     if(!missing.length && ahead)createChunk(ahead.x,ahead.z); // one chunk total per frame
   }
 

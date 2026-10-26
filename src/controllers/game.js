@@ -37,6 +37,7 @@ import { createDemoSpawns } from '../views/demoSpawns.js';
 import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
 import { createHoundCutscene } from './houndScene.js';
 import { createDoorScene } from './doorScene.js';
+import { createCloverScenes } from './cloverScenes.js';
 import { createInventory } from '../models/inventory.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
@@ -84,7 +85,7 @@ export function startGame(ui) {
   shrine.colliders.push(...waterfall.colliders, ...wayfinding.colliders, ...ridge.colliders, ...plaza.colliders, ...clover.colliders);
   const heavenly = createHeavenlyFalls({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
-  let doorScene = null; // created below, with the camera controls
+  let doorScene = null, cloverScenes = null; // created below, with the camera controls
   const inventory = createInventory({ onAdd: (id, item) => toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500) });
   const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
     chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
@@ -93,6 +94,7 @@ export function startGame(ui) {
   const livingRoad = buildCloverCampaign({ scene, world, keys, notify: toast,
     ready: () => inventory.has('lantern-sigil') && (unlockAll || spade.castle.discovery.complete),
     onSigil: () => inventory.add('root-sigil'), onHook: () => inventory.add('tide-hook'),
+    onScene: kind => cloverScenes?.queue(kind),
     onReady: root => atmosphere?.prepare?.(root) });
   shrine.colliders.push(...livingRoad.colliders);
   // --- end Clover chapter ---
@@ -128,6 +130,9 @@ export function startGame(ui) {
     obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
       clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
   doorScene = createDoorScene({ camera, state, keys, onOpen: () => spade.openGate() });
+  const heartGate = gates.gates.find(g => /heart/i.test(g.name)); // the chest cutscene swoops to it
+  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement,
+    heart: heartGate && { x: heartGate.x, y: terrainHeight(heartGate.x, heartGate.z), z: heartGate.z } }); // gates expose only name, x, z
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
@@ -135,7 +140,7 @@ export function startGame(ui) {
   npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight: world.surfaceHeight, staticColliders: shrine.colliders,
     platforms,
-    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active || doorScene.active,
+    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active || doorScene.active || cloverScenes.active,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     allowFallRecovery: player => !spade.isInsideCastle(player.position),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
@@ -146,6 +151,7 @@ export function startGame(ui) {
   function reset() {
     houndScene.reset();
     doorScene.reset();
+    cloverScenes.reset();
     inventory.reset();
     music.reset();
     Object.assign(state, START);
@@ -315,11 +321,13 @@ export function startGame(ui) {
     }
     const playDt = houndScene.active ? 0 : dt;
     if (startup.ready) state.elapsed += playDt;
-    updateChunks();
+    // Terrain and props stream around the player, or around a cutscene's destination while it is away.
+    const streamFocus = cloverScenes.focus ?? player.position;
+    updateChunks(streamFocus);
     world.updateTerrain(playDt);
     if (!houndScene.active) skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
     if (!skyIsland.journey.blocked && !houndScene.active) movement.update(startup.ready ? dt : 0);
-    props.update(player.position, world.terrainVersion);
+    props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
     if (!unlockAll) houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
       !skyIsland.journey.blocked && player.grounded);
@@ -329,7 +337,7 @@ export function startGame(ui) {
     gates.update(playDt);
     if (!houndScene.active) spade.update(dt, player, state, swarm);
     if (!houndScene.active) diamond.update(dt, player, state); // Diamond chapter
-    livingRoad.update(dt, player, state, startup.ready && !houndScene.active && !doorScene.active && !skyIsland.journey.blocked); // Clover chapter
+    livingRoad.update(dt, player, state, startup.ready && !houndScene.active && !doorScene.active && !skyIsland.journey.blocked); // Clover chapter (cutscenes pause its input via state.cinematic)
     heavenly.update(dt, player.position);
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
@@ -339,9 +347,11 @@ export function startGame(ui) {
     plaza.update();
     clover.update(player.position, dt);
     doorScene.observe(!houndScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
+    cloverScenes.observe(!houndScene.active && !doorScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
     let cameraDistance;
     if (houndScene.active) cameraDistance = houndScene.update(dt);
     else if (doorScene.active) cameraDistance = doorScene.update(dt);
+    else if (cloverScenes.active) cameraDistance = cloverScenes.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
     else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(); }
     character.update(dt, cameraDistance, houndScene.active ? null : swarmCast);

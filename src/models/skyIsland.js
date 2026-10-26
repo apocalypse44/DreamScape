@@ -23,14 +23,21 @@ export const SKY_MAIN = islandSurface(SKY.x, SKY.z, 64, outline, 40);
 export const SKY_JUMPS = [[27,-9,65],[32,-12,66],[36,-17,67]].map(([x,z,top]) =>
   islandSurface(SKY.x + x, SKY.z + z, top, octagon(2.5), top - 7));
 export const SKY_SECRET = islandSurface(SKY.x + 37, SKY.z - 24, 68, octagon(5.5), 55);
-export const SKY_LOOKOUT = islandSurface(SKY.x + 29, SKY.z + 6, 64, octagon(5.5), 51);
 export const SKY_RAMP = { x: SKY.x - 5, z: SKY.z, width: 5, depth: 10,
   top: 68, bottom: 63.8, solid: true, ramp: true,
   topAt: (x, z) => 64 + 4 * Math.max(0, Math.min(1, (SKY.z + 5 - z) / 10)) };
 export const SKY_SHRINE = { x: SKY.x - 5, z: SKY.z - 11, width: 12, depth: 12, top: 68, bottom: 64, solid: true };
-export const SKY_BRIDGE = { x: SKY.x + 22, z: SKY.z + 6, width: 12, depth: 3, top: 64, bottom: 63.6, solid: true };
-export const SKY_PLATFORMS = [SKY_MAIN, SKY_LOOKOUT, SKY_SECRET, ...SKY_JUMPS, SKY_RAMP, SKY_SHRINE, SKY_BRIDGE];
-export const SKY_WALK_ROUTE = [[0,10],[-5,5],[-5,-7.5],[-5,5],[10,6],[29,6],[0,10]].map(([x,z]) => [SKY.x+x, SKY.z+z]);
+// The Clover Sanctum terrace has a balustrade on its rim, open on the south where the grand stair
+// (SKY_RAMP, 5 m wide on the terrace's centre line) arrives. Tops stay above the companion's step-up.
+const sanctumRail = (x, z, width, depth) => ({ name: 'sanctum-rail', x: SKY_SHRINE.x + x, z: SKY_SHRINE.z + z, width, depth,
+  top: SKY_SHRINE.top + 1.1, bottom: SKY_SHRINE.top, solid: true });
+export const SKY_SHRINE_RAILS = [sanctumRail(0, -5.9, 11.8, .14), sanctumRail(-5.9, 0, .14, 11.8), sanctumRail(5.9, 0, .14, 11.8),
+  sanctumRail(-4.25, 5.9, 3.5, .14), sanctumRail(4.25, 5.9, 3.5, .14)];
+// The grand stair's balustrades follow its slope (thin, so never a floor), 1.1 m above the steps.
+export const SKY_RAMP_RAILS = [-1, 1].map(side => ({ name: 'stair-rail', x: SKY_RAMP.x + side * 2.43, z: SKY_RAMP.z, width: .14, depth: 10,
+  top: SKY_RAMP.top + 1.1, bottom: SKY_RAMP.bottom, solid: true, topAt: (x, z) => SKY_RAMP.topAt(x, z) + 1.1 }));
+export const SKY_PLATFORMS = [SKY_MAIN, SKY_SECRET, ...SKY_JUMPS, SKY_RAMP, SKY_SHRINE, ...SKY_SHRINE_RAILS, ...SKY_RAMP_RAILS];
+export const SKY_WALK_ROUTE = [[0,10],[-5,5],[-5,-7.5],[-5,5],[10,6],[0,10]].map(([x,z]) => [SKY.x+x, SKY.z+z]);
 export const SKY_TRAVEL_SECONDS = 3.8;
 export function skyFlightPose(from, to, elapsed) {
   const progress = Math.max(0, Math.min(1, (elapsed - .6) / 2.6));
@@ -81,7 +88,7 @@ export function createSkyJourney() {
       const hint = near(position, visiting ? SKY_DOOR : SUMMIT_DOOR)
         ? visiting ? 'E · RETURN TO CLOVER SUMMIT' : 'E · ENTER THE FLOATING SKY GARDEN'
         : visiting ? secret && SKY_SECRET.contains(position.x, position.z) ? 'STARLIGHT PERCH · HIDDEN ISLAND DISCOVERED'
-          : awakened ? 'SKY GARDEN AWAKENED · EXPLORE THE LOOKOUT AND FLOATING LEDGES' : 'SKY GARDEN · FOLLOW THE STONES TO THE ANCIENT CRYSTAL' : null;
+          : awakened ? 'SKY GARDEN AWAKENED · THE STARLIGHT LEDGES LEAD EAST TO THE HIGHEST PERCH' : 'SKY GARDEN · FOLLOW THE STONES TO THE ANCIENT CRYSTAL' : null;
       return { target, flight: cinematic, fade: Math.max(0, fade), hint: cinematic ?
         cinematic.phase==='charge' ? 'GATEWAY AWAKENING…' : cinematic.phase==='flight' ? 'RIDING THE STARLIGHT' : 'ARRIVING…' : hint };
     },

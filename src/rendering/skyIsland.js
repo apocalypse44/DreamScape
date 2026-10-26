@@ -1,10 +1,12 @@
-import { SKY, SKY_MAIN, SKY_PLATFORMS, SKY_JUMPS, SKY_LOOKOUT, SKY_SECRET, SKY_SHRINE,
-  SKY_RAMP, SKY_BRIDGE, SUMMIT_DOOR, SKY_DOOR, SKY_LAKE, createSkyJourney } from '../models/skyIsland.js';
+import { SKY, SKY_MAIN, SKY_PLATFORMS, SKY_JUMPS, SKY_SECRET, SKY_SHRINE, SKY_SHRINE_RAILS, SKY_RAMP_RAILS,
+  SKY_RAMP, SUMMIT_DOOR, SKY_DOOR, SKY_LAKE, createSkyJourney } from '../models/skyIsland.js';
 import { loadModel } from './models.js';
 import { cloverGroundTexture } from './cloverDressing.js';
 import { createWaterSurface, createSoftDot } from './waterfall.js';
 import { createSkyGardenDetails, createStarlightTexture } from './skyGardenDetails.js';
 import { fitText } from './canvasText.js';
+import { createVineDecor } from './cloverVines.js';
+import { cloverShapes, banner } from './kingdomGates.js';
 
 export function createSkyIsland({ scene, world, onReady }) {
   const root = new THREE.Group(); root.name = 'Clover floating sky garden'; scene.add(root);
@@ -13,10 +15,25 @@ export function createSkyIsland({ scene, world, onReady }) {
   const journey = createSkyJourney(), colliders = [];
   const details = createSkyGardenDetails({root,world,onReady});colliders.push(...details.colliders);
   const rock = new THREE.MeshStandardMaterial({ color: 0x5a4c3e, roughness: 1, flatShading: true });
-  const stone = new THREE.MeshStandardMaterial({ color: 0x9fae96, roughness: 0.95 });
+  const stone = new THREE.MeshStandardMaterial({ color: 0xe6ddc6, roughness: 0.9 }); // pale ivory paving and ruins
   const dark = new THREE.MeshStandardMaterial({ color: 0x394d4b, roughness: 1 });
   const grass = new THREE.MeshStandardMaterial({ color: 0xc0daa4, map: cloverGroundTexture(world), roughness: 1 });
   const wood = new THREE.MeshStandardMaterial({ color: 0x69543a, roughness: 1 });
+  // Clover royalty, shared with the Living Road: ivory stone, gold trim, briar vines with blue roses.
+  const ivory = new THREE.MeshStandardMaterial({ color: 0xefe6cf, roughness: .85 });
+  const gold = new THREE.MeshBasicMaterial({ color: 0xe1cb6b, toneMapped: false });
+  // Briars live outside root (like the water) so the camera's obstacle rays skip ~900 vine pieces.
+  const briars = new THREE.Group(); briars.name = 'Sky Garden briars'; scene.add(briars);
+  const vines = createVineDecor({ root: briars, world });
+  // A gold four-leaf inlay (optionally ivory inside, and a gold ring) just above a grass top.
+  const inlayGold = gold.clone(), inlayIvory = new THREE.MeshBasicMaterial({ color: 0xf3ecd8, toneMapped: false });
+  for (const [m, o] of [[inlayGold, -2], [inlayIvory, -3]]) { m.polygonOffset = true; m.polygonOffsetFactor = m.polygonOffsetUnits = o; }
+  function inlay(x, top, z, size, ring = 0) {
+    const flat = (geometry, material) => { geometry.rotateX(-Math.PI / 2); const m = new THREE.Mesh(geometry, material); m.position.set(x, top + .02, z); root.add(m); };
+    flat(new THREE.ShapeGeometry(cloverShapes(size)), inlayGold);
+    flat(new THREE.ShapeGeometry(cloverShapes(size * .88)), inlayIvory);
+    if (ring) flat(new THREE.RingGeometry(ring, ring + .35, 64), inlayGold);
+  }
   function mesh(geometry, material, x, y, z) {
     const m = new THREE.Mesh(geometry, material); m.position.set(x,y,z);
     m.castShadow = m.receiveShadow = true; root.add(m); return m;
@@ -67,15 +84,13 @@ export function createSkyIsland({ scene, world, onReady }) {
       p.outline.forEach(([x,z],i) => {
         const rib = mesh(new THREE.DodecahedronGeometry(1.1,0),rock,p.x+x*0.86,p.top-3-world.hash(i,1261)*3,p.z+z*0.86);
         rib.scale.set(1.5,2.8,1.4); rib.rotation.y=i;
-        if (i%2===0) for(let k=0;k<4;k++) {
-          const vine = mesh(new THREE.ConeGeometry(0.14,2.8+k*0.55,4),new THREE.MeshStandardMaterial({color:0x496831}),
-            p.x+x*0.96+k*0.27,p.top-1.6-k*0.4,p.z+z*0.96);
-          vine.rotation.z=Math.PI;
-        }
+        // Briars with thorns, blue roses and clover leaves hang from every other rim corner.
+        if (i%2===0) { const len=Math.hypot(x,z)||1; for(let k=0;k<3;k++)
+          vines.hang(p.x+x*0.97+(-z/len)*(k-1)*0.6,p.top-0.25,p.z+z*0.97+(x/len)*(k-1)*0.6,x/len,z/len,2.4+k*0.9+world.hash(i,k+p.z)*1.2,i*3+k); }
       });
     }
   }
-  [SKY_MAIN, SKY_LOOKOUT, SKY_SECRET, ...SKY_JUMPS].forEach(p => island(p));
+  [SKY_MAIN, SKY_SECRET, ...SKY_JUMPS].forEach(p => island(p));
   // Small unreachable fragments frame the island without offering a ground route.
   // Each drifts on its own slow bob, with a flowering shrub on top and hanging roots.
   const fragments = [];
@@ -90,25 +105,52 @@ export function createSkyIsland({ scene, world, onReady }) {
     }
     fragments.push({group,phase:world.hash(x,z)*6.28,x:f.x,z:f.z,top:y,scale:r*0.9});
   }
-  mesh(new THREE.BoxGeometry(12,3.8,12),rock,SKY_SHRINE.x,66,SKY_SHRINE.z);
+  // The Clover Sanctum, the heart of the Clover Kingdom (after Black Clover's royal capital): an
+  // ivory terrace with an emerald base band, gold cornice and gold-railed balustrade (SKY_SHRINE_RAILS),
+  // four ivory towers with gold bands, emerald roofs and gold finials, clover banners, a grand stair
+  // with gold balustrades (SKY_RAMP_RAILS), and a great gold clover crest turning above it all.
+  const emerald = new THREE.MeshStandardMaterial({ color: 0x2f8f4e, roughness: .6 });
+  mesh(new THREE.BoxGeometry(12,3.8,12),ivory,SKY_SHRINE.x,66,SKY_SHRINE.z);
   mesh(new THREE.BoxGeometry(12,0.15,12),grass,SKY_SHRINE.x,67.925,SKY_SHRINE.z);
+  mesh(new THREE.BoxGeometry(12.12,.9,12.12),emerald,SKY_SHRINE.x,64.45,SKY_SHRINE.z);
+  mesh(new THREE.BoxGeometry(12.3,.2,12.3),gold,SKY_SHRINE.x,67.8,SKY_SHRINE.z);
+  for (const r of SKY_SHRINE_RAILS) {
+    const alongX = r.width > r.depth, length = alongX ? r.width : r.depth;
+    mesh(new THREE.BoxGeometry(alongX ? length : .16, .1, alongX ? .16 : length),gold,r.x,r.top-.05,r.z);
+    for (let t = .5; t < length; t += 1) {
+      const x = alongX ? r.x - length / 2 + t : r.x, z = alongX ? r.z : r.z - length / 2 + t;
+      mesh(new THREE.CylinderGeometry(.07,.1,1,8),ivory,x,r.bottom+.5,z);
+    }
+  }
+  const towerGeometry=new THREE.CylinderGeometry(1.15,1.3,11,16), roofGeometry=new THREE.ConeGeometry(1.7,5,16);
+  const bandGeometry=new THREE.TorusGeometry(1.25,.09,6,24), finial=new THREE.ExtrudeGeometry(cloverShapes(1.1),{depth:.08,bevelEnabled:false}).center();
+  const towerCrests=[];
+  for (const [sx,sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
+    const x=SKY_SHRINE.x+sx*6, z=SKY_SHRINE.z+sz*6;
+    mesh(towerGeometry,ivory,x,69.5,z);
+    for (const y of [68,72.6,74.8]) { const band=mesh(bandGeometry,gold,x,y,z); band.rotation.x=Math.PI/2; }
+    mesh(roofGeometry,emerald,x,77.5,z);
+    const tip=mesh(finial,gold,x,80.7,z); towerCrests.push(tip);
+    colliders.push({x,z,radius:1.3,minY:64,maxY:80});
+    if (sz>0) { const cloth=banner('#2f8f4e'); cloth.position.set(x,74.4,z+1.32); root.add(cloth); } // the front pair faces the arrival
+  }
+  const crest=new THREE.Group(); crest.position.set(SKY_SHRINE.x,80.5,SKY_SHRINE.z); root.add(crest);
+  crest.add(new THREE.Mesh(new THREE.ExtrudeGeometry(cloverShapes(4.6),{depth:.22,bevelEnabled:false}).center(),gold),
+    new THREE.Mesh(new THREE.TorusGeometry(3.15,.14,8,48),gold));
+  // Grand stair: ivory steps with gold nosings over the ramp's slope, gold balustrades on both sides.
   const rampGeo=new THREE.BoxGeometry(5,0.22,10,1,1,16), rp=rampGeo.attributes.position;
   for(let i=0;i<rp.count;i++) rp.setY(i,rp.getY(i)+SKY_RAMP.topAt(0,SKY_RAMP.z+rp.getZ(i))-64);
   rampGeo.computeVertexNormals(); mesh(rampGeo,stone,SKY_RAMP.x,63.89,SKY_RAMP.z);
-  const bridge = mesh(new THREE.BoxGeometry(12,0.35,3),wood,SKY_BRIDGE.x,63.825,SKY_BRIDGE.z);
-  for(let i=0;i<20;i++) mesh(new THREE.BoxGeometry(0.51,0.03,3),wood,SKY.x+16.3+i*0.59,64.015,SKY.z+6);
-  for(const side of [-1,1]) {
-    mesh(new THREE.BoxGeometry(12,0.12,0.12),wood,bridge.position.x,65,bridge.position.z+side*1.4);
-    for(let i=0;i<5;i++) {
-      const x=SKY.x+16.3+i*2.8,z=SKY.z+6+side*1.4;
-      mesh(new THREE.BoxGeometry(0.13,1,0.13),wood,x,64.5,z);
-      colliders.push({x,z,radius:0.13,minY:63.5,maxY:65.1});
-    }
+  for (let k=0;k<16;k++) { const z=SKY_RAMP.z+5-(k+.5)*10/16; mesh(new THREE.BoxGeometry(4.9,.03,.08),gold,SKY_RAMP.x,SKY_RAMP.topAt(SKY_RAMP.x,z)+.02,z); }
+  for (const r of SKY_RAMP_RAILS) {
+    const low=SKY_RAMP.topAt(r.x,SKY_RAMP.z+5)+1.05, high=SKY_RAMP.topAt(r.x,SKY_RAMP.z-5)+1.05;
+    const rail=mesh(new THREE.BoxGeometry(.16,.1,Math.hypot(10,high-low)),gold,r.x,(low+high)/2,SKY_RAMP.z);
+    rail.rotation.x=Math.atan2(high-low,10);
+    for (let k=0;k<=8;k++) { const z=SKY_RAMP.z+5-k*1.25, y=SKY_RAMP.topAt(r.x,z); mesh(new THREE.CylinderGeometry(.07,.1,1.05,8),ivory,r.x,y+.52,z); }
   }
-  // A continuous collision strip matches each bridge rail.
-  const rails=[-1,1].map(side=>({x:SKY_BRIDGE.x,z:SKY_BRIDGE.z+side*1.4,width:12,depth:0.12,top:65,bottom:64,solid:true}));
   function obstacle(x,z,w,h,d,y=64) {
     mesh(new THREE.BoxGeometry(w,h,d),stone,SKY.x+x,y+h/2,SKY.z+z);
+    mesh(new THREE.BoxGeometry(w+.25,.18,d+.25),gold,SKY.x+x,y+h+.09,SKY.z+z); // gold capstone
     colliders.push({x:SKY.x+x,z:SKY.z+z,radius:Math.hypot(w,d)/2,minY:y,maxY:y+h});
   }
   // Open ruins enclose a grove while keeping the portal and shrine approaches clear.
@@ -127,7 +169,7 @@ export function createSkyIsland({ scene, world, onReady }) {
       }
     }
   }
-  trail([[0,10],[-5,5],[-5,-11]]); trail([[0,7],[10,6],[16,6]]);
+  trail([[0,10],[-5,5],[-5,-11]]); trail([[0,7],[10,6]]);
   trail([[0,7],[-12,2],[-15,-2]]); trail([[10,6],[17,-2],[20,-8]]);
   const crystals=[], gardenLights=[];
   function crystal(x,y,z,size,color) {
@@ -135,7 +177,8 @@ export function createSkyIsland({ scene, world, onReady }) {
     const m=mesh(new THREE.OctahedronGeometry(size),mat,x,y,z); m.scale.y=1.7;
     crystals.push({mesh:m,y}); return m;
   }
-  mesh(new THREE.CylinderGeometry(1.9,2.3,0.6,12),dark,SKY_SHRINE.x,68.3,SKY_SHRINE.z);
+  mesh(new THREE.CylinderGeometry(1.9,2.3,0.6,12),ivory,SKY_SHRINE.x,68.3,SKY_SHRINE.z);
+  inlay(SKY_SHRINE.x,68,SKY_SHRINE.z,7.4); // stem 5.9 m inside the 6 m terrace
   const shrineCrystal=crystal(SKY_SHRINE.x,71,SKY_SHRINE.z,1.6,0x83ecd8);
   const shrineGlow=new THREE.PointLight(0x8ef5da,0.45,15);
   shrineGlow.position.set(SKY_SHRINE.x,71,SKY_SHRINE.z);root.add(shrineGlow);
@@ -145,13 +188,14 @@ export function createSkyIsland({ scene, world, onReady }) {
   // Shrine trigger surrounds the pedestal, so the player never needs to enter it.
   for(let i=0;i<6;i++) {
     const a=i*Math.PI/3,x=SKY_SHRINE.x+Math.cos(a)*4.8,z=SKY_SHRINE.z+Math.sin(a)*4.8;
-    mesh(new THREE.CylinderGeometry(0.35,0.5,0.8,6),stone,x,68.4,z);
+    mesh(new THREE.CylinderGeometry(0.35,0.5,0.8,6),ivory,x,68.4,z);
     gardenLights.push(crystal(x,69.25,z,0.23,0x92ebc6));
   }
   crystal(SKY_SECRET.x,70,SKY_SECRET.z,0.8,0xdbb6ff);
-  mesh(new THREE.BoxGeometry(2.8,0.25,0.8),wood,SKY_LOOKOUT.x,64.6,SKY_LOOKOUT.z+1.7);
-  for(const x of [-1,1]) mesh(new THREE.BoxGeometry(0.2,0.6,0.6),wood,SKY_LOOKOUT.x+x,64.3,SKY_LOOKOUT.z+1.7);
-  for(let i=0;i<5;i++) obstacle(29+Math.cos(i*Math.PI/4)*4.5,6+Math.sin(i*Math.PI/4)*4.5,0.35,0.8,0.35);
+  // Sizes keep the stem (0.8 x size) inside each top: ledge octagons are 2.31 m to a flat edge.
+  for(const j of SKY_JUMPS) inlay(j.x,j.top,j.z,2.8);
+  inlay(SKY_SECRET.x,SKY_SECRET.top,SKY_SECRET.z,6.2,4.4);
+  vines.done(); onReady?.(briars);
   // A sky spring feeds the waterfall through a shallow stream along the west rim.
   const poolMat=createWaterSurface('pool'), fallMat=createWaterSurface('fall');
   const pool=mesh(new THREE.CircleGeometry(3.2,48),poolMat,SKY.x-15,64.11,SKY.z-2); pool.rotation.x=-Math.PI/2;
@@ -222,8 +266,10 @@ export function createSkyIsland({ scene, world, onReady }) {
     }` });
   function doorway(p,frame) {
     if(frame) {
-      for(const side of [-1,1]) mesh(new THREE.BoxGeometry(0.65,3.2,0.8),stone,p.x+side*4.05,p.top+1.6,p.z);
-      mesh(new THREE.TorusGeometry(4.05,0.32,8,24,Math.PI),stone,p.x,p.top+3.2,p.z);
+      for(const side of [-1,1]) mesh(new THREE.BoxGeometry(0.65,3.2,0.8),ivory,p.x+side*4.05,p.top+1.6,p.z);
+      mesh(new THREE.TorusGeometry(4.05,0.32,8,24,Math.PI),gold,p.x,p.top+3.2,p.z);
+      const key=new THREE.ExtrudeGeometry(cloverShapes(1.4),{depth:.12,bevelEnabled:false}).center();
+      mesh(key,gold,p.x,p.top+3.2+4.05,p.z);
     }
     const s=new THREE.Shape(); s.moveTo(-3.7,0.05);s.lineTo(3.7,0.05);s.lineTo(3.7,3.2);
     s.absarc(0,3.2,3.7,0,Math.PI,false);s.lineTo(-3.7,0.05);
@@ -270,7 +316,7 @@ export function createSkyIsland({ scene, world, onReady }) {
   const pulseMaterial=new THREE.MeshBasicMaterial({color:0xbaffdf,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
   const pulse=new THREE.Mesh(new THREE.RingGeometry(.8,1,64),pulseMaterial);pulse.rotation.x=-Math.PI/2;scene.add(pulse);
   let time=0,pulseTime=0,trailHistory=[],travelFov=null;
-  return {root,water,colliders,platforms:[...SKY_PLATFORMS,...rails],journey,
+  return {root,water,colliders,platforms:SKY_PLATFORMS,journey,
     update(dt,player,keys,state,onTravel) {
       time+=dt; const event=journey.update(dt,player.position,keys.has('KeyE'),state.locked);
       player.inFlight=Boolean(event.flight);
@@ -300,7 +346,7 @@ export function createSkyIsland({ scene, world, onReady }) {
       shrineCrystal.material.emissiveIntensity=journey.awakened?1.3:0.45;
       shrineGlow.intensity=journey.awakened?1.4:0.45;
       gardenLights.forEach(m=>m.material.emissiveIntensity=journey.awakened?1.7:0.12);
-      orbit.rotation.z+=dt*.25;
+      orbit.rotation.z+=dt*.25; crest.rotation.y+=dt*.3; for(const tip of towerCrests) tip.rotation.y-=dt*.6;
       lakeMat.uniforms.uTime.value=time;
       // Spray billows up and out of each fall's landing churn.
       for(let i=0;i<240;i++) {const f=falls[i%4],t=(time*.45+world.hash(i,1810))%1,a=world.hash(i,1811)*6.28,r=t*(1.5+world.hash(i,1812)*3);

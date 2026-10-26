@@ -13,9 +13,38 @@ export const CLOVER_STORY = Object.freeze({
 });
 export const CLOVER_MAP_LOCATIONS = [CLOVER_STORY.archive, CLOVER_STORY.scar, CLOVER_STORY.chest];
 export const ROOT_APPROACH = Object.freeze({ x: -22, z: -430, width: 26, depth: 4, top: 12, bottom: 10.8, solid: true });
+// The Archive is an enclosed hall on its column lines (north is -z): an east door where the approach
+// arrives (z -430.7..-427) and a west door where the first root crossing leaves (z -422.5..-417.5).
+// Lintels span both doors above head height. Solid platforms, so movement and camera share them.
+export const ARCHIVE_HALL = Object.freeze({ west: -42, east: -26, south: -410, north: -431, floor: 12, door: 16.5, top: 18.5 });
+const hallWall = (x, z, width, depth, bottom = ARCHIVE_HALL.floor) =>
+  ({ name: 'archive-wall', x, z, width, depth, top: ARCHIVE_HALL.top, bottom, solid: true });
+export const ARCHIVE_WALLS = Object.freeze([
+  hallWall(-34, -410, 16.6, .6), hallWall(-34, -431, 16.6, .6),
+  hallWall(-42, -413.75, .6, 7.5), hallWall(-42, -426.75, .6, 8.5), hallWall(-42, -420, .6, 5, ARCHIVE_HALL.door),
+  hallWall(-26, -418.5, .6, 17), hallWall(-26, -428.85, .6, 3.7, ARCHIVE_HALL.door),
+]);
 const near = (p, q, radius = 4) => Math.hypot(p.x - q.x, p.z - q.z) < radius && Math.abs(p.y - 2.05 - q.top) < 1.5;
 const say = (kind, text, ms = 6500) => ({ kind, text, ms: Math.min(ms, 8000) });
 const cardinal = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
+
+// Handrails along each restored crossing, over the gap between its landings: thin solid strips
+// matching the briar rails, active only once that crossing has grown. The top stays above the
+// companion's step-up limit so neither it nor the player can stand on a rail.
+export const ROAD_RAIL = Object.freeze({ offset: 1.95, height: 1.1 });
+export function roadRails(segment, i, enabled = () => true) {
+  const a = ROOT_LANDINGS[i], b = ROOT_LANDINGS[i + 1];
+  const alongX = Math.abs(segment.to.x - segment.from.x) > Math.abs(segment.to.z - segment.from.z);
+  const axis = alongX ? 'x' : 'z', size = alongX ? 'width' : 'depth', other = alongX ? 'z' : 'x';
+  const dir = Math.sign(segment.to[axis] - segment.from[axis]);
+  const start = a[axis] + dir * a[size] / 2, end = b[axis] - dir * b[size] / 2, length = Math.abs(end - start);
+  return [-1, 1].map(side => {
+    const c = { [axis]: (start + end) / 2, [other]: segment.from[other] + side * ROAD_RAIL.offset };
+    const width = alongX ? length : .12, depth = alongX ? .12 : length;
+    return { name: 'living-road-rail', x: c.x, z: c.z, width, depth, top: ROOT_START.top + ROAD_RAIL.height, bottom: ROOT_START.top, solid: true,
+      contains(px, pz, pad = 0) { return enabled() && Math.abs(px - c.x) < width / 2 + pad && Math.abs(pz - c.z) < depth / 2 + pad; } };
+  });
+}
 
 export function livingRoadArea(x, z, margin = 0) {
   return x > -120 - margin && x < -23 + margin && z > -472 - margin && z < -402 + margin;
@@ -35,9 +64,10 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
   }
   reset();
   const completeRoad = growRoots({ seed });
-  const platforms = [ROOT_APPROACH,
+  const platforms = [ROOT_APPROACH, ...ARCHIVE_WALLS,
     ...ROOT_LANDINGS.map(p => ({ ...p, name: 'root-landing', bottom: -7, solid: true })),
-    ...completeRoad.backbone.map((s, i) => rootBridge(s, () => generation > i))];
+    ...completeRoad.backbone.map((s, i) => rootBridge(s, () => generation > i)),
+    ...completeRoad.backbone.flatMap((s, i) => roadRails(s, i, () => generation > i))];
   const interaction = position => {
     if (near(position, CLOVER_STORY.iven)) return { kind: 'iven', at: CLOVER_STORY.iven };
     if (near(position, CLOVER_STORY.chest, 3)) return { kind: 'chest', at: CLOVER_STORY.chest };
