@@ -1,4 +1,5 @@
 """Build dist/ for static hosting: app files + only the assets the game loads."""
+import json
 import pathlib
 import shutil
 import sys
@@ -24,6 +25,13 @@ ASSETS = [
     'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb',
     'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Female Mannequin/Unreal-Godot/Mannequin_F.glb',
 ]
+# Kit packs where the game loads only a few models (cloverArchiveProps.js): copy each model's
+# .gltf, its buffers and the textures it references, not the whole pack.
+KIT_MODELS = {
+    'Fantasy Props MegaKit[Standard]/Exports/glTF': ['Bookcase_2', 'Shelf_Arch', 'BookStand', 'Book_Stack_1', 'Book_Stack_2',
+                                                     'Scroll_2', 'Chandelier', 'Lantern_Wall', 'Vase_2'],
+    'Medieval Village MegaKit[Standard]/glTF': ['Roof_RoundTiles_8x12', 'Prop_Vine5', 'Prop_Vine2'],
+}
 OPTIONAL = ['sounds']  # copied when present; the game falls back to synthesized sounds
 SKIP = shutil.ignore_patterns('desktop.ini', 'Desktop.ini', 'Thumbs.db', '.DS_Store', '__pycache__')
 
@@ -53,6 +61,14 @@ for rel in APP:
     copy(rel, ROOT, DIST)
 for rel in ASSETS:
     copy(rel, ROOT / 'assets', DIST / 'assets')
+for folder, names in KIT_MODELS.items():
+    for name in names:
+        gltf = ROOT / 'assets' / folder / f'{name}.gltf'
+        if not gltf.is_file():
+            sys.exit(f'Missing: {gltf}  (see CLOVER_LIVING_ROAD.md, Clover look and assets)')
+        refs = json.loads(gltf.read_text(encoding='utf-8'))
+        for uri in [f'{name}.gltf'] + [x['uri'] for x in refs.get('buffers', []) + refs.get('images', []) if 'uri' in x]:
+            copy(f'{folder}/{uri}', ROOT / 'assets', DIST / 'assets')
 for rel in OPTIONAL:
     if (ROOT / 'assets' / rel).exists():
         copy(rel, ROOT / 'assets', DIST / 'assets')
