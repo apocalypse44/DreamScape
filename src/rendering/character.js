@@ -181,7 +181,8 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
       const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
-      root.visible = Boolean(mixer) && (state.cinematic || state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
+      // state.memory: a flashback is replaying the past, where the player was not.
+      root.visible = Boolean(mixer) && !state.memory && (state.cinematic || state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);

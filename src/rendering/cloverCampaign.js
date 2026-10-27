@@ -304,6 +304,74 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     .flatMap(([x, z]) => [[-.6, -.6, .6, .6], [-.6, .6, .6, -.6]].flatMap(([a, b, c, d]) =>
       [new THREE.Vector3(scar.x + x + a, 12.32, scar.z + z + b), new THREE.Vector3(scar.x + x + c, 12.32, scar.z + z + d)]))), decoyMaterial);
   decoys.visible = false; root.add(decoys);
+  // --- Flashback staging ("The Severing"): the whole road as it was, Veyr's chains crawling from the
+  // Scar along it, the vines withering, crossings snapping (last first) into falling root debris, his
+  // decoy marks, and Iven's green seal. memoryStage(stage) each frame; memoryStage(null) restores now.
+  const fullRoad = growRoots({ seed: world.seed }), branches = fullRoad.segments.filter(s => !s.road);
+  const chainLinks = new THREE.InstancedMesh(new THREE.TorusGeometry(.17, .045, 4, 8), mat(0x9b6bff), 260);
+  chainLinks.count = 0; chainLinks.frustumCulled = false; root.add(chainLinks);
+  const chainPath = [...ROOT_LANDINGS].reverse().map(p => new THREE.Vector3(p.x, p.top + .38, p.z));
+  const chainLength = chainPath.slice(1).reduce((sum, p, i) => sum + p.distanceTo(chainPath[i]), 0);
+  const debrisMaterial = new THREE.MeshStandardMaterial({ color: 0x3b3029, roughness: .9 });
+  const debris = Array.from({ length: 18 }, () => {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(.24, .3, 1.7, 6), debrisMaterial);
+    mesh.visible = false; mesh.castShadow = true; root.add(mesh);
+    return { mesh, velocity: new THREE.Vector3(), spin: new THREE.Vector3() };
+  });
+  const sealBeam = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, 1, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x7dff9a,
+    transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  sealBeam.visible = false; root.add(sealBeam);
+  let memoryOn = false, roadShown = -1;
+  function snap(i) { // throw this crossing's span into the ravine as falling root pieces
+    const segment = visibleRoadSegments(fullRoad.backbone[i])[0];
+    if (!segment) return;
+    debris.slice(i * 6, i * 6 + 6).forEach((d, k) => {
+      const t = (k + .5) / 6;
+      d.mesh.position.set(segment.from.x + (segment.to.x - segment.from.x) * t, 11.7, segment.from.z + (segment.to.z - segment.from.z) * t);
+      d.mesh.rotation.set(Math.PI / 2, world.hash(i, k) * 3, 0); d.mesh.visible = true;
+      d.velocity.set((world.hash(k, i) - .5) * 3, 1.5 + world.hash(k + 9, i) * 2, (world.hash(i + 9, k) - .5) * 3);
+      d.spin.set((world.hash(k, 4) - .5) * 4, (world.hash(4, k) - .5) * 4, (world.hash(k, 7) - .5) * 4);
+    });
+  }
+  function memoryStage(stage) {
+    if (!stage) {
+      if (!memoryOn) return;
+      memoryOn = false; roadShown = -1; seen = -1; // the next refresh redraws the present road
+      vineRoad.memory({}); chainLinks.count = 0; sealBeam.visible = false; trace.visible = decoys.visible = false;
+      for (const d of debris) d.mesh.visible = false;
+      return;
+    }
+    memoryOn = true;
+    vineRoad.memory({ blacken: stage.blacken, hedges: false });
+    const intact = fullRoad.backbone.filter((s, i) => i < 3 - stage.broken);
+    if (roadShown !== stage.broken) {
+      if (stage.broken > Math.max(0, roadShown)) for (let i = 3 - Math.max(0, roadShown) - 1; i >= 3 - stage.broken; i--) snap(i);
+      roadShown = stage.broken;
+      drawSegments(roots, intact); vineRoad.draw(intact, branches); preview.count = 0;
+    }
+    // Chains: links along the road from the Scar toward the Archive, as far as the binding has crawled.
+    const reach = stage.chains * chainLength, step = .42;
+    let count = 0, walked = 0;
+    for (let i = 1; i < chainPath.length && walked < reach; i++) {
+      const a = chainPath[i - 1], b = chainPath[i], length = a.distanceTo(b);
+      for (let d = 0; d < length && walked + d < reach && count < chainLinks.instanceMatrix.count; d += step) {
+        dummy.position.lerpVectors(a, b, d / length); dummy.position.y += Math.sin((walked + d) * 1.3 + time * 3) * .05;
+        dummy.rotation.set(0, Math.atan2(b.x - a.x, b.z - a.z), count % 2 ? Math.PI / 2 : 0); dummy.scale.setScalar(1);
+        dummy.updateMatrix(); chainLinks.setMatrixAt(count++, dummy.matrix);
+      }
+      walked += length;
+    }
+    chainLinks.count = count; chainLinks.instanceMatrix.needsUpdate = true;
+    decoys.visible = stage.decoys > 0; decoyMaterial.opacity = Math.min(1, stage.decoys);
+    trace.visible = stage.seal > 0; traceGeometry.setDrawRange(0, 2 * Math.ceil(pattern.length * Math.min(1, stage.seal)));
+    sealBeam.visible = Boolean(stage.beam && stage.beamFrom);
+    if (sealBeam.visible) {
+      const from = stage.beamFrom, to = new THREE.Vector3(scar.x, scar.top + .4, scar.z), length = from.distanceTo(to);
+      sealBeam.position.lerpVectors(from, to, .5); sealBeam.scale.set(1, length, 1);
+      sealBeam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+      sealBeam.material.opacity = Math.min(1, stage.beam) * .85;
+    }
+  }
   // The reward finishes the terrace climb, gateway journey and Starlight jumps.
   const chestAt = CLOVER_STORY.chest;
   colliders.push({ x: chestAt.x, z: chestAt.z, radius: .65, minY: chestAt.top, maxY: chestAt.top + 1 });
@@ -400,6 +468,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     model, root, obstacles, colliders, platforms: model.platforms,
     atInteraction: position => Boolean(model.interaction(position)),
     // Cutscene effects, k from 0 to 1; Infinity ends the effect.
+    memoryStage,
     scarReveal(k) {
       trace.visible = decoys.visible = k < Infinity;
       traceGeometry.setDrawRange(0, 2 * Math.ceil(pattern.length * Math.min(1, k)));
@@ -435,7 +504,12 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       // Only the currently growing roots animate their matrices. Otherwise update on
       // state changes or while inspecting a guide; no allocations on distant frames.
       const atGuide = model.interaction(player.position)?.kind === 'guide';
-      if (close && (seen !== model.version || model.pending || atGuide || inspecting !== atGuide || debugOn)) refresh(player, state);
+      if (memoryOn) for (const d of debris) if (d.mesh.visible) { // falling root pieces during the flashback
+        d.velocity.y -= 18 * dt; d.mesh.position.addScaledVector(d.velocity, dt);
+        d.mesh.rotation.x += d.spin.x * dt; d.mesh.rotation.y += d.spin.y * dt; d.mesh.rotation.z += d.spin.z * dt;
+        if (d.mesh.position.y < -6) d.mesh.visible = false;
+      }
+      if (!memoryOn && close && (seen !== model.version || model.pending || atGuide || inspecting !== atGuide || debugOn)) refresh(player, state);
       inspecting = atGuide;
       if (close) {
         for (const emblem of spinners) emblem.rotation.y += dt * .8;

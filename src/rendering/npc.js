@@ -76,6 +76,7 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
   }
 
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const bodies = {}; // loaded mannequins, reused by story actors
   const ready = Promise.all([fetchBuffer(UAL1), fetchBuffer(UAL2), fetchBuffer(FEMALE)]).then(async ([male, extra, female]) => {
     const maleAsset = await parse(male);
     for (const clip of maleAsset.animations) clips[clip.name] = stripRootMotion(clip);
@@ -83,6 +84,7 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
     for (const clip of (await parse(extra)).animations) clips[clip.name] = stripRootMotion(clip);
     await nextFrame();
     const femaleAsset = await parse(female);
+    bodies.M = maleAsset; bodies.F = femaleAsset;
     for (const def of VILLAGERS) {
       await nextFrame();
       const model = cloneSkinned((def.body === 'F' ? femaleAsset : maleAsset).scene);
@@ -192,6 +194,40 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
         }
       }
     },
-    reset() { npcs.forEach(place); }
+    reset() { npcs.forEach(place); },
+    // Hide or show a villager by name (a flashback stages its younger self instead).
+    // name '*' hides every villager (a flashback shows the past, where they were not).
+    setHidden(name, hidden) { for (const npc of npcs) if (name === '*' || npc.def.name === name) npc.group.visible = !hidden; },
+    // A story actor on the villagers' mannequins and clips: { group, play(clip, fade), update(dt), dispose() },
+    // or null until the NPC assets have loaded. robe: an optional long coat or cloak colour.
+    actor({ body = 'M', tint = 0x4a5a4a, robe = null } = {}) {
+      if (!bodies[body]) return null;
+      const model = cloneSkinned(bodies[body].scene), group = new THREE.Group();
+      model.traverse(object => {
+        if (!object.isMesh) return;
+        object.castShadow = true; object.frustumCulled = false;
+        object.material = object.material.clone(); object.material.color.set(tint);
+      });
+      group.add(model);
+      if (robe !== null) {
+        const height = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+        const coat = new THREE.Mesh(new THREE.LatheGeometry(ROBE_PROFILE.map(([r, y]) => new THREE.Vector2(r * height, y * height)), 18),
+          new THREE.MeshStandardMaterial({ color: robe, roughness: .85, side: THREE.DoubleSide }));
+        coat.castShadow = true; group.add(coat);
+      }
+      const mixer = new THREE.AnimationMixer(model), actions = {};
+      let current = null;
+      return {
+        group, model, // model: for bones such as 'Head' that decorations follow
+        play(name, fade = .3, once = false) {
+          if (current === name || !clips[name]) return;
+          const next = actions[name] ||= mixer.clipAction(clips[name]);
+          next.reset(); next.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); next.clampWhenFinished = once;
+          next.fadeIn(fade).play(); actions[current]?.fadeOut(fade); current = name;
+        },
+        update(dt) { mixer.update(dt); },
+        dispose() { mixer.stopAllAction(); group.parent?.remove(group); }, // r128 has no removeFromParent()
+      };
+    },
   };
 }

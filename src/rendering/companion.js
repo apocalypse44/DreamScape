@@ -173,8 +173,8 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       const flame = cinematic?.fire ?? (cursed ? 1 : 0);
       const body = wolf >= .5 ? hound : dog;
       activeBody = body;
-      dog.root.visible = wolf < .5;
-      hound.root.visible = wolf >= .5;
+      dog.root.visible = wolf < .5 && !state.memory; // hidden while a flashback replays the past
+      hound.root.visible = wolf >= .5 && !state.memory;
       dog.root.scale.setScalar(1 + Math.min(wolf, .5) * .35);
       hound.root.scale.setScalar(.65 + .35 * wolf);
       if (cinematic?.hold) {

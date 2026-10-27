@@ -33,7 +33,7 @@ globalThis.THREE = {
     }
   },
 };
-const element = () => ({ style: {}, classList: { add() {}, remove() {} }, setAttribute() {}, querySelector: () => element(), offsetWidth: 0 });
+const element = () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, querySelector: () => element(), offsetWidth: 0 });
 globalThis.document = { createElement: element, body: { appendChild() {}, classList: { add() {}, remove() {} } } };
 const keydown = [];
 globalThis.window = { addEventListener: (type, listener) => keydown.push(listener) };
@@ -41,8 +41,9 @@ const press = code => keydown.at(-1)({ code, preventDefault() {}, stopImmediateP
 const { createCloverScenes } = await import(load(new URL('../src/controllers/cloverScenes.js', import.meta.url)));
 const { CLOVER_STORY, ARCHIVE_HALL, ARCHIVE_WALLS } = await import(load(new URL('../src/models/cloverCampaign.js', import.meta.url)));
 const { shrineLayout } = await import(load(new URL('../src/rendering/cloverArchiveProps.js', import.meta.url)));
+const { ROOT_LANDINGS } = await import(load(new URL('../src/models/cloverGrowth.js', import.meta.url)));
 
-test('story events queue their shot once ready, it flies to the chest and restores the player view', () => {
+test('reading the Scar plays its memory first, then the route shot flies to the chest and restores the view', () => {
   const camera = { position: new Vector3(1, 2, 3), quaternion: new THREE.Quaternion(), lookAt() {} };
   const state = { cinematic: false }, keys = new Set(), effects = [];
   const campaign = { scarReveal: k => effects.push(['scar', k]), hookRise: k => effects.push(['hook', k]) };
@@ -54,6 +55,9 @@ test('story events queue their shot once ready, it flies to the chest and restor
   scenes.observe(true);
   assert.equal(scenes.active, true);
   assert.equal(state.cinematic, true);
+  while (scenes.active) scenes.update(.1); // "The Severing" plays first
+  scenes.observe(true);
+  assert.equal(scenes.active, true, 'the route shot follows the memory');
   for (let t = 0; t < 18.5 - 1e-9; t += .1) scenes.update(.1);
   const { chest } = CLOVER_STORY;
   assert.ok(Math.hypot(camera.position.x - (chest.x - 4), camera.position.z - (chest.z + 9)) < .5, 'last key is reached at its second');
@@ -81,7 +85,7 @@ test('X skips and reset clears both a playing and a queued shot', () => {
   assert.equal(state.cinematic, false);
 });
 
-test('no Clover shot puts the camera inside the Archive walls, its ceiling or a shrine pillar', () => {
+test('no Clover shot puts the camera inside the Archive walls, its ceiling, a shrine pillar or a landing cliff', () => {
   const camera = { position: new Vector3(), quaternion: new THREE.Quaternion(), lookAt() {} };
   const state = { cinematic: false }, keys = new Set(), near = .2; // camera near plane plus margin
   const campaign = { scarReveal() {}, hookRise() {}, heartBeacon() {} };
@@ -93,7 +97,7 @@ test('no Clover shot puts the camera inside the Archive walls, its ceiling or a 
   // The chest shot turns toward the Heart gate, whose direction depends on the world seed: fly it
   // toward eight compass directions so the perch pillars are cleared whatever the seed.
   const { chest } = CLOVER_STORY;
-  const runs = [[null, 'meet'], [null, 'sigil'], ...Array.from({ length: 8 }, (_, i) =>
+  const runs = [[null, 'meet'], [null, 'severing'], [null, 'sigil'], [null, 'mark'], ...Array.from({ length: 8 }, (_, i) =>
     [{ x: chest.x + Math.cos(i * Math.PI / 4) * 600, y: 6, z: chest.z + Math.sin(i * Math.PI / 4) * 600 }, 'hook'])];
   for (const [heart, kind] of runs) {
     const scenes = createCloverScenes({ camera, state, keys, campaign, heart });
@@ -107,6 +111,10 @@ test('no Clover shot puts the camera inside the Archive walls, its ceiling or a 
         p.y > w.bottom - near && p.y < w.top + near), `${kind} shot enters an Archive wall at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
       for (const c of columns) assert.ok(!(Math.hypot(p.x - c.x, p.z - c.z) < c.radius + near && p.y < c.top + near),
         `${kind} shot enters a shrine pillar at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
+      for (const l of ROOT_LANDINGS) assert.ok(!(Math.abs(p.x - l.x) < l.width / 2 && Math.abs(p.z - l.z) < l.depth / 2 && p.y < l.top + near),
+        `${kind} shot enters a landing's cliff at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
+      // The Grimoire Tower (10 m tall, footprint up to ~7.3 m) at the shrine, for the Ember Hound memory (ground 0 here).
+      assert.ok(!(Math.hypot(p.x, p.z + 11) < 8.5 && p.y < 11), `${kind} shot enters the Grimoire Tower at ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`);
       if (over(p) && p.y < hall.top + 4) { inside++; assert.ok(p.y < hall.top - near, `${kind} shot pierces the Archive ceiling at y ${p.y.toFixed(2)}`); }
     }
   }
