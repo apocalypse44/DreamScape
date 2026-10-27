@@ -41,7 +41,16 @@ function stripRootMotion(clip) {
   return clip;
 }
 
-export function createNPCs({ scene, state, player, terrainHeight, hash, colliders, onReady }) {
+// blocked(x, z): an NPC standing there would be inside a structure (the game supplies it).
+export function createNPCs({ scene, state, player, terrainHeight, hash, colliders, blocked = () => false, onReady }) {
+  // The nearest free spot around (x, z), searching rings 0.5 m apart out to 6 m; null if none.
+  function freeSpot(x, z) {
+    for (let r = 0.5; r <= 6; r += 0.5) for (let a = 0; a < 16; a++) {
+      const px = x + Math.cos(a * Math.PI / 8) * r, pz = z + Math.sin(a * Math.PI / 8) * r;
+      if (!blocked(px, pz)) return [px, pz];
+    }
+    return null;
+  }
   const root = new THREE.Group();
   scene.add(root);
   const npcs = [];
@@ -101,7 +110,7 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
       const group = new THREE.Group();
       group.add(model);
       root.add(group);
-      const collider = { x: def.home[0], z: def.home[1], radius: 0.45 };
+      const collider = { x: def.home[0], z: def.home[1], radius: 0.45, npc: true }; // npc: not an obstacle to other NPCs
       colliders.push(collider);
       const npc = { def, group, collider, mixer: new THREE.AnimationMixer(model), actions: {}, current: null, t: 0 };
       if (def.style === 'scholar') npc.style = createIvenStyle({ model, group, root });
@@ -160,8 +169,11 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
           const [tx, tz] = target(npc, npc.t);
           const mx = tx - group.position.x, mz = tz - group.position.z;
           const gap = Math.hypot(mx, mz);
-          if (gap > 0.3) {
-            const step = Math.min(gap, WALK_SPEED * dt);
+          const step = Math.min(gap, WALK_SPEED * dt);
+          if (gap > 0.3 && blocked(group.position.x + mx / gap * step, group.position.z + mz / gap * step)) {
+            npc.t += 12; // something stands in the way: head for the next spot instead
+            play(npc, 'Idle_Loop');
+          } else if (gap > 0.3) {
             group.position.x += mx / gap * step;
             group.position.z += mz / gap * step;
             yaw = Math.atan2(mx, mz);
@@ -170,6 +182,14 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
             play(npc, 'Idle_Loop');
           }
         } else {
+          // Scenery streams in after the NPCs; a home it covers moves once to the nearest free spot.
+          // Checked every 2 s (chunks keep streaming) until it has had to move once.
+          npc.checkIn = (npc.checkIn ?? 0) - dt;
+          if (!npc.settled && def.y === undefined && npc.checkIn <= 0) {
+            npc.checkIn = 2;
+            const spot = blocked(def.home[0], def.home[1]) && freeSpot(def.home[0], def.home[1]);
+            if (spot) { console.info(`NPC ${def.name} moved out of a structure`, def.home, '->', spot); def.home = spot; npc.settled = true; }
+          }
           group.position.set(def.home[0], 0, def.home[1]);
           play(npc, def.idle);
         }

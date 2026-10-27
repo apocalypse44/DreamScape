@@ -1,13 +1,43 @@
 // Screen overlay pinned to world positions: toast message, "E · PET" prompt, NPC speech bubbles.
 // The elements live in game.html (#overlay); styles in styles/main.css.
 
+// Story text (anything with a sentence in it, e.g. 'NERIS · They scatter…') goes to the dialogue box;
+// short all-caps notices ('SATCHEL · TIDE HOOK ADDED') stay toasts.
 export function toast(text, ms = 2000) {
+  if (/[a-z]/.test(text)) {
+    const at = text.search(/ · [^·]*[a-z]/); // speaker: the all-caps part before the first sentence
+    return say(at > 0 ? text.slice(0, at) : '', at > 0 ? text.slice(at + 3) : text);
+  }
   const el = document.querySelector('#toast');
   el.textContent = text;
   el.classList.add('show');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), ms);
 }
+
+// One dialogue box for every speaker. It stays until the player presses Space (or clicks it);
+// a new line replaces the old one.
+let box = null;
+function close() { if (box) box.hidden = true; }
+export function say(speaker, text) {
+  if (!box) {
+    box = document.createElement('aside');
+    box.className = 'dialogue-box'; box.hidden = true;
+    box.innerHTML = '<strong></strong><p aria-live="polite"></p><small>SPACE · CONTINUE</small>';
+    box.addEventListener('click', close);
+    document.body.append(box);
+    // Capture first, so the Space that closes the box doesn't also jump.
+    window.addEventListener('keydown', event => {
+      if (box.hidden || event.code !== 'Space' || document.body.classList.contains('story-playing')) return;
+      event.preventDefault(); event.stopImmediatePropagation(); close();
+    }, true);
+  }
+  box.querySelector('strong').textContent = speaker;
+  box.querySelector('strong').hidden = !speaker;
+  box.querySelector('p').textContent = text;
+  box.hidden = false;
+}
+export const closeDialogue = close;
 
 // World position -> pixel position on screen. Returns false if behind camera.
 const v = new THREE.Vector3();

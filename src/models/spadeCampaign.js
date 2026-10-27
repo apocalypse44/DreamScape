@@ -50,9 +50,9 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
       charge.set(site.id, value);
       if (value < LANTERN.hold) continue;
       lit.add(site.id);
-      if (lit.size < LANTERN_SITES.length) return say('lantern', `MEMORY LANTERN ${lit.size}/3 · The wisps remember a name the Triad erased.`, 5000);
+      if (lit.size < LANTERN_SITES.length) return say('lantern', `MEMORY LANTERN ${lit.size}/3 · The lantern glows. One of the wisps remembers their own name.`, 5000);
       stage = 'anchor';
-      return say('anchor', 'NERIS · The swarm trusts you now. The border anchor binds our settlement, north of the avenue before the castle wall. Its ward opens only in chaos. Gather the flock, stir the storm, then hold Q to send them through it together.', 10000);
+      return say('anchor', 'NERIS · All three lanterns are lit. Our people trust you now! Next, break the border anchor. It is north of the main street, just before the castle wall. Its shield only opens in chaos. Gather the wisps with E, run with Shift to stir up chaos, then hold Q to send them all into it at once.', 10000);
     }
     return null;
   }
@@ -70,9 +70,9 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
     });
     if (hits.size < STRIKE.wisps) return null;
     hits.clear(); cooldown = STRIKE.cooldown; strikes++;
-    if (strikes < STRIKE.needed) return say('strike', `STRIKE ${strikes}/${STRIKE.needed} · The ward cracks. Recall with F and regroup.`, 4000);
+    if (strikes < STRIKE.needed) return say('strike', `STRIKE ${strikes}/${STRIKE.needed} · The shield cracks! Press F to call the wisps back, then strike again.`, 4000);
     stage = 'report';
-    return say('broken', 'THE BORDER ANCHOR FALLS · Its chains go slack and the settlement is free. Return to Neris at the Lantern Refuge.', 8000);
+    return say('broken', 'THE BORDER ANCHOR BREAKS · The town is free! Go back to Neris at the Lantern Refuge. Walk in calmly.', 8000);
   }
 
   return {
@@ -86,9 +86,9 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
     // Why the sealed doors won't open, by stage (null once open).
     get gateMessage() {
       if (gateOpen) return null;
-      return stage === 'meet' ? 'THE CASTLE DOORS ARE SEALED · A ward of the Triad holds them. Find Neris at the Lantern Refuge first.'
-        : stage === 'complete' ? 'THE CASTLE DOORS ARE STIRRING · Neris’s light has reached the ward.'
-        : 'THE CASTLE DOORS ARE SEALED · The border anchor feeds their ward. Finish Neris’s quest and free the settlement first.';
+      return stage === 'meet' ? 'THE CASTLE DOORS ARE SEALED · A Triad spell keeps them shut. Find Neris at the Lantern Refuge first.'
+        : stage === 'complete' ? 'THE CASTLE DOORS ARE OPENING · Neris’s light has broken the spell.'
+        : 'THE CASTLE DOORS ARE SEALED · The border anchor powers their spell. Finish Neris’s quest first.';
     },
     // Solid while sealed; the player controller treats it like any other volume.
     doorVolume: { ...CASTLE_DOOR, name: 'castle-door', solid: true,
@@ -102,12 +102,12 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
     },
     get goal() {
       return {
-        meet: 'SPADE · FIND NERIS IN THE LANTERN REFUGE · ENTER IN CALM',
-        lanterns: `LANTERNS ${lit.size}/3 · HOLD E TO LEAD THE SWARM TO A DARK LANTERN · STAY CALM`,
-        anchor: `BORDER ANCHOR · STRIKES ${strikes}/${STRIKE.needed} · CHAOS OPENS THE WARD · HOLD Q TO STRIKE`,
+        meet: 'SPADE · FIND NERIS IN THE LANTERN REFUGE · WALK IN CALMLY',
+        lanterns: `LANTERNS ${lit.size}/3 · HOLD E TO LEAD THE WISPS TO A DARK LANTERN · STAY CALM`,
+        anchor: `BORDER ANCHOR · STRIKES ${strikes}/${STRIKE.needed} · CHAOS OPENS ITS SHIELD · HOLD Q TO STRIKE`,
         report: 'THE ANCHOR FELL · RETURN TO NERIS AT THE LANTERN REFUGE',
         complete: crownKnown() ? 'LANTERN SIGIL EARNED · NEXT · GO NORTH TO CLOVER · FIND IVEN'
-          : 'LANTERN SIGIL EARNED · NEXT · SPADE CASTLE · LEARN WHAT SHIELDS THE CROWN',
+          : 'LANTERN SIGIL EARNED · NEXT · ENTER SPADE CASTLE · FIND OUT WHAT PROTECTS THE CROWN',
       }[stage];
     },
     // swarm: { enabled, positions, previous } (any {x, y, z}). Returns a story event or null.
@@ -119,21 +119,21 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
         if (!insideRefuge(position)) turnedAway = false;
         else if (calmInRefuge && !turnedAway) {
           turnedAway = true;
-          return say('waiting', 'NERIS · You came west too soon. Your companion’s curse is still unbroken. Finish what you began at the Grimoire Tower, then come back to me.', 8000);
+          return say('waiting', 'NERIS · You came too early. Your dog is still cursed. Go back to the Grimoire Tower and cure it first, then come see me.', 8000);
         }
         return null;
       }
       if (stage === 'meet' && calmInRefuge) {
         stage = 'lanterns';
-        return say('neris', 'NERIS · They scatter because they are frightened. Gather them before you ask them to fight. Hold E to call the wisps and lead them to the three dark lanterns along the avenue while the world is calm.', 10000);
+        return say('neris', 'NERIS · Welcome. Those wisps outside were once our people. Veyr turned them into wisps because they stood against him. They are scared and remember almost nothing, so they will only follow someone they trust. Hold E to call them, then lead them to the three dark lanterns on the main street. Stay calm while you do it.', 10000);
       }
       if (stage === 'lanterns') return lightLanterns(dt, chaos, swarm);
       if (stage === 'anchor') return strikeWard(dt, position, chaos, swarm);
       if (stage === 'report' && calmInRefuge) {
         stage = 'complete';
-        return say('sigil', 'LANTERN SIGIL · NERIS · The projection fell, but three bindings still shield the Hollow Crown. Strike it now and the force only feeds the gate. ' +
-          (crownKnown() ? 'You have seen the bindings. Go north to Clover. Iven can show you which are true.'
-            : 'Go up to the castle. Its archive holds what the Triad stole, and the observatory shows what binds the Crown.'), 12000);
+        return say('sigil', 'LANTERN SIGIL · NERIS · Thank you. Take this Lantern Sigil. But the Hollow Crown is still protected by three spells. If you attack it now, it only gets stronger. ' +
+          (crownKnown() ? 'You have already seen those spells. Go north to Clover. Iven can tell you which ones are real.'
+            : 'The castle is open now. Read the old records in its archive, then look at the spells in the observatory upstairs.'), 12000);
       }
       return null;
     },

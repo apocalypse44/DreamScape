@@ -20,7 +20,7 @@
 :is(#houndScene,#doorScene,#cloverScene) .scene-speaker { margin:0 0 8px; color:#f2bc72; font:10px 'DM Mono',monospace; letter-spacing:.2em; }
 :is(#houndScene,#doorScene,#cloverScene) .scene-line { margin:0 0 16px; font:400 clamp(20px,2.3vw,30px)/1.45 Georgia,serif; }
 :is(#houndScene,#doorScene,#cloverScene) [data-scene-next] span { margin-left:12px; }
-body.story-playing :is(.hud-top,.hud-right,.swarm-panel,.crosshair,.compass,.shrine-panel,.movement-hint,.escape-menu,#mapButton,#overlay,#chaosReadout,#resumeHint) { visibility:hidden; }
+body.story-playing :is(.hud-top,.hud-right,.swarm-panel,.crosshair,.compass,.movement-hint,.escape-menu,#mapButton,#overlay,#chaosReadout,#resumeHint) { visibility:hidden; }
 @media (max-height:500px) {
   :is(#houndScene,#doorScene,#cloverScene) .scene-chapter { display:none; }
   :is(#houndScene,#doorScene,#cloverScene) .scene-line { font-size:20px; margin-bottom:5px; }
@@ -93,13 +93,6 @@ body.right-panels-hidden .swarm-panel { display:none; }
 @media(max-width:700px) { .hud-right { right:16px; top:82px; width:210px; max-height:calc(100vh - 98px); } .hud-right .behavior-card { width:100%; } }
 .quest-goal { margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line); color:var(--acid); font:500 8px/1.6 "DM Mono"; letter-spacing:.12em; }
 .quest-goal.warn { color:#ff705d; }
-.shrine-panel { position:fixed; z-index:4; left:50%; top:92px; width:min(440px, calc(100vw - 32px)); box-sizing:border-box; padding:16px 18px; border:1px solid rgba(127,232,255,.35); background:rgba(6,16,20,.78); backdrop-filter:blur(12px); opacity:0; transform:translate(-50%,-8px); transition:.35s; pointer-events:none; }
-.shrine-panel.active { opacity:1; transform:translate(-50%,0); }
-.shrine-panel small { color:#9fefff; font:500 8px "DM Mono"; letter-spacing:.2em; }
-.shrine-panel p { margin:10px 0 0; color:var(--ink); font-size:13px; line-height:1.6; }
-.shrine-panel.drowned { border-color:rgba(255,112,93,.4); }
-.shrine-panel.drowned small { color:#ff705d; }
-.shrine-panel.drowned p { color:var(--muted); font-style:italic; }
 
 /* World overlay: toast, interaction prompt, NPC speech bubbles (views/overlay.js), chaos readout. */
 #overlay { position:fixed; inset:0; z-index:20; pointer-events:none; font-family:system-ui,sans-serif; }
@@ -114,8 +107,28 @@ body.right-panels-hidden .swarm-panel { display:none; }
 .clover-action { position:fixed; z-index:18; left:50%; bottom:78px; transform:translateX(-50%); width:max-content; max-width:min(720px,90vw); padding:12px 18px; border:1px solid #8ca66e; background:rgba(13,32,22,.94); color:#e0efc5; font:12px/1.5 'DM Mono',monospace; text-align:center; pointer-events:none; }
 .clover-growth-study { position:fixed; z-index:18; left:3vw; top:100px; max-width:min(390px,90vw); padding:16px; border:1px solid var(--line); background:rgba(10,24,17,.94); color:var(--ink); font:11px/1.8 'DM Mono',monospace; white-space:pre-wrap; overflow-wrap:anywhere; pointer-events:none; }
 .clover-action[hidden],.clover-growth-study[hidden] { display:none; }
-.clover-dialogue { position:fixed;z-index:18;left:50%;top:clamp(180px,28vh,260px);transform:translateX(-50%);width:min(530px,80vw);padding:14px 18px;border:1px solid #7c9a62;background:rgba(9,28,18,.95);color:var(--ink);pointer-events:none; }
-.clover-dialogue strong { color:#badb9c;font:11px 'DM Mono',monospace;letter-spacing:.08em; }
-.clover-dialogue p { margin:8px 0 0;font:14px/1.6 'Manrope',sans-serif; }
-.clover-dialogue[hidden],.story-playing .clover-dialogue { display:none; }
+/* The shared dialogue box (views/overlay.js): every speaker, stays until Space or a click. */
+.dialogue-box { position:fixed;z-index:18;left:3vw;bottom:190px;width:min(440px,calc(100vw - 32px));padding:10px 14px 8px;border:1px solid #7c9a62;background:rgba(9,28,18,.58);backdrop-filter:blur(4px);color:var(--ink);cursor:pointer; }
+.dialogue-box strong { color:#badb9c;font:11px 'DM Mono',monospace;letter-spacing:.08em; }
+.dialogue-box p { margin:6px 0 4px;font:13px/1.5 'Manrope',sans-serif; }
+.dialogue-box small { display:block;text-align:right;color:var(--muted);font:9px 'DM Mono',monospace;letter-spacing:.12em; }
+.dialogue-box[hidden],.story-playing .dialogue-box { display:none; }
 .story-playing .clover-action,.story-playing .clover-growth-study { display:none; }
+/* The "i" help panel (views/helpPanel.js), beside the map button. Above the intro veil, so it can be
+   clicked after Esc frees the mouse. */
+#helpButton { position:fixed;z-index:8;top:16px;right:calc(3vw + 50px);width:38px;height:38px;padding:0;display:grid;place-items:center;border:1px solid rgba(198,255,101,.6);border-radius:50%;background:rgba(5,12,11,.7);color:var(--acid);font:italic 700 19px Georgia,serif;cursor:pointer; }
+#helpButton:hover,#helpButton:focus-visible,#helpButton[aria-expanded="true"] { background:rgba(198,255,101,.16);box-shadow:0 0 18px rgba(198,255,101,.3);outline:none; }
+#helpButton kbd { position:absolute;right:-4px;bottom:-4px;padding:1px 4px;border-radius:3px;background:var(--acid);color:#0b1408;font:700 8px 'DM Mono',monospace;font-style:normal; }
+#helpPanel { position:fixed;z-index:10;top:64px;right:3vw;width:min(340px,calc(100vw - 32px));max-height:calc(100vh - 90px);overflow-y:auto;padding:16px 18px;border:1px solid rgba(198,255,101,.45);background:rgba(7,15,14,.95);color:var(--ink);font:13px/1.55 'Manrope',sans-serif; }
+#helpPanel[hidden] { display:none; }
+#helpPanel .help-chapter,#helpPanel .help-foot,#helpPanel summary { color:var(--muted);font:9px 'DM Mono',monospace;letter-spacing:.12em; }
+#helpPanel h3 { margin:6px 0 2px;color:var(--acid);font:600 16px Georgia,serif; }
+#helpPanel .help-progress { margin:0 0 10px;color:var(--muted);font-size:12px; }
+#helpPanel .help-hint { margin:0 0 12px;font-size:14px; }
+#helpPanel kbd,.dialogue-box kbd { display:inline-block;min-width:1.6em;padding:0 5px;border:1px solid rgba(198,255,101,.6);border-radius:3px;background:rgba(198,255,101,.12);color:var(--acid);font:600 11px/1.6 'DM Mono',monospace;text-align:center; }
+#helpPanel details { margin:0 0 10px;border-top:1px solid var(--line);padding-top:10px; }
+#helpPanel summary { cursor:pointer; }
+#helpPanel dl { display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:10px 0 0;align-items:center; }
+#helpPanel dd { margin:0;font-size:12px; }
+.story-playing :is(#helpButton,#helpPanel) { visibility:hidden; }
+@media(max-width:700px) { #helpButton { right:calc(16px + 50px); } #helpPanel { right:16px; } }

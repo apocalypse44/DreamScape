@@ -7,11 +7,11 @@ export function grimoireQuests(quest, spade, clover) {
   // Neris's chapter waits for the cure (it never runs ahead of the hound quest).
   const early=stage!=='cured'&&chapter==='meet';
   // Spade castle's doors stay sealed until Neris's chapter is complete.
-  const sealed=chapter!=='complete',SEALED='The castle doors are sealed by the Triad’s ward. Finish The Swarm Remembers with Neris to open them.';
+  const sealed=chapter!=='complete',SEALED='The castle doors are sealed by a Triad spell. Finish Neris’s quest to open them.';
   return [
     {id:'hound',chapter:'I · THE CROSSING',title:'The Ember Hound',done:stage==='cured',locked:false,
       progress:stage==='companion'?'Your companion walks beside you.':`${embers}/3 embers gathered`,
-      hint:stage==='cured'?'The shrine keeper sends you west to Spade. Find Neris at the Lantern Refuge, the first house on your right beyond the gate. Then investigate the castle archive.'
+      hint:stage==='cured'?'Go west to Spade. Find Neris at the Lantern Refuge, the first house on your right after the gate.'
         :stage==='return'?'Return to the Grimoire Tower shrine. Become still to offer the three embers.'
         :stage==='cursed'?(quest.houndCarrying?'Follow the hound to the embers. Chaos raises their peaks; approach the hound calmly for the ember it carries.'
           :'Gather the remaining embers, then return to the shrine. Chaos reveals their high resting places.')
@@ -20,43 +20,43 @@ export function grimoireQuests(quest, spade, clover) {
     {id:'swarm',chapter:'II · THE SPADE KINGDOM',title:'The Swarm Remembers',done:chapter==='complete',locked:early,
       progress:early?'Begins after the Ember Hound is cured':{meet:'Neris waits at the Lantern Refuge',lanterns:`${campaign?.lit??0}/3 memory lanterns lit`,
         anchor:`${campaign?.strikes??0}/3 strikes on the border anchor`,report:'The border anchor has fallen',complete:'Lantern Sigil earned'}[chapter],
-      hint:early?'Cure the Ember Hound at the Grimoire Tower shrine first. Then Neris will receive you in Spade.'
-        :{meet:'Enter the Lantern Refuge in calm: the first house on your right beyond the Spade gate.',
-        lanterns:'Hold E to gather the wisps and lead them to each dark lantern above the avenue posts. Hold them there while the world is calm.',
-        anchor:'At the border-anchor plaza, stir chaos to open the ward, gather the flock, then hold Q so enough wisps strike it together. F recalls them.',
-        report:'Return to Neris at the Lantern Refuge in calm.',
-        complete:crown?'The Lantern Sigil is yours and the bindings are understood. Go north to Clover and find Iven.'
-          :'The Lantern Sigil is yours, but three bindings still shield the Hollow Crown. Enter the castle: read the archive, recover the witness, then inspect the bindings.'}[chapter],
+      hint:early?'Cure the Ember Hound at the Grimoire Tower shrine first. Then Neris will see you in Spade.'
+        :{meet:'Walk calmly into the Lantern Refuge: the first house on your right after the Spade gate.',
+        lanterns:'Hold E to call the wisps, then walk them to a dark lantern on the main street. Keep them there and stay calm until it lights.',
+        anchor:'Go to the border anchor. Run with Shift to stir chaos so its shield opens. Hold E to gather the wisps, then hold Q to send them at it together. F calls them back. Strike 3 times.',
+        report:'Walk calmly back to Neris at the Lantern Refuge.',
+        complete:crown?'You have the Lantern Sigil and know what protects the Crown. Go north to Clover and find Iven.'
+          :'You have the Lantern Sigil, but three spells still protect the Hollow Crown. Go into the castle: read the archive, find the hidden witness, then look at the spells.'}[chapter],
       stamp:'LANTERN SIGIL',destination:chapter==='anchor'?'spade-anchor':chapter==='complete'?'spade-castle':'spade-refuge'},
     {id:'archive',chapter:'II · THE SPADE KINGDOM',title:'The Stolen Testimonies',done:archive===3,locked:sealed,
       progress:sealed?'The castle doors are sealed':`${archive}/3 testimonies restored`,
-      hint:archive===3?'Clover, Heart and Diamond’s testimonies are inscribed in your grimoire.'
+      hint:archive===3?'All three records are saved in your journal.'
         :sealed?SEALED
-        :'Enter Spade castle and take the left-side stairs to the first-floor archive. Approach each of the three records in calm.',
+        :'Go into Spade castle and take the stairs on the left up to the archive. Walk calmly up to each of the three records.',
       stamp:'TRUTH INSCRIBED',destination:'spade-castle'},
     {id:'witness',chapter:'II · THE SPADE KINGDOM',title:'The Erased Witness',done:witness,locked:sealed,
       progress:witness?'Veyr’s hidden memory restored':sealed?'The castle doors are sealed':`${spade?.echo.progress??0}/5 chaos landings`,
-      hint:witness?'The witness exposed Veyr’s false anchors. The memory will remain with you.'
+      hint:witness?'The witness showed you Veyr’s fake anchors. You keep this memory.'
         :sealed?SEALED
         :spade?.echo.engaged?spade.echo.objective
-        :'At the archive’s north balcony, sprint and jump into chaos. Cross the five fractured arches, then become still on the final seal.',
+        :'In the archive, run and jump to stir chaos. Hidden arches appear past the north balcony. Jump across all five, then stand still on the last one.',
       stamp:'MEMORY UNBOUND',destination:'spade-castle'},
     {id:'crown',chapter:'II · THE SPADE KINGDOM',title:'The Hollow Crown',done:crown,locked:!crown&&(sealed||archive<3||!witness),
       progress:crown?'The three bindings understood':'Crown Observatory · floor 2',
-      hint:crown?'You understand the Triad’s stolen currents. Go north to Clover and find Iven at the Rootkeeper Archive.'
+      hint:crown?'You know what protects the Crown. Go north to Clover and find Iven at the Rootkeeper Archive.'
         :sealed?SEALED
-        :archive<3||!witness?'Restore all three archive testimonies and the erased witness first. Then inspect the bindings in calm on the second floor.'
-        :'Climb to the second-floor observatory. Approach the three bindings at the rear of the hall in calm.',
+        :archive<3||!witness?'First read all three archive records and find the hidden witness. Then go to the top floor and look at the spells.'
+        :'Climb to the observatory on the top floor. Walk calmly up to the three spells at the back of the hall.',
       stamp:'BINDINGS REVEALED',destination:'spade-castle'},
     {id:'living-road',chapter:'III · THE CLOVER KINGDOM',title:'The Living Road',done:Boolean(clover?.hook),locked:!clover?.available,
       progress:!clover?.available?'Requires the Lantern Sigil and the Hollow Crown testimony'
         :clover.hook?'Root Sigil and Tide Hook earned':clover.sigil?'Root Sigil earned · Sky Garden chest unlocked'
         :`${clover.generation}/3 root crossings restored`,
-      hint:!clover?.available?'Finish Neris’s chapter and inspect the Hollow Crown bindings in Spade. Then find Iven west of Clover’s upper terrace.'
-        :clover.hook?'The Root Sigil distinguishes true bindings from decoys. Carry the Tide Hook east to Heart and find Sera. Its crystal anchors await the Heart chapter.'
-        :clover.sigil?'Return across the roots and climb Clover Terraces to the summit. Press E at the glowing gateway to enter the floating Sky Garden. Follow the Starlight Ledges signs and jump to the highest perch. Open Iven’s chest in calm with E for the Tide Hook.'
-        :clover.generation===3?'Cross the restored road to the Stormleaf Scar. Read its original binding pattern in calm with E.'
-        :'Find Iven at the Archive. At each leaf-marked junction, E turns its guide in calm and grows roots in chaos. Follow west, north, west. Completed crossings remain in both modes.',
+      hint:!clover?.available?'Finish Neris’s quest and the castle in Spade first. Then find Iven, west of Clover’s top terrace.'
+        :clover.hook?'Clover is done. Take the Tide Hook east to Heart and find Sera.'
+        :clover.sigil?'Go back over the bridges and climb Clover Terraces to the summit. Press E at the glowing gateway to go to the Sky Garden. Follow the Starlight Ledges signs to the highest ledge. Calm down and press E to open Iven’s chest.'
+        :clover.generation===3?'Cross the new bridges to the Stormleaf Scar. Calm down and press E to read it.'
+        :'Talk to Iven at the Archive. At each stop, press E while calm to turn the guide toward the gold leaf. Then stir chaos and press E to grow the bridge. The path goes west, north, west.',
       stamp:'LIVING ROAD RESTORED',destination:clover?.sigil&&!clover?.hook?'clover-sky-chest':clover?.generation===3&&!clover?.sigil?'clover-scar':'clover-archive'},
   ];
 }

@@ -18,6 +18,9 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
   const platforms = spadeVolumes();
   const colliders = spadeColliders(platforms);
   const batches = new Map(), modules = new Map();
+  // The towers' plain pyramid roofs stand in until the spire model (a full roof of its own) loads;
+  // left in place, their corners poke out through it.
+  const standInRoofs = [];
   const box = new THREE.BoxGeometry(1, 1, 1), cone = new THREE.ConeGeometry(1, 1, 5);
   const gableShape = new THREE.Shape(); gableShape.moveTo(-0.5, -0.5); gableShape.lineTo(0, 0.5); gableShape.lineTo(0.5, -0.5); gableShape.closePath();
   const gable = new THREE.ExtrudeGeometry(gableShape, { depth: 1, bevelEnabled: false }).translate(0, 0, -0.5);
@@ -174,7 +177,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
   platforms.push(...echo.model.platforms);
   const castle = buildCastleInterior({root,add,block,module,label,notify,echo:echo.model});
   const story=buildSpadeStory({root,add,block,label,height:spadeHeight,ground:world.surfaceHeight,road:materials.road});
-  const campaign=buildSpadeCampaign({root,ward:story.ward,notify,platforms,onChapterComplete,ready:chapterReady,crownKnown:()=>castle.discovery.complete});
+  const campaign=buildSpadeCampaign({root,notify,platforms,onChapterComplete,ready:chapterReady,crownKnown:()=>castle.discovery.complete});
   // Flush after interior construction so its repeated steps, shelves and rails
   // join the same batches instead of adding a draw call for every object.
   for (const [key, placements] of batches) {
@@ -183,6 +186,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
     placements.forEach((p, i) => mesh.setMatrixAt(i, transform(p)));
     mesh.instanceMatrix.needsUpdate = true; mesh.frustumCulled = false;
     mesh.receiveShadow = true; root.add(mesh);
+    if (key === 'cone:roof' || key === 'cone:snow') standInRoofs.push(mesh);
   }
   const emblem = createSpadeEmblem(); emblem.position.set(-342.2, 21, 0); emblem.rotation.y = Math.PI / 2; root.add(emblem);
   // One local fill light, no extra shadow map; enough to read the hall at night.
@@ -221,6 +225,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
               placements.forEach((p, i) => mesh.setMatrixAt(i, matrix.multiplyMatrices(transform(p), local)));
               mesh.instanceMatrix.needsUpdate = true; mesh.frustumCulled = false; mesh.receiveShadow = true;
               onReady?.(mesh);details.add(mesh);resolve();
+              if(name==='spire')standInRoofs.forEach(roof=>{roof.visible=false;});
             }catch(error){reject(error);}
           }));
         } catch (error) { errors.push(name); console.warn(`Spade detail ${name} unavailable`, error); }

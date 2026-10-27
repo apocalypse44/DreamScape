@@ -46,7 +46,7 @@ const CSS = `
 #mapButton svg { width: 22px; height: 22px; }
 #mapButton kbd { position: absolute; right: -4px; bottom: -4px; padding: 1px 4px; border-radius: 3px;
   background: ${GOLD}; color: #16120a; font: 700 8px 'DM Mono', monospace; }
-.hud-top .world-state { margin-right: 54px; }
+.hud-top .world-state { margin-right: 104px; } /* room for the map and help buttons */
 #resumeHint { position: fixed; z-index: 29; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none;
   padding: 14px 22px; border: 1px solid rgba(216,178,90,.7); border-radius: 4px; background: rgba(14,12,8,.82);
   color: ${GOLD}; font: 600 11px 'DM Mono', monospace; letter-spacing: .2em; cursor: pointer; }

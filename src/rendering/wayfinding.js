@@ -57,7 +57,7 @@ export function createWayfinding({ scene, world }) {
     signs.push(group);
     colliders.push({ x, z, radius: 0.2 });
   }
-  sign(-3.5, -5, routes, { x: 0, z: 0 }, true);
+  sign(-4.6, -3.6, routes, { x: 0, z: 0 }, true); // clear of the tower arch's west pillar (towerPlaza.js)
   sign(-9, -17, [routes[0]], { x: 0, z: 0 });
   sign(-13, -25, [routes[0]], { x: -9, z: -17 });
   sign(13, 12, [routes[1]], { x: 0, z: 0 });

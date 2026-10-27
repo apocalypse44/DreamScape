@@ -18,6 +18,7 @@ import { createNPCs, VILLAGERS } from '../rendering/npc.js';
 import { createWaterfall } from '../rendering/waterfall.js';
 import { createRidge } from '../rendering/ridge.js';
 import { createWayfinding } from '../rendering/wayfinding.js';
+import { createTowerPlaza } from '../rendering/towerPlaza.js';
 import { createPlaza } from '../rendering/plaza.js';
 import { createCloverTerrain } from '../rendering/cloverTerrain.js';
 import { createSkyIsland } from '../rendering/skyIsland.js';
@@ -33,6 +34,7 @@ import { createKamui } from '../rendering/kamui.js';
 import { createNavigation } from '../rendering/navigation.js';
 import { createResolutionGovernor } from '../rendering/resolution.js';
 import { createWorldMap } from '../views/worldMap.js';
+import { createHelpPanel } from '../views/helpPanel.js';
 import { createDemoSpawns } from '../views/demoSpawns.js';
 import { createStartupReadiness, observeStartupLoading } from '../models/startup.js';
 import { createHoundCutscene } from './houndScene.js';
@@ -99,6 +101,9 @@ export function startGame(ui) {
   shrine.colliders.push(...livingRoad.colliders);
   // --- end Clover chapter ---
   shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
+  const towerPlaza = createTowerPlaza({ scene, ground: terrainHeight, spadeFree: () => ['report', 'complete'].includes(spade.campaign.stage),
+    occupied: (x, z) => shrine.colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.radius + 1.5) });
+  shrine.colliders.push(...towerPlaza.colliders);
   // --- Diamond chapter: the Shatterglass Relay beyond the Diamond gate ---
   const diamond = buildDiamondCampaign({ scene, gate: gates.gates.find(g => /diamond/i.test(g.name)) ?? gates.gates[3],
     surfaceHeight: world.surfaceHeight, keys, notify: toast,
@@ -122,6 +127,7 @@ export function startGame(ui) {
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
   const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
+  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, state });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
@@ -133,8 +139,18 @@ export function startGame(ui) {
   const heartGate = gates.gates.find(g => /heart/i.test(g.name)); // the chest cutscene swoops to it
   cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement,
     heart: heartGate && { x: heartGate.x, y: terrainHeight(heartGate.x, heartGate.z), z: heartGate.z } }); // gates expose only name, x, z
-  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
-  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, onReady: root => atmosphere?.prepare?.(root) });
+  props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...towerPlaza.colliders, ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
+  // Where an NPC must not stand: ground obstacles (not other NPCs) and solid structures at ground level.
+  let npcObstacles = [], npcObstaclesAt = -Infinity;
+  const npcBlocked = (x, z) => {
+    // ponytail: the obstacle list is rebuilt at most once a second; a spatial grid if NPC counts grow.
+    if (performance.now() - npcObstaclesAt > 1000) { npcObstacles = groundObstacles(); npcObstaclesAt = performance.now(); }
+    const ground = terrainHeight(x, z);
+    return npcObstacles.some(c => !c.npc && Math.hypot(c.x - x, c.z - z) < c.radius + 0.5) ||
+      platforms.some(p => p.solid && p.bottom < ground + 1.8 && (p.top ?? Infinity) > ground + 0.3 &&
+        (p.contains ? p.contains(x, z, 0.5) : Math.abs(x - p.x) < (p.width ?? 0) / 2 + 0.5 && Math.abs(z - p.z) < (p.depth ?? 0) / 2 + 0.5));
+  };
+  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, blocked: npcBlocked, onReady: root => atmosphere?.prepare?.(root) });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
   startup.begin(performance.now());
   npcs.ready.finally(() => startup.end(performance.now()));
@@ -345,6 +361,7 @@ export function startGame(ui) {
     ridge.update(player.position);
     wayfinding.update();
     plaza.update();
+    towerPlaza.update(dt, state.chaos, world.terrainVersion, player.position);
     clover.update(player.position, dt);
     doorScene.observe(!houndScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
     cloverScenes.observe(!houndScene.active && !doorScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
@@ -357,6 +374,7 @@ export function startGame(ui) {
     character.update(dt, cameraDistance, houndScene.active ? null : swarmCast);
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
+    if (startup.ready) help.update(dt);
     demoSpawns.update();
     cullLandmarks();
     updateHUD(ui, state, player, biomeAt);

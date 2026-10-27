@@ -7,9 +7,9 @@ export const CLOVER_STORY = Object.freeze({
   iven: { x: -40, z: -414, top: 12 },
   chest: { id: 'clover-sky-chest', name: 'SKY GARDEN CHEST', x: SKY_SECRET.x + 1.5, z: SKY_SECRET.z - 2.5, top: SKY_SECRET.top,
     destination: { x: SKY_SECRET.x + 1.5, z: SKY_SECRET.z - .5 }, note: 'VIA SUMMIT TELEPORTER · HIGHEST STARLIGHT LEDGE',
-    directions: 'Climb Clover Terraces to the high-valley summit. Press E at the glowing gateway to reach the floating Sky Garden. Follow the Starlight Ledges signs, then jump up the three floating ledges to the highest perch. Iven’s chest there opens in calm after you earn the Root Sigil.' },
+    directions: 'Climb Clover Terraces to the summit. Press E at the glowing gateway to reach the floating Sky Garden. Follow the Starlight Ledges signs and jump up the three floating ledges to the top. Iven’s chest is there. It opens once you have the Root Sigil.' },
   scar: { id: 'clover-scar', name: 'STORMLEAF SCAR', x: -104, z: -455, top: 12,
-    destination: { x: -104, z: -455 }, note: 'VIA THE RESTORED LIVING ROAD', directions: 'From the Archive, restore three root crossings: west, north, then west. The Scar holds the Root Sigil.' },
+    destination: { x: -104, z: -455 }, note: 'VIA THE RESTORED LIVING ROAD', directions: 'From the Archive, regrow three root bridges: west, north, then west. The Root Sigil is at the Scar.' },
 });
 export const CLOVER_MAP_LOCATIONS = [CLOVER_STORY.archive, CLOVER_STORY.scar, CLOVER_STORY.chest];
 export const ROOT_APPROACH = Object.freeze({ x: -22, z: -430, width: 26, depth: 4, top: 12, bottom: 10.8, solid: true });
@@ -94,61 +94,61 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
         (Math.abs(position.x - ROOT_APPROACH.x) < ROOT_APPROACH.width / 2 + 1 && Math.abs(position.z - ROOT_APPROACH.z) < ROOT_APPROACH.depth / 2 + 1);
     },
     get goal() {
-      return stage === 'meet' ? 'CLOVER · FIND IVEN AT THE ROOTKEEPER ARCHIVE · WEST OF THE UPPER TERRACE'
-        : stage === 'road' ? `LIVING ROAD ${generation}/3 · ${pending ? 'THE ROOTS ARE TAKING HOLD' : 'E IN CALM TURNS THE GUIDE · E IN CHAOS GROWS THE ROAD'}`
-        : stage === 'scar' ? 'THE ROAD REMEMBERS · CROSS TO THE STORMLEAF SCAR · READ THE PATTERN IN CALM'
+      return stage === 'meet' ? 'CLOVER · FIND IVEN AT THE ROOTKEEPER ARCHIVE · WEST OF THE TOP TERRACE'
+        : stage === 'road' ? `LIVING ROAD ${generation}/3 · ${pending ? 'THE ROOTS ARE GROWING' : 'CALM + E TURNS THE GUIDE · CHAOS + E GROWS THE BRIDGE'}`
+        : stage === 'scar' ? 'THE ROAD IS BACK · CROSS TO THE STORMLEAF SCAR · PRESS E THERE WHILE CALM'
         : stage === 'chest' ? 'ROOT SIGIL EARNED · CLOVER TERRACES → SUMMIT TELEPORTER → SKY GARDEN → STARLIGHT LEDGES CHEST'
         : 'ROOT SIGIL AND TIDE HOOK EARNED · GO EAST TO HEART · FIND SERA';
     },
     hint(position, mode) {
       const target = interaction(position);
       if (!target) return null;
-      if (!ready()) return 'THE ARCHIVE WAITS · E · IVEN CAN EXPLAIN THE MISSING SPADE TESTIMONY';
-      if (pending) return 'THE ROOTS ARE TAKING HOLD · THE CROSSING BECOMES SAFE WHEN GROWTH FINISHES';
-      if (target.kind === 'iven') return mode === 'chaos' ? 'BECOME CALM TO HEAR IVEN' : 'E · SPEAK WITH IVEN';
-      if (target.kind === 'chest') return !model.sigil ? 'SEALED CHEST · RESTORE THE ROAD AND READ THE SCAR FIRST'
-        : model.hook ? 'TIDE HOOK TAKEN · RETURN VIA THE SKY GARDEN GATEWAY · HEART LIES EAST' : mode === 'chaos' ? 'BECOME CALM TO OPEN THE CHEST' : 'E · OPEN THE SKY GARDEN CHEST · CLAIM THE TIDE HOOK';
-      if (target.kind === 'scar') return !model.sigil && generation < 3 ? 'THE PATTERN IS INCOMPLETE · RESTORE ALL THREE CROSSINGS'
+      if (!ready()) return 'E · TALK TO IVEN · YOU STILL HAVE WORK IN SPADE';
+      if (pending) return 'THE ROOTS ARE GROWING · WAIT UNTIL THE BRIDGE IS FINISHED';
+      if (target.kind === 'iven') return mode === 'chaos' ? 'CALM DOWN TO TALK TO IVEN' : 'E · TALK TO IVEN';
+      if (target.kind === 'chest') return !model.sigil ? 'LOCKED CHEST · REGROW THE ROAD AND GET THE ROOT SIGIL FIRST'
+        : model.hook ? 'TIDE HOOK TAKEN · GO BACK THROUGH THE GATEWAY · HEART IS EAST' : mode === 'chaos' ? 'CALM DOWN TO OPEN THE CHEST' : 'E · OPEN THE CHEST · TAKE THE TIDE HOOK';
+      if (target.kind === 'scar') return !model.sigil && generation < 3 ? 'NOT YET · REGROW ALL THREE ROOT BRIDGES FIRST'
         : model.hook ? 'TIDE HOOK EARNED · GO EAST TO HEART · FIND SERA'
         : model.sigil ? 'NEXT · CLOVER TERRACES → SUMMIT TELEPORTER → SKY GARDEN → STARLIGHT LEDGES CHEST'
-        : mode === 'chaos' ? 'BECOME CALM TO READ THE ORIGINAL BINDING PATTERN' : 'E · READ THE SCAR · CLAIM THE ROOT SIGIL';
-      return mode === 'chaos' ? `E · ENERGIZE GUIDE ${generation + 1} · FACING ${cardinal[guides[generation]]}`
-        : `E · TURN GUIDE ${generation + 1} · FACING ${cardinal[guides[generation]]} · FOLLOW THE LEAF MARK TOWARD THE NEXT LANDING`;
+        : mode === 'chaos' ? 'CALM DOWN TO READ THE SCAR' : 'E · READ THE SCAR · TAKE THE ROOT SIGIL';
+      return mode === 'chaos' ? `E · GROW THE ROOTS · GUIDE ${generation + 1} POINTS ${cardinal[guides[generation]]}`
+        : `E · TURN GUIDE ${generation + 1} · POINTS ${cardinal[guides[generation]]} · AIM IT AT THE GOLD LEAF · THEN STIR CHAOS AND PRESS E`;
     },
     interact(position, mode) {
       const target = interaction(position);
       if (!target || pending) return null;
-      if (!ready()) return say('locked', 'IVEN · Bring Neris’s Lantern Sigil and learn what shields the Hollow Crown in Spade’s castle. Then these roots will recognize your testimony.');
+      if (!ready()) return say('locked', 'IVEN · Not yet, traveller. First get Neris’s Lantern Sigil, then find out what protects the Hollow Crown in Spade’s castle. Come back after that.');
       const calm = mode === 'calm';
       if (target.kind === 'iven') {
-        if (!calm) return say('calm', 'IVEN · Let the storm settle. Listen before you ask the roots to grow.');
+        if (!calm) return say('calm', 'IVEN · Calm down first, then we can talk.');
         if (stage === 'meet') { stage = 'road'; version++;
-          return say('meet', 'IVEN · The Triad severed our living road. The Stormleaf Scar still remembers the true bindings. Read the leaf marks and turn each guide in calm with E. Stir chaos, then press E at that guide to wake its roots. Cross to the next landing; what you restore will remain.', 14000); }
-        if (model.hook) return say('iven', 'IVEN · You restored our road and recovered the Tide Hook. Your work in Clover is complete. Travel east to Heart and find Sera; she will show you the crystal anchors and the stolen current. Keep both the Root Sigil and Tide Hook in your Satchel.', 14000);
-        return say('iven', model.sigil ? 'IVEN · The Root Sigil has opened my chest, but it is above the clouds. Climb Clover Terraces to the high-valley summit. Press E at the glowing teleporter to enter the floating Sky Garden. Follow the Starlight Ledges signs and jump to the highest perch for the chest. Open it in calm, then return through the gateway and travel east to Sera in Heart.'
-          : 'IVEN · Follow the leaf marks: west, north, west. Turn a guide in calm; wake it in chaos. A root that strikes stone needs a different heading.', 8000);
+          return say('meet', 'IVEN · The Triad cut our living road. Let’s grow it back! At each stop there is a guide. While calm, press E to turn it toward the gold leaf. Then stir up chaos and press E again to grow the roots. Cross the new bridge and repeat. Bridges you grow stay forever.', 14000); }
+        if (model.hook) return say('iven', 'IVEN · You fixed our road and found the Tide Hook. Your work in Clover is complete. Now travel east to Heart and find Sera. She will show you how to use the hook.', 14000);
+        return say('iven', model.sigil ? 'IVEN · The Root Sigil unlocked my chest, but it is up above the clouds. Climb Clover Terraces to the top. Press E at the glowing teleporter to go to the floating Sky Garden. Follow the Starlight Ledges signs and jump to the highest ledge. Open the chest while calm.'
+          : 'IVEN · The bridges go west, north, then west. Turn the guide while calm, grow it in chaos. If a root hits stone, turn the guide and try again.', 8000);
       }
       if (target.kind === 'chest') {
-        if (!model.sigil) return say('sealed', 'Iven’s Sky Garden chest opens only after you restore the Living Road and read the Stormleaf Scar for the Root Sigil.');
-        if (!calm) return say('calm', 'Let the storm settle before opening the Sky Garden chest.');
-        if (model.hook) return say('taken', 'The Tide Hook is already in your Satchel. Seek Sera in Heart, to the east.');
-        stage = 'complete'; version++; return say('hook', 'TIDE HOOK · Return down the Starlight Ledges and take the Sky Garden gateway back to Clover’s summit. Descend the terraces, then travel east to Heart and find Sera. The Root Sigil and Tide Hook are now in your Satchel.', 14000);
+        if (!model.sigil) return say('sealed', 'This chest is locked. Regrow the Living Road and get the Root Sigil from the Stormleaf Scar first.');
+        if (!calm) return say('calm', 'Calm down before opening the chest.');
+        if (model.hook) return say('taken', 'The Tide Hook is already in your bag. Go east to Heart and find Sera.');
+        stage = 'complete'; version++; return say('hook', 'TIDE HOOK · You got it! Go back down the ledges and through the gateway to Clover. Then travel east to Heart and find Sera.', 14000);
       }
       if (target.kind === 'scar') {
         if (generation < 3 || model.sigil) return null;
-        if (!calm) return say('calm', 'The pattern is hidden by the storm. Become calm to read the Scar.');
+        if (!calm) return say('calm', 'There is too much chaos. Calm down to read the Scar.');
         stage = 'chest'; version++;
-        return say('sigil', 'ROOT SIGIL · Return across the restored roots, then climb Clover Terraces to the high-valley summit. Press E at the glowing teleporter to enter the floating Sky Garden. Follow the Starlight Ledges signs and jump to the highest perch: Iven’s chest there holds the Tide Hook. Open it in calm. Iven can repeat the directions.', 18000);
+        return say('sigil', 'ROOT SIGIL · You got the Root Sigil! Next, go back over the bridges and climb Clover Terraces to the top. Press E at the glowing teleporter to go to the floating Sky Garden. Follow the Starlight Ledges signs to the highest ledge. Iven’s chest there holds the Tide Hook.', 18000);
       }
       if (calm) { guides[generation] = (guides[generation] + 1) % 4; trial = null; version++;
-        return say('turn', `GUIDE ${generation + 1} · ${cardinal[guides[generation]]}. Read the leaf mark toward the next landing, then wake the root in chaos.`, 3500); }
+        return say('turn', `GUIDE ${generation + 1} · Now points ${cardinal[guides[generation]]}. Aim it at the gold leaf, then stir chaos and press E.`, 3500); }
       trial = growRoots({ rounds: generation + 1, guides, seed });
       const candidate = trial.backbone[generation];
       version++;
       if (!rootConnects(candidate, ROOT_LANDINGS[generation + 1])) return say('blocked',
-        (candidate?.blocked ? 'THE ROOT MEETS STONE' : 'THE ROOT TURNS BACK') + ' · This direction cannot reach the next landing. Become calm, turn the guide toward its leaf mark, and try again. Completed crossings remain.', 7000);
+        (candidate?.blocked ? 'THE ROOT MEETS STONE' : 'THE ROOT TURNS BACK') + ' · Wrong direction. Calm down, turn the guide toward the gold leaf, and try again.', 7000);
       pending = trial; elapsed = 0;
-      return say('growing', 'THE LIVING ROAD AWAKENS · Wait for the roots to take hold before crossing.', 3500);
+      return say('growing', 'THE ROOTS ARE GROWING · Wait for the bridge to finish before you cross.', 3500);
     },
     update(dt, player) {
       if (Number.isFinite(dt) && dt > 0 && pending) {
@@ -156,7 +156,7 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
         if (elapsed >= 2.4) {
           generation++; pending = trial = null; version++;
           if (generation === 3) stage = 'scar';
-          return say('bridge', `CROSSING ${generation}/3 RESTORED · ${generation === 3 ? 'The Scar lies ahead. Cross and read its pattern in calm.' : 'Cross to the next landing. Read its leaf mark in calm.'}`, 6000);
+          return say('bridge', `CROSSING ${generation}/3 RESTORED · ${generation === 3 ? 'The Stormleaf Scar is just ahead. Cross, calm down, and press E there.' : 'Cross to the next stop and turn its guide toward the gold leaf.'}`, 6000);
         }
       }
       if (player) settleCheckpoint(player);

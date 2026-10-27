@@ -39,9 +39,9 @@ export const CASTLE_PROPS = [
   ...[-8,0,8].map(v=>({name:'binding',u:170.6,v,width:1,depth:1,bottom:30.12,height:.9})),
 ];
 export const CASTLE_RECORDS = [
-  { id:'root',u:135,v:-11,top:23.12,title:'CLOVER · THE FALSE ANCHORS',text:'The Root Sigil reveals true bindings among the Triad’s decoys. Seek Iven at the Rootkeeper Archive.' },
-  { id:'tide',u:146,v:-11,top:23.12,title:'HEART · THE STOLEN CURRENT',text:'Heart’s stolen water magic replenishes the Crown’s shield. Sera and the water spirit can cut its supply.' },
-  { id:'prism',u:157,v:-11,top:23.12,title:'DIAMOND · THE INVERSION',text:'The workers concealed an inversion circuit inside their chains. Orin’s Prism Sigil can expose the armor.' },
+  { id:'root',u:135,v:-11,top:23.12,title:'CLOVER · THE FALSE ANCHORS',text:'The Triad hid its real spells among fake ones. Clover’s Root Sigil can tell them apart. Iven at the Rootkeeper Archive has it.' },
+  { id:'tide',u:146,v:-11,top:23.12,title:'HEART · THE STOLEN CURRENT',text:'The Crown’s shield is fed by water magic stolen from Heart. Sera and the water spirit can cut it off.' },
+  { id:'prism',u:157,v:-11,top:23.12,title:'DIAMOND · THE INVERSION',text:'Diamond’s workers hid a secret circuit inside their chains. Orin’s Prism Sigil can reveal the Crown’s armor.' },
 ];
 export const CASTLE_ROUTE = [
   {u:128,v:0,top:16.12},{u:128,v:11,top:16.12},{u:146,v:11,top:23.12},
@@ -58,10 +58,10 @@ export function createCastleDiscovery({hasEcho=()=>true}={}) {
   return {
     get count(){return found.size;}, get complete(){return found.size===3&&inspected;},
     has:id=>found.has(id),
-    get objective(){return found.size<3?'Read the three testimonies in the first-floor archive.'
-      :!hasEcho()?'Expose the erased castle in chaos. Recover the witness above the archive.'
-      :!inspected?'Climb to the observatory and inspect the three bindings.'
-      :'Go north to Clover. Iven can show you which bindings are true.';},
+    get objective(){return found.size<3?'Read the three records in the archive upstairs.'
+      :!hasEcho()?'Stir up chaos in the archive to reveal the erased castle, then find the hidden witness.'
+      :!inspected?'Climb to the observatory and look at the three spells.'
+      :'Go north to Clover. Iven can show you which spells are real.';},
     update(position,chaos){
       if(chaos>.4)return null;
       const feet=position.y-2.05;
@@ -69,7 +69,7 @@ export function createCastleDiscovery({hasEcho=()=>true}={}) {
         found.add(record.id);return {title:record.title,text:record.text};
       }
       if(found.size===3&&hasEcho()&&!inspected&&Math.abs(feet-30.12)<1&&Math.hypot(position.x+516,position.z)<4){
-        inspected=true;return {title:'THE HOLLOW CROWN',text:'Veyr hides the true anchors. Sile feeds the shield. Morcant seals the armor. The swarm needs all three openings, and none can be forced yet. Go north to Clover: Iven can show you which bindings are true.'};
+        inspected=true;return {title:'THE HOLLOW CROWN',text:'Three spells protect the Crown. Veyr hides the real ones among fakes. Sile feeds its shield. Morcant locks its armor. You can’t break any of them yet. Go north to Clover: Iven can show you which spells are real.'};
       }
       return null;
     },

@@ -130,7 +130,9 @@ export function createHeavenlyFalls({ scene, world, onReady }) {
 
   // A signpost where the north road meets Clover points ground explorers east.
   const postX = 9, postZ = -320, postY = world.terrainHeight(postX, postZ);
-  add(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), wood, postX, postY + 1.3, postZ);
+  // The post stops just inside the board's lower edge (board 2.3 ± 0.33 m): it is thicker than the
+  // gap between the two faces, so any higher would show through the lettering.
+  add(new THREE.CylinderGeometry(0.08, 0.1, 2.05, 8), wood, postX, postY + 1.025, postZ);
   // Faces south toward walkers on the north road; text avoids arrows so both faces read true.
   sign(['HEAVENLY FALLS', 'East of the Clover cliffs, under the Sky Garden'], postX, postY + 2.3, postZ, 0, 2.6);
   colliders.push({ x: postX, z: postZ, radius: 0.3 });

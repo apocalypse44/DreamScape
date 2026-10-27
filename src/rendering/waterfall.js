@@ -428,9 +428,10 @@ export function createWaterfall({ scene, world, onReady }) {
   const sign = new THREE.Group();
   sign.position.set(WATERFALL_CHECKPOINT.x - WATERFALL.x + 1.5, 0,
     WATERFALL_CHECKPOINT.z - WATERFALL.z);
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.1, 6),
+  // The post stops just inside the board's lower edge (board 1.15 ± 0.34 m), so it never shows through it.
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.85, 6),
     new THREE.MeshStandardMaterial({ color: 0x66583e, roughness: 1 }));
-  post.position.y = 0.55;
+  post.position.y = 0.425;
   sign.add(post);
   const labelCanvas = document.createElement('canvas');
   labelCanvas.width = 512; labelCanvas.height = 192;

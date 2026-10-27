@@ -1,4 +1,5 @@
 import { landmarkHintLines } from '../models/landmarkHints.js';
+import { say } from './overlay.js';
 
 export async function mountView() {
   const response = await fetch(new URL('./game.html', import.meta.url));
@@ -26,13 +27,11 @@ export async function mountView() {
   const fpsEl = document.querySelector("#fps");
   const loadEl = document.querySelector("#load");
   const questGoalEl = document.querySelector("#questGoal");
-  const shrinePanelEl = document.querySelector("#shrinePanel");
-  const shrineTextEl = document.querySelector("#shrineText");
   const localLandmarksEl = document.createElement('div');
   document.querySelector('.compass').appendChild(localLandmarksEl);
   const landmarkRows = [];
 
-  return { localLandmarksEl, landmarkRows, kingdomEl, worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl, shrinePanelEl, shrineTextEl };
+  return { localLandmarksEl, landmarkRows, kingdomEl, worldEl, introEl, enterButton, meterEl, notchEl, signalEl, velocityEl, chunksEl, seedEl, realmEl, facingEl, experienceStateEl, compassDirectionEl, compassWorldEl, compassCoordinatesEl, swarmPanelEl, swarmStatusEl, fpsEl, loadEl, questGoalEl };
 }
 
 // Text is only written when it changes, so the aria-live panel isn't re-announced every frame.
@@ -40,9 +39,9 @@ export async function mountView() {
 export function updateQuestHUD(ui, quest, goal = quest.goal) {
   if (ui.questGoalEl.textContent !== goal) ui.questGoalEl.textContent = goal;
   ui.questGoalEl.classList.toggle("warn", quest.restless);
-  ui.shrinePanelEl.classList.toggle("active", quest.nearShrine);
-  ui.shrinePanelEl.classList.toggle("drowned", quest.drowned);
-  if (ui.shrineTextEl.textContent !== quest.shrineText) ui.shrineTextEl.textContent = quest.shrineText;
+  // The shrine keeper speaks in the shared dialogue box: on approach, and again whenever the line changes.
+  const keeper = quest.nearShrine ? quest.shrineText : '';
+  if (keeper !== ui.keeperLine) { ui.keeperLine = keeper; if (keeper) say('SHRINE KEEPER', keeper); }
 }
 
 export function updateHUD(ui, state, player, biomeAt) {

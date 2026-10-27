@@ -27,7 +27,7 @@ export function storyVolumes(height) {
     {u:25,v:-21.5,width:1.2,depth:1.2,bottom:y,height:1.25,name:'supplies'},
     {u:19,v:-21,width:1.2,depth:1,bottom:y,height:1,name:'supplies'},
     {u:24,v:-20,width:.6,depth:.6,bottom:y,height:2,name:'guide'},
-    {u:103,v:-48,width:3.2,depth:3.2,bottom:height(-447),height:2.6,name:'border-anchor'},
+    {u:103,v:-48,width:3.2,depth:3.2,bottom:height(-447),height:3,name:'border-anchor'}, // plinth and obelisk
     ...[-1,1].flatMap(side=>[-1,1].map(edge=>({u:103+side*5,v:-48+edge*5,width:1,depth:1,bottom:height(-447)-2,height:4.4,name:'anchor-post'}))),
     ...[-8,0,8].map(v=>({u:174,v,width:2.4,depth:2.4,bottom:30.12,height:3.2,name:'triad-throne'})),
   ];

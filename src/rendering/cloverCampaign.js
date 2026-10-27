@@ -357,17 +357,13 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     mesh.instanceMatrix.needsUpdate = true;
   }
   const prompt = document.createElement('aside'); prompt.className = 'clover-action'; prompt.hidden = true; prompt.setAttribute('role', 'status'); document.body.append(prompt);
-  const dialogue = document.createElement('aside'); dialogue.className = 'clover-dialogue'; dialogue.hidden = true;
-  dialogue.innerHTML = '<strong></strong><p aria-live="polite"></p>'; document.body.append(dialogue);
   const debug = document.createElement('aside'); debug.className = 'clover-growth-study'; debug.hidden = true; document.body.append(debug);
   let debugOn = new URLSearchParams(location.search).get('growth') === '1';
-  let pressed = false, studyPressed = false, seen = -1, time = 0, open = 0, dialogueTime = 0, inspecting = false;
+  let pressed = false, studyPressed = false, seen = -1, time = 0, open = 0, inspecting = false;
   let revealed = Infinity; // seconds since the chest opened; the Tide Hook only shows as it rises out
   function event(result) {
     if (!result) return;
-    dialogue.querySelector('strong').textContent = ['meet', 'iven', 'locked'].includes(result.kind) ? 'IVEN · ROOTKEEPER ARCHIVE' : 'THE LIVING ROAD';
-    dialogue.querySelector('p').textContent = result.text;
-    dialogueTime = result.ms / 1000;
+    notify?.(result.text); // the shared dialogue box; a cutscene hides it, and it reads as a recap afterwards
     if (result.kind === 'sigil') onSigil?.();
     if (result.kind === 'hook') onHook?.();
     onScene?.(result.kind);
@@ -412,8 +408,6 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     update(dt, player, state, active = true) {
       time += dt;
       lakeMat.uniforms.uTime.value += dt;
-      // Story text that a cutscene interrupts waits, then reads in full afterwards as a recap.
-      if (!state.cinematic) dialogueTime = Math.max(0, dialogueTime - dt);
       const down = keys.has('KeyE'), tapped = down && !pressed; pressed = down;
       const studyDown = keys.has('KeyL'), studyTap = studyDown && !studyPressed; studyPressed = studyDown;
       const close = Math.hypot(player.position.x + 65, player.position.z + 435) < 115;
@@ -427,9 +421,6 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       prompt.hidden = !active || !state.locked || state.mapOpen || state.cinematic;
       const hint = model.hint(player.position, state.mode);
       prompt.hidden ||= !hint;
-      dialogue.hidden = dialogueTime <= 0 || !active || !state.locked || state.mapOpen || state.cinematic;
-      // Fade within the message lifetime, then remove it completely at expiry.
-      dialogue.style.opacity = String(Math.min(1, dialogueTime / .4));
       if (hint && prompt.textContent !== hint) prompt.textContent = hint;
       debug.hidden = !debugOn || !close || !state.locked || state.cinematic || state.mapOpen;
       // Only the currently growing roots animate their matrices. Otherwise update on
@@ -452,6 +443,6 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       sigil.rotation.y += dt * .4; sigil.visible = !model.sigil;
     },
     recovery: player => model.recovery(player),
-    reset() { model.reset(); trace.visible = decoys.visible = hook.visible = false; revealed = Infinity; pressed = studyPressed = inspecting = false; seen = -1; open = dialogueTime = 0; prompt.hidden = debug.hidden = dialogue.hidden = true; roots.count = preview.count = 0; vineRoad.clear(); },
+    reset() { model.reset(); trace.visible = decoys.visible = hook.visible = false; revealed = Infinity; pressed = studyPressed = inspecting = false; seen = -1; open = 0; prompt.hidden = debug.hidden = true; roots.count = preview.count = 0; vineRoad.clear(); },
   };
 }

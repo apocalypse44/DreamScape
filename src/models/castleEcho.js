@@ -34,12 +34,12 @@ export function createCastleEcho() {
     get active(){return active;}, get engaged(){return engaged;},
     get progress(){return progress+1;}, get recovered(){return recovered;},
     get objective(){
-      if(recovered)return 'Memory restored: Clover can reveal Veyr’s true bindings.';
-      if(progress===4)return 'Be still on the witness seal to understand the erased memory.';
-      if(engaged&&skipped)return 'The witness answers only a full crossing. Drop back to the archive balcony and start at the broken arch.';
-      if(engaged)return `Follow the fractured arches · ${progress+1}/5 landings`;
-      return active?'Archive north balcony · jump over the rail toward the glowing arch.'
-        :'Climb to the archive. Sprint and jump to expose the erased castle.';
+      if(recovered)return 'Memory restored. Clover can show which of Veyr’s spells are real.';
+      if(progress===4)return 'Stand still on the glowing seal to hear the memory.';
+      if(engaged&&skipped)return 'You skipped a step. Drop back to the archive balcony and start again from the first broken arch.';
+      if(engaged)return `Jump across the broken arches · ${progress+1}/5`;
+      return active?'From the archive’s north balcony, jump over the rail toward the glowing arch.'
+        :'Go to the archive. Run and jump to stir chaos and reveal the erased castle.';
     },
     update(player,chaos,locked=true){
       const p=player.position,feet=p.y-2.05;
@@ -52,16 +52,16 @@ export function createCastleEcho() {
       if(engaged&&player.grounded&&on<0)engaged=false;
       active=chaosVisible||engaged;
       if(!active)return null;
-      if(!announced){announced=true;return {type:'reveal',text:'THE ERASED CASTLE · The erased witnesses surface. From the archive’s north balcony, follow the glowing masonry into the atrium.'};}
+      if(!announced){announced=true;return {type:'reveal',text:'THE ERASED CASTLE · Chaos reveals hidden stone arches! From the archive’s north balcony, jump across the glowing arches.'};}
       // Landing ahead of the next fragment (e.g. dropping onto the seal from the observatory) doesn't count.
       skipped=player.grounded&&on>progress+1?true:player.grounded&&on>=0&&on<=progress+1?false:skipped;
       if(player.grounded&&on===progress+1) {
         progress=on;
-        if(progress===4)return {type:'witness',text:'VEYR’S ECHO · Let them strike the false anchors. The true binding remains unseen. Be still here to hear the witness.'};
+        if(progress===4)return {type:'witness',text:'VEYR’S ECHO · “Let them attack the fake anchors. They will never find the real one.” Stand still here to hear the full memory.'};
       }
       if(!recovered&&progress===4&&on===4&&player.grounded&&chaos<=.4){
         recovered=true;
-        return {type:'memory',text:'THE ERASED WITNESS · Veyr bound our voices to decoy chains. Clover’s roots remember the true pattern. Seek Iven at the Rootkeeper Archive. This memory is now restored.'};
+        return {type:'memory',text:'THE ERASED WITNESS · Veyr hid our voices in fake chains. Clover’s roots still remember the real pattern. Find Iven at the Rootkeeper Archive. This memory is now restored.'};
       }
       return null;
     },

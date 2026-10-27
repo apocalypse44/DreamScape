@@ -1,4 +1,4 @@
-import { storyVolumes, BORDER_ANCHOR } from '../models/spadeStory.js';
+import { storyVolumes } from '../models/spadeStory.js';
 import { insideRefuge } from '../models/spadeCampaign.js';
 
 // ground(x, z): the terrain as drawn, for paths laid over slopes. road: the avenue's paving material.
@@ -32,20 +32,8 @@ export function buildSpadeStory({root,add,block,label,height,ground,road}) {
   const paving=road.clone();paving.polygonOffset=true;paving.polygonOffsetFactor=-2;paving.polygonOffsetUnits=-2;
   const pathMesh=new THREE.Mesh(path,paving);pathMesh.receiveShadow=true;root.add(pathMesh);
   add('disc',103,base+.035,-48,6.3,.07,6.3,'road');
-  block(103,-48,3.2,3.2,2.6,base,'roof');
-  add('orb',103,base+3.6,-48,.8,1.2,.8,'wisp');
-  for(const side of [-1,1])for(const edge of [-1,1]){
-    const u=103+side*5,v=-48+edge*5;
-    block(u,v,1,1,4.4,base-2,'stone');
-    // Four segmented chains sag between posts and the anchor, using one batch.
-    for(let i=0;i<10;i++){
-      const t=i/10,pu=u+(103-u)*t,pv=v+(-48-v)*t,py=base+2.2-.8*Math.sin(t*Math.PI);
-      add('orb',pu,py,pv,.13,.13,.13,'trim');
-      const middle=t+.05;
-      add('box',u+(103-u)*middle,base+2.2-.8*Math.sin(middle*Math.PI),v+(-48-v)*middle,.09,.09,.74,'trim',Math.atan2(u-103,-48-v));
-    }
-  }
-  label('BORDER ANCHOR · THE SETTLEMENT IS BOUND',103,base+6,-54,10,0);
+  // The anchor itself (obelisk, crystal, ward, chains, projection, sign) is rendering/borderAnchor.js.
+  for(const side of [-1,1])for(const edge of [-1,1])block(103+side*5,-48+edge*5,1,1,4.4,base-2,'stone');
   // Erased portraits and scraped plaques carry the memory theme into the hall.
   for(const u of [134,147,160]){
     block(u,14.84,2.8,.14,2.6,18.7,'wood');
@@ -92,12 +80,10 @@ export function buildSpadeStory({root,add,block,label,height,ground,road}) {
   for(const side of [-1,1])block(175.8,side*6.2,.4,.8,18,16.4,'trim');
   block(175.8,0,.4,13.2,.6,34.4,'trim');
   label('THE HOLLOW GATE · SEALED BY THREE BINDINGS',175.6,35.4,0,15);
-  const ward=new THREE.Mesh(new THREE.PlaneGeometry(5,5),material);
-  ward.position.set(-344-BORDER_ANCHOR.u,base+4,-48);root.add(ward);
   // Neris and the border anchor speak through the chapter campaign (spadeCampaign.js).
   let seenGate=false;
   return {
-    ward,insideRefuge,
+    insideRefuge,
     update(dt,player,state,notify){
       uniforms.uTime.value+=dt;
       if(!state.locked||state.chaos>.4)return;

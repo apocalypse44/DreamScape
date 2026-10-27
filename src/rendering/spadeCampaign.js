@@ -2,6 +2,7 @@
 import { LANTERN_SITES, WARD, CASTLE_DOOR, createSpadeCampaign } from '../models/spadeCampaign.js';
 import { spadeHeight, spadeOutline } from '../models/spade.js';
 import { Burst, addShake, sfx } from './fx.js';
+import { createBorderAnchor } from './borderAnchor.js';
 
 const DARK = new THREE.Color(0x2c2540), LIT = new THREE.Color(0xd9c8ff);
 
@@ -38,12 +39,13 @@ function buildDoors(root) {
 
 // onChapterComplete: runs when Neris grants the Lantern Sigil (the game queues the doors' cutscene).
 // ready(): the chapter may begin (the game passes "the Ember Hound is cured").
-export function buildSpadeCampaign({ root, ward, notify, crownKnown, ready, platforms, onChapterComplete }) {
+export function buildSpadeCampaign({ root, notify, crownKnown, ready, platforms, onChapterComplete }) {
   const lanternY = site => spadeHeight(site.x) + 5.2; // just above the avenue post's lamp
   const wardAt = new THREE.Vector3(WARD.x, spadeHeight(WARD.x) + 4, WARD.z);
   const model = createSpadeCampaign({ lanternY, wardY: wardAt.y, crownKnown, ready });
   platforms.push(model.doorVolume);
   const doors = buildDoors(root);
+  const anchor = createBorderAnchor(root);
   let doorOpen = 0, noticeAt = -Infinity;
   const orb = new THREE.IcosahedronGeometry(0.42, 1), cage = new THREE.TorusGeometry(0.62, 0.035, 6, 24);
   const lanterns = LANTERN_SITES.map(site => {
@@ -72,10 +74,9 @@ export function buildSpadeCampaign({ root, ward, notify, crownKnown, ready, plat
         l.group.rotation.y += dt * (0.4 + glow * 2);
         l.group.scale.setScalar(1 + (glow > 0 && glow < 1 ? 0.12 * Math.sin(time * 8) : 0));
       }
-      // The ward stands until the anchor falls; chaos exposes it (larger) for strikes.
-      ward.visible = model.stage === 'meet' || model.stage === 'lanterns' || model.stage === 'anchor';
-      const exposed = model.wardExposed(state.chaos);
-      ward.scale.setScalar(THREE.MathUtils.lerp(ward.scale.x, exposed ? 1.5 + 0.1 * Math.sin(time * 6) : 1, Math.min(1, dt * 4)));
+      // The ward stands until the anchor falls; chaos opens it for strikes.
+      if (Math.hypot(player.position.x - WARD.x, player.position.z - WARD.z) < 140)
+        anchor.update(dt, { stage: model.stage, strikes: model.strikes, exposed: model.wardExposed(state.chaos), chaos: state.chaos }, player);
       lanternBurst.update(dt); strikeBurst.update(dt);
       // Doors swing outward (toward +x, onto the approach) once the cutscene opens the gate.
       doorOpen = Math.min(1, Math.max(0, doorOpen + (model.gateOpen ? dt : -dt) / DOOR_SECONDS));
@@ -93,6 +94,6 @@ export function buildSpadeCampaign({ root, ward, notify, crownKnown, ready, plat
       if (event.kind === 'sigil') onChapterComplete?.();
     },
     openGate() { model.openGate(); sfx.whoosh(); addShake(0.3); },
-    reset() { model.reset(); doorOpen = 0; noticeAt = -Infinity; lanterns.forEach(l => { l.flared = false; }); ward.visible = true; ward.scale.setScalar(1); },
+    reset() { model.reset(); doorOpen = 0; noticeAt = -Infinity; lanterns.forEach(l => { l.flared = false; }); anchor.reset(); },
   };
 }

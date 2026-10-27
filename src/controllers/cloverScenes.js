@@ -3,6 +3,7 @@
 import { CLOVER_STORY } from '../models/cloverCampaign.js';
 import { ROOT_LANDINGS } from '../models/cloverGrowth.js';
 import { SKY, SKY_SECRET, SUMMIT_DOOR } from '../models/skyIsland.js';
+import { createPace } from './scenePace.js';
 
 const { iven, scar, chest } = CLOVER_STORY;
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -20,9 +21,9 @@ const SHOTS = {
       [12, v(-80, 26, -440), v(scar.x, 13, scar.z)],
     ],
     lines: [
-      [0.6, 'IVEN', 'The Triad cut our living road. Three crossings remain, each with a growth guide.'],
-      [4, 'IVEN', 'Turn each guide in calm toward its gold leaf. Wake it in chaos, and the roots will grow.'],
-      [8.5, 'IVEN', 'Beyond the last landing lies the Stormleaf Scar. It still remembers the true pattern.'],
+      [0.6, 'IVEN', 'The Triad cut our living road. There are three gaps, and each one has a guide.'],
+      [4, 'IVEN', 'While calm, turn the guide toward the gold leaf. Then stir chaos, and the roots will grow.'],
+      [8.5, 'IVEN', 'At the end is the Stormleaf Scar. It still remembers which spells are real.'],
     ],
   },
   sigil: {
@@ -35,10 +36,10 @@ const SHOTS = {
       [18.5, v(chest.x - 4, chest.top + 6, chest.z + 9), v(chest.x, chest.top + 1, chest.z)],
     ],
     lines: [
-      [0.6, 'THE STORMLEAF SCAR', 'The original binding pattern wakes beneath the scarred leaves.'],
-      [4.8, 'ROOT SIGIL', 'Three marks fade: decoys. The Root Sigil shows which bindings are true.'],
-      [9.5, 'IVEN', 'My chest waits above the clouds. Climb Clover Terraces to the summit gateway.'],
-      [14, 'IVEN', 'In the Sky Garden, follow the Starlight Ledges to the highest perch.'],
+      [0.6, 'THE STORMLEAF SCAR', 'The old pattern glows under the leaves.'],
+      [4.8, 'ROOT SIGIL', 'Three marks fade away. They were fakes. The Root Sigil shows which spells are real.'],
+      [9.5, 'IVEN', 'My chest is above the clouds. Climb Clover Terraces to the gateway at the top.'],
+      [14, 'IVEN', 'In the Sky Garden, follow the Starlight Ledges up to the highest one.'],
     ],
     fx: (t, campaign) => campaign.scarReveal(Math.max(0, (t - .5) / 6)), // the renderer clamps; Infinity ends it
   },
@@ -63,10 +64,10 @@ function hookShot(heart) {
       [16, v(chest.x, chest.top + 3, chest.z + 4.2), v(chest.x, chest.top + 1, chest.z)],
     ],
     lines: [
-      [0.6, 'IVEN’S SKY CHEST', 'The Root Sigil’s light lifts the seal.'],
-      [3.2, 'TIDE HOOK', 'A grapple of Heart’s guardians. It catches only on glowing crystal anchors.'],
-      [7.6, 'NEXT · THE STOLEN CURRENT', 'Beyond the clouds lies the Heart Kingdom, where Sera guards the stolen current.'],
-      [12.4, 'IVEN', 'Carry the hook through Heart’s gate. Find Sera.'],
+      [0.6, 'IVEN’S SKY CHEST', 'The Root Sigil unlocks the chest.'],
+      [3.2, 'TIDE HOOK', 'A grappling hook from Heart. It only grabs onto glowing crystals.'],
+      [7.6, 'NEXT · THE STOLEN CURRENT', 'Past the clouds is the Heart Kingdom. Sera is there, guarding its stolen water magic.'],
+      [12.4, 'IVEN', 'Take the hook to Heart’s gate and find Sera.'],
     ],
     fx: (t, campaign) => campaign.hookRise(t / 4),
     focus: t => t > HEART_AWAY[0] && t < HEART_AWAY[1] ? h : null,
@@ -87,13 +88,13 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
   overlay.id = 'cloverScene';
   overlay.hidden = true;
   overlay.setAttribute('aria-label', 'Clover story scene');
-  overlay.innerHTML = `<div class="scene-veil"></div><div class="scene-top"><span>THE LIVING ROAD</span><span>SKIP · X</span></div>
+  overlay.innerHTML = `<div class="scene-veil"></div><div class="scene-top"><span>THE LIVING ROAD</span><span>SPACE · FASTER &nbsp; X · SKIP</span></div>
     <div class="scene-dialogue"><p class="scene-chapter">III · THE CLOVER KINGDOM</p><p class="scene-speaker"></p><p class="scene-line" aria-live="polite" aria-atomic="true"></p></div>`;
   document.body.appendChild(overlay);
   const veil = overlay.querySelector('.scene-veil'), speaker = overlay.querySelector('.scene-speaker'), line = overlay.querySelector('.scene-line');
   const savedPosition = new THREE.Vector3(), savedRotation = new THREE.Quaternion(), look = new THREE.Vector3();
   let shot = null, time = -1, shown = -1;
-  const queue = [];
+  const queue = [], pace = createPace();
 
   // Map key times onto the curve's own parameter so each key is reached at its second.
   function sample(curve, t) {
@@ -128,6 +129,7 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     if (event.repeat) return;
     if (event.code === 'KeyX') { keepPointerLock(); finish(); }
     else if (event.code === 'Escape') finish();
+    else if (event.code === 'Space') pace.rush();
   }, true);
 
   return {
@@ -138,13 +140,14 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     queue(kind) { if (shots[kind]) queue.push(kind); },
     observe(ready) {
       if (!queue.length || !ready || time >= 0) return;
-      shot = shots[queue.shift()]; time = 0; shown = -1;
+      shot = shots[queue.shift()]; time = 0; shown = -1; pace.show();
       savedPosition.copy(camera.position); savedRotation.copy(camera.quaternion);
       state.cinematic = true; keys.clear();
       overlay.hidden = false; document.body.classList.add('story-playing');
     },
-    update(dt) {
-      time += dt;
+    update(realDt) {
+      // The clock waits on a line still being read (the next line's time, or the fade-out).
+      time += pace.step(realDt, time, shot.lines[shown + 1]?.[0] ?? shot.duration - 0.6);
       const t = Math.min(time, shot.duration - 1);
       camera.position.copy(sample(shot.position, t));
       camera.lookAt(look.copy(sample(shot.look, t)));
@@ -152,7 +155,7 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
       veil.style.opacity = String(Math.max(0, 1 - time / 0.8, (time - (shot.duration - 0.6)) / 0.6));
       const index = shot.lines.findLastIndex(l => time >= l[0]);
       if (index !== shown && index >= 0) {
-        shown = index; speaker.textContent = shot.lines[index][1]; line.textContent = shot.lines[index][2];
+        shown = index; speaker.textContent = shot.lines[index][1]; line.textContent = shot.lines[index][2]; pace.show(shot.lines[index][2]);
         line.classList.remove('in'); void line.offsetWidth; line.classList.add('in');
       }
       if (time >= shot.duration) finish();
