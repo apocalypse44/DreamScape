@@ -162,7 +162,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       overlay.dataset.fire = String(story.transformation.fire);
       overlay.dataset.wolf = String(story.transformation.wolf);
       const fade = smoother(story.time / PHASE_SECONDS[story.phase]);
-      veil.style.opacity = String(story.phase === 'enter' ? 1 - fade : story.phase === 'exit' ? fade : story.phase === 'return' ? 1 - fade : 0);
+      veil.style.opacity = String(story.phase === 'enter' ? 1 - fade : story.phase === 'exit' ? fade : story.phase === 'return' ? (story.kind === 'cure' ? 1 : 1 - fade) : 0); // the cure stays black: its memory follows
       return camera.position.distanceTo(player.position);
     },
     reset() { if (story.active) finish(false); story.reset(); },

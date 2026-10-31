@@ -7,11 +7,10 @@ export const HOUND_LINES = [
 export const HOUND_CURE_LINES = [
   { speaker: 'YOU', text: 'Easy… it’s over. You’re safe now.', seconds: 3.2, shot: 'hound' },
   { speaker: 'SHRINE KEEPER', text: 'Three embers returned, and a bond restored. Your companion is free of the flame.', seconds: 5.2, shot: 'keeper' },
-  { speaker: 'YOU', text: 'But this wasn’t the only bond that was broken, was it?', seconds: 3.8, shot: 'player' },
-  { speaker: 'SHRINE KEEPER', text: 'West, in Spade, the Triad binds people by stealing their memories. Neris shelters those they tried to erase.', seconds: 6.2, shot: 'keeper' },
-  { speaker: 'SHRINE KEEPER', text: 'Find her at the Lantern Refuge—the first house on your right as you enter Spade. Hear her story, then seek the stolen testimonies in the castle archive.', seconds: 8, shot: 'keeper' },
-  { speaker: 'YOU', text: 'Then we head west. Stay close, friend. We’ll find Neris together.', seconds: 4.4, shot: 'player' },
+  { speaker: 'YOU', text: 'How did this even happen to him?', seconds: 3.2, shot: 'player' },
+  { speaker: 'SHRINE KEEPER', text: 'It was no accident. The Triad marked him long ago, and the shrine remembers. Look into its flame.', seconds: 6, shot: 'keeper' },
 ];
+// The memory ("The Mark in the Flame", cloverScenes.js) follows, then the keeper's lead to Spade.
 
 // Slow, deliberate pacing: fade up from black, a long transformation the camera circles, unhurried fades out.
 export const PHASE_SECONDS = Object.freeze({ enter: 1.2, exit: .9, return: 1 });

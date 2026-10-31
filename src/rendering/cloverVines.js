@@ -62,9 +62,11 @@ function vineSet(root, { pieces, thorns, roses, leaves }) {
       }
     },
     get count() { return used.piece + used.thorn + used.rose + used.leaf; },
+    layers,
   };
 }
 const leafGreen = new THREE.Color(0x67c95a), leafGold = new THREE.Color(0xe8d26a);
+const WITHERED = new THREE.Color(0x2e2636);
 
 // One visible road run: a deck of braided vines just under the walking top, twisting handrails that
 // rise from both ends, vine posts tying deck to rail, thorns, roses and clover leaves.
@@ -146,6 +148,15 @@ export function createVineRoad({ root, world }) {
       hedge.end();
     },
     clear() { road.begin(); road.end(); },
+    // Flashback staging: blacken (0..1) withers the road under Veyr's binding; hedges false hides the
+    // present-day thorn seals (they grew after the road was broken).
+    memory({ blacken = 0, hedges = true } = {}) {
+      for (const layer of Object.values(road.layers)) {
+        layer.userData.base ??= layer.material.color.clone(); // thorns are not white: wither from each layer's own colour
+        layer.material.color.lerpColors(layer.userData.base, WITHERED, blacken);
+      }
+      for (const layer of Object.values(hedge.layers)) layer.visible = hedges;
+    },
     get count() { return road.count; },
   };
 }

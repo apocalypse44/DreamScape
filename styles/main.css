@@ -9,6 +9,10 @@
 @keyframes scene-bar-top { from { transform:translateY(-100%); } }
 @keyframes scene-bar-bottom { from { transform:translateY(100%); } }
 :is(#houndScene,#doorScene,#cloverScene) .scene-line.in { animation:scene-line-in .9s cubic-bezier(.33,0,.2,1) both; }
+/* Flashbacks: a remembered voice in warm italics, the memory's title softly gold. */
+#cloverScene.memory .scene-line { font-style:italic; color:#f4e2bd; letter-spacing:.01em; }
+#cloverScene.memory .scene-speaker { color:#d9b77a; }
+#cloverScene.memory .scene-top .scene-title { color:#f0d39a; letter-spacing:.3em; }
 @keyframes scene-line-in { from { opacity:0; transform:translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { :is(#houndScene,#doorScene,#cloverScene)::before, :is(#houndScene,#doorScene,#cloverScene)::after, :is(#houndScene,#doorScene,#cloverScene) .scene-line.in { animation:none; } }
 :is(#houndScene,#doorScene,#cloverScene) .scene-veil { position:absolute; inset:0; background:#080706; pointer-events:none; }

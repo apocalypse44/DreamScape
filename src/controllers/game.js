@@ -40,6 +40,9 @@ import { createStartupReadiness, observeStartupLoading } from '../models/startup
 import { createHoundCutscene } from './houndScene.js';
 import { createDoorScene } from './doorScene.js';
 import { createCloverScenes } from './cloverScenes.js';
+import { createSeveringFlashback } from './cloverFlashback.js';
+import { createEmberFlashback } from './emberFlashback.js';
+import { createMemoryLook } from '../rendering/memoryLook.js';
 import { createInventory } from '../models/inventory.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
@@ -131,13 +134,19 @@ export function startGame(ui) {
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
-      toast('NEXT · FIND NERIS AT THE LANTERN REFUGE · SPADE KINGDOM', 6000);
+      cloverScenes.queue('mark'); // the shrine remembers how the curse was planted, then the keeper points to Spade
+      cloverScenes.observe(true); // start it this frame, under the cure's black, so gameplay never flashes between
     },
     obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
       clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, shrine.root].filter(Boolean) });
   doorScene = createDoorScene({ camera, state, keys, onOpen: () => spade.openGate() });
   const heartGate = gates.gates.find(g => /heart/i.test(g.name)); // the chest cutscene swoops to it
-  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement,
+  // Story flashbacks replay as memories (memoryLook); their actors borrow the villagers' mannequins.
+  const memory = createMemoryLook(renderer);
+  const cast = { actor: def => npcs.actor(def), setHidden: (name, hidden) => npcs.setHidden(name, hidden) }; // npcs is created below
+  const severing = createSeveringFlashback({ scene, campaign: livingRoad, look: memory.look, state, npcs: cast });
+  const mark = createEmberFlashback({ scene, look: memory.look, state, npcs: cast, groundAt: terrainHeight });
+  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement, flashbacks: { severing, mark }, groundAt: terrainHeight,
     heart: heartGate && { x: heartGate.x, y: terrainHeight(heartGate.x, heartGate.z), z: heartGate.z } }); // gates expose only name, x, z
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...towerPlaza.colliders, ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   // Where an NPC must not stand: ground obstacles (not other NPCs) and solid structures at ground level.
@@ -260,6 +269,7 @@ export function startGame(ui) {
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
   window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
+  window.dreamscape.scenes = cloverScenes; window.dreamscape.severing = severing; window.dreamscape.mark = mark; // e.g. dreamscape.scenes.queue('severing')
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -421,6 +431,7 @@ export function startGame(ui) {
     updateShortcuts();
     music.update(dt);
     kamui.render(scene, camera, dt);
+    memory.apply(dt); // flashback memory look over the rendered frame (off unless a flashback plays)
     if (!startup.ready) {
       const phase = startup.update({ now: performance.now(), frameMs: rawDt * 1000,
         prepared: !world.pendingChunks && props.prepared });

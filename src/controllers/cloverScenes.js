@@ -4,12 +4,22 @@ import { CLOVER_STORY } from '../models/cloverCampaign.js';
 import { ROOT_LANDINGS } from '../models/cloverGrowth.js';
 import { SKY, SKY_SECRET, SUMMIT_DOOR } from '../models/skyIsland.js';
 import { createPace } from './scenePace.js';
+import { MARK_PUP } from './emberFlashback.js';
 
 const { iven, scar, chest } = CLOVER_STORY;
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 const [, first, second] = ROOT_LANDINGS;
 // keys: [seconds, camera position, look target]. Catmull-Rom curves keep the flight smooth.
 const SHOTS = {
+  // Meeting Iven: you ask what happened to the road and he answers, leading into the Scar's memory.
+  ask: {
+    keys: [[0, v(-30.5, 14.6, -416.5), v(iven.x, 14, iven.z)], [12, v(-31.4, 14.5, -417.6), v(iven.x, 14, iven.z)]],
+    lines: [
+      [0.6, 'YOU', 'The bridges out there are all broken. What happened to the living road?'],
+      [4.4, 'IVEN', 'The Dark Triad. Years ago, they cut it in a single night.'],
+      [8.4, 'IVEN', 'The Stormleaf Scar saw it all, and it never forgets. Look.'],
+    ],
+  },
   // The Archive is enclosed: the camera stays inside at eye height, leaves through the west door
   // (z -422.5..-417.5, lintel at 16.5 m) along the root road's line, and only climbs over the ravine.
   meet: {
@@ -21,9 +31,48 @@ const SHOTS = {
       [12, v(-80, 26, -440), v(scar.x, 13, scar.z)],
     ],
     lines: [
-      [0.6, 'IVEN', 'The Triad cut our living road. There are three gaps, and each one has a guide.'],
+      [0.6, 'IVEN', 'Now you know. Three gaps are left, and each one has a guide.'],
       [4, 'IVEN', 'While calm, turn the guide toward the gold leaf. Then stir chaos, and the roots will grow.'],
       [8.5, 'IVEN', 'At the end is the Stormleaf Scar. It still remembers which spells are real.'],
+    ],
+  },
+  // "The Severing", the Scar's memory (staged by cloverFlashback.js): the road as it was, Veyr arriving,
+  // his chains, the three crossings snapping, his decoys, Iven's seal through the Archive's west door, and
+  // the snap back to the present at the Scar. Plays when you first meet Iven, between 'ask' and 'meet'.
+  severing: {
+    title: 'A MEMORY · THE SEVERING', flashback: 'severing',
+    keys: [
+      [0, v(-44, 24, -398), v(-68, 12, -432)],
+      [6.5, v(-52, 21, -400), v(-70, 12, -436)],
+      // Low on the Scar, then out through the middle of its arch (pillars at z -452.1 and -457.9) along the chains.
+      [9.5, v(-97.5, 13.2, -453.2), v(-108, 24, -456)], // looking up at the Triad in the storm
+      [11.8, v(-98.5, 13, -454), v(-108, 24.5, -456)],
+      [14, v(-90, 13.6, -454.2), v(-75, 12.4, -455)],
+      [16.8, v(-79, 14.2, -452.4), v(-68, 12.6, -449)],
+      [19.2, v(-74, 17, -444), v(-85, 10, -455)],
+      [21, v(-58, 18, -438), v(-68, 10, -437)],
+      [23, v(-52, 8.5, -407), v(-52, 11.5, -420)],
+      [25, v(-54, 10, -409), v(-60, 12, -422)],
+      [26.3, v(-70, 26, -430), v(-100, 12.4, -452)], // up over Landing 1's pillars and arches
+      [27.5, v(-96, 18, -446), v(-104, 12.4, -455)],
+      [30, v(-98, 19, -447), v(-104, 12.4, -455)],
+      [32.2, v(-47.5, 14.4, -418.2), v(-39, 14.1, -420.4)],
+      [33.8, v(-49, 15.2, -423.5), v(-75, 13, -440)],
+      [35.2, v(-92, 16.5, -448), v(-104, 13.5, -455)],
+      [38, v(-99.5, 17, -450.5), v(-104, 12.5, -455)],
+      [39.6, v(scar.x + 5, 17, scar.z + 5), v(scar.x, 12.5, scar.z)],
+    ],
+    lines: [
+      [0.9, 'THE STORMLEAF SCAR REMEMBERS', 'Once, the living road carried all of Clover across the ravine.'],
+      [4.6, 'IVEN · YEARS AGO', 'Grow true, little guide. They will cross you for a hundred years.'],
+      [8.4, 'VEYR · THE DARK TRIAD', 'This road remembers too much. Unmake it.'],
+      [10.6, 'SILE · THE DARK TRIAD', 'Cut it, and Clover forgets its own way home.'],
+      [13.2, 'THE STORMLEAF SCAR REMEMBERS', 'His chains drank the roots, and the leaves turned to ash.'],
+      [17.2, 'IVEN · YEARS AGO', 'Off the road! Everyone, to the Archive!'],
+      [19.4, 'THE STORMLEAF SCAR REMEMBERS', 'One by one, the crossings fell.'],
+      [26, 'VEYR · THE DARK TRIAD', 'Let them chase false bindings until the kingdom forgets the true one.'],
+      [31.3, 'IVEN · YEARS AGO', 'Then the Scar keeps the true pattern. Only a calm heart will read it.'],
+      [35.4, 'THE STORMLEAF SCAR REMEMBERS', 'The road can grow again. The Scar still holds the true pattern.'],
     ],
   },
   sigil: {
@@ -73,6 +122,51 @@ function hookShot(heart) {
     focus: t => t > HEART_AWAY[0] && t < HEART_AWAY[1] ? h : null,
   };
 }
+// "The Mark in the Flame", the Grimoire Tower's memory (staged by emberFlashback.js), played after
+// the cure. g: the ground under the sleeping pup. The camera keeps 9 m or more from the tower.
+function markShot(g) {
+  const P = MARK_PUP, at = (x, y, z) => v(x, g + y, z);
+  return {
+    title: 'A MEMORY · THE MARK IN THE FLAME', chapter: 'PROLOGUE · THE GRIMOIRE TOWER', flashback: 'mark',
+    keys: [
+      [0, at(9, 5.5, 12), at(0, 5, -8)],
+      [5.5, at(7, 3.5, 7), at(P.x - .5, 1, P.z)],
+      [8.5, at(4.6, 1.1, 3.2), at(0, 17, -14)],           // low beside the pup, looking up at the Triad
+      [11, at(4.2, 1.3, 3.6), at(0, 17, -14)],
+      [13.5, at(8, 4.5, 3), at(P.x, 1.5, P.z)],           // the mark descends
+      [16.5, at(6.2, 2.6, 1.5), at(P.x, .6, P.z)],
+      [19, at(9, 4, 4), at(P.x - 1.5, 1.5, P.z + .5)],    // the Keeper's ward
+      [22, at(8, 9, 8), at(0, 17, -14)],                  // the Triad leaves
+      [25, at(5.6, 1.9, 1.6), at(P.x - .5, .6, P.z + .1)],
+      [28.5, at(6.4, 3.4, 3.2), at(P.x - .4, .8, P.z + .1)],
+      [30.5, at(9, 5, 9), at(0, 3, -4)],
+    ],
+    lines: [
+      [0.9, 'THE SHRINE REMEMBERS', 'Years ago, a small dog slept every night at the foot of the Grimoire Tower.'],
+      [6.6, 'VEYR · THE DARK TRIAD', 'There. A heart that wanders every road. Our mark will travel with it.'],
+      [10.6, 'SILE · THE DARK TRIAD', 'Drink the shrine’s warmth, little flame.'],
+      [13, 'MORCANT · THE DARK TRIAD', 'Three sparks of our sign. Let them scatter when it wakes.'],
+      [16.4, 'SHRINE KEEPER', 'Leave it be!'],
+      [19, 'VEYR · THE DARK TRIAD', 'Guard it, then. It will burn the day the world forgets to be calm.'],
+      [23.6, 'THE SHRINE REMEMBERS', 'The curse slept for years, until a restless traveller stirred the world.'],
+      [27, 'THE SHRINE REMEMBERS', 'Three embers. One mark. The Triad’s sign, inside the flame.'],
+    ],
+  };
+}
+// Back in the present after the memory: the keeper's lead to Spade, framed on the tower's foot.
+function leadShot(g) {
+  const at = (x, y, z) => v(x, g + y, z);
+  return {
+    title: 'THE GRIMOIRE TOWER', chapter: 'I · A BOND RESTORED',
+    keys: [[0, at(9, 3.4, 10), at(0, 2.2, -9)], [10, at(7.5, 2.8, 8), at(0, 2, -10)], [20, at(6.5, 2.6, 6.5), at(0, 2, -10)], [28, at(7, 3, 7), at(0, 2.4, -10)]],
+    lines: [
+      [0.6, 'YOU', 'So this wasn’t the only bond the Triad broke, was it?'],
+      [5, 'SHRINE KEEPER', 'West, in Spade, the Triad binds people by stealing their memories. Neris shelters those they tried to erase.'],
+      [13, 'SHRINE KEEPER', 'Find her at the Lantern Refuge, the first house on your right as you enter Spade. Hear her story, then seek the stolen testimonies in the castle archive.'],
+      [22, 'YOU', 'Then we head west. Stay close, friend. We’ll find Neris together.'],
+    ],
+  };
+}
 function prepare(shot) {
   shot.duration = shot.keys.at(-1)[0] + 1;
   shot.position = new THREE.CatmullRomCurve3(shot.keys.map(k => k[1]));
@@ -82,16 +176,18 @@ function prepare(shot) {
 Object.values(SHOTS).forEach(prepare);
 const ease = k => k * k * (3 - 2 * k);
 
-export function createCloverScenes({ camera, state, keys, campaign, canvas, heart = null }) {
+// flashbacks: { severing: createSeveringFlashback(...) }; a shot naming one runs it (begin/update/end).
+// groundAt(x, z): terrain height, for shots placed on the hub's ground (the Ember Hound memory).
+export function createCloverScenes({ camera, state, keys, campaign, canvas, heart = null, flashbacks = {}, groundAt = () => 0 }) {
   const shots = { ...SHOTS, hook: prepare(hookShot(heart)) };
   const overlay = document.createElement('section');
   overlay.id = 'cloverScene';
   overlay.hidden = true;
   overlay.setAttribute('aria-label', 'Clover story scene');
-  overlay.innerHTML = `<div class="scene-veil"></div><div class="scene-top"><span>THE LIVING ROAD</span><span>SPACE · FASTER &nbsp; X · SKIP</span></div>
+  overlay.innerHTML = `<div class="scene-veil"></div><div class="scene-top"><span class="scene-title">THE LIVING ROAD</span><span>SPACE · FASTER &nbsp; X · SKIP</span></div>
     <div class="scene-dialogue"><p class="scene-chapter">III · THE CLOVER KINGDOM</p><p class="scene-speaker"></p><p class="scene-line" aria-live="polite" aria-atomic="true"></p></div>`;
   document.body.appendChild(overlay);
-  const veil = overlay.querySelector('.scene-veil'), speaker = overlay.querySelector('.scene-speaker'), line = overlay.querySelector('.scene-line');
+  const chapter = overlay.querySelector('.scene-chapter'), title = overlay.querySelector('.scene-title'), veil = overlay.querySelector('.scene-veil'), speaker = overlay.querySelector('.scene-speaker'), line = overlay.querySelector('.scene-line');
   const savedPosition = new THREE.Vector3(), savedRotation = new THREE.Quaternion(), look = new THREE.Vector3();
   let shot = null, time = -1, shown = -1;
   const queue = [], pace = createPace();
@@ -113,6 +209,7 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
   function finish() {
     camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation);
     shot.fx?.(Infinity, campaign);
+    flashbacks[shot.flashback]?.end();
     shot = null; time = -1; state.cinematic = false; overlay.hidden = true; document.body.classList.remove('story-playing');
     keys.clear();
     if (canvas) {
@@ -137,21 +234,35 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     // Where terrain should stream while a shot is away from the player, or null (stream around the player).
     get focus() { return time >= 0 ? shot.focus?.(time) ?? null : null; },
     // kind: 'meet' | 'sigil' | 'hook', the Clover story event that earns the shot.
-    queue(kind) { if (shots[kind]) queue.push(kind); },
+    // Meeting Iven: you ask about the road, the Scar's memory plays, then Iven's instructions.
+    queue(kind) {
+      if (kind === 'mark') { // after the cure, on today's ground: the memory, then the keeper's lead to Spade
+        const g = groundAt(MARK_PUP.x, MARK_PUP.z);
+        shots.mark = prepare(markShot(g)); shots.lead = prepare(leadShot(g));
+        queue.push('mark', 'lead'); return;
+      }
+      if (kind === 'meet') queue.push('ask', 'severing');
+      if (shots[kind]) queue.push(kind);
+    },
     observe(ready) {
       if (!queue.length || !ready || time >= 0) return;
       shot = shots[queue.shift()]; time = 0; shown = -1; pace.show();
       savedPosition.copy(camera.position); savedRotation.copy(camera.quaternion);
       state.cinematic = true; keys.clear();
+      title.textContent = shot.title ?? 'THE LIVING ROAD'; chapter.textContent = shot.chapter ?? 'III · THE CLOVER KINGDOM'; overlay.classList.toggle('memory', Boolean(shot.flashback));
+      flashbacks[shot.flashback]?.begin();
+      veil.style.opacity = '1'; // open on black and fade in (no stale frame from the last shot)
       overlay.hidden = false; document.body.classList.add('story-playing');
     },
     update(realDt) {
       // The clock waits on a line still being read (the next line's time, or the fade-out).
-      time += pace.step(realDt, time, shot.lines[shown + 1]?.[0] ?? shot.duration - 0.6);
+      const dt = pace.step(realDt, time, shot.lines[shown + 1]?.[0] ?? shot.duration - 0.6);
+      time += dt;
       const t = Math.min(time, shot.duration - 1);
       camera.position.copy(sample(shot.position, t));
       camera.lookAt(look.copy(sample(shot.look, t)));
       shot.fx?.(time, campaign);
+      flashbacks[shot.flashback]?.update(time, dt);
       veil.style.opacity = String(Math.max(0, 1 - time / 0.8, (time - (shot.duration - 0.6)) / 0.6));
       const index = shot.lines.findLastIndex(l => time >= l[0]);
       if (index !== shown && index >= 0) {

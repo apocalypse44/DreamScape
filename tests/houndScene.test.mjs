@@ -78,7 +78,7 @@ test('only a completed cure triggers the keeper scene, reverses the transformati
   scene.update(PHASE_SECONDS.exit); scene.update(PHASE_SECONDS.return);
   assert.equal(scene.active, false);
   assert.equal(scene.observe('cured', true), false);
-  assert.match(HOUND_CURE_LINES.map(line => line.text).join(' '), /Neris.*Lantern Refuge/s);
+  assert.match(HOUND_CURE_LINES.map(line => line.text).join(' '), /How did this.*shrine remembers/s); // leads into the memory
   scene.reset();
   assert.equal(scene.observe('cured', true), true);
 });
