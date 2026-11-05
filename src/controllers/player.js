@@ -1,6 +1,7 @@
 import { SLAB_SIZE } from '../models/quest.js';
 import { MOVEMENT } from '../models/movementConfig.js';
 import { createRecovery } from '../models/recovery.js';
+import { createColliderIndex } from '../models/colliderIndex.js';
 
 // Highest walkable surface at (x, z) that is no higher than `limit`: platforms or terrain.
 // Used by visuals (dog, foot IK) so they stand on slabs and rims, not the ground beneath.
@@ -23,10 +24,20 @@ export function createSurfaceAt(platforms, terrainHeight) {
 const EDGE = 0.55;
 
 export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, allowFallRecovery, isMovementBlocked = () => false, colliderFilter = () => true }) {
+  const indices = new WeakMap(), nearby = [];
+  function candidates(colliders, x, z, radius) {
+    let index = indices.get(colliders);
+    if (!index) { index = createColliderIndex(colliders); indices.set(colliders, index); }
+    return index.query(x, z, radius, nearby);
+  }
+  function* colliderLists() {
+    yield staticColliders;
+    for (const chunk of chunks.values()) yield chunk.userData.colliders;
+  }
   function collidesAt(x, z) {
     const playerRadius = 0.55;
-    for (const colliders of [staticColliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]) {
-      for (const collider of colliders) {
+    for (const colliders of colliderLists()) {
+      for (const collider of candidates(colliders, x, z, playerRadius)) {
         if (collider.off || !colliderFilter(collider)) continue; // off: prop dissolved by chaos
         const feet = player.position.y - MOVEMENT.eyeHeight;
         if (collider.minY !== undefined && feet + MOVEMENT.eyeHeight < collider.minY) continue;

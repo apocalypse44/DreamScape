@@ -1,5 +1,6 @@
 import { cloneSkinned } from './anim.js';
 import { createIvenStyle } from './ivenStyle.js';
+import { createAnimationCadence } from '../models/animationCadence.js';
 
 // Villagers of the Grimoire Tower: Quaternius mannequins + Universal Animation Library clips (CC0).
 // They share the library's own skeleton, so every clip plays without retargeting.
@@ -114,7 +115,8 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
       root.add(group);
       const collider = { x: def.home[0], z: def.home[1], radius: 0.45, npc: true }; // npc: not an obstacle to other NPCs
       colliders.push(collider);
-      const npc = { def, group, collider, mixer: new THREE.AnimationMixer(model), actions: {}, current: null, t: 0 };
+      const npc = { def, group, collider, mixer: new THREE.AnimationMixer(model), actions: {}, current: null, t: 0,
+        animationStep: createAnimationCadence(hash(def.home[0], def.home[1])) };
       if (def.style === 'scholar') npc.style = createIvenStyle({ model, group, root });
       if (def.robe) {
         // Rides on the NPC's group (feet origin, turns with her); legs and hips stay hidden inside.
@@ -200,7 +202,9 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
         group.position.y = def.y ?? terrainHeight(group.position.x, group.position.z);
         npc.collider.x = group.position.x;
         npc.collider.z = group.position.z;
-        npc.mixer.update(dt);
+        const animationDt = npc.animationStep(dt, distance, group.visible);
+        if (!animationDt) continue;
+        npc.mixer.update(animationDt);
         npc.style?.update();
         if (npc.hood || npc.lantern) group.updateMatrixWorld(true);
         if (npc.hood && npc.head) {

@@ -433,7 +433,7 @@ export function startGame(ui) {
     else if (doorScene.active) cameraDistance = doorScene.update(dt);
     else if (cloverScenes.active) cameraDistance = cloverScenes.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
-    else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(); }
+    else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(dt); }
     character.update(dt, cameraDistance, houndScene.active ? null : swarmCast);
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
