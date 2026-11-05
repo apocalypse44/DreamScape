@@ -28,7 +28,8 @@ const DRESSED = new Set(['hub', 'trees']); // Grimoire Tower + Clover Kingdom
 // kingdom gates, which stand where each trail crosses into its kingdom.
 export const ROADS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 export function trailOffset(noise, along, i) {
-  return (noise(along * 0.008 + i * 37, i * 11) - 0.5) * 30 * THREE.MathUtils.smoothstep(along, 20, 80);
+  const t = Math.max(0, Math.min(1, (along - 20) / 60)); // smoothstep(along, 20, 80); no THREE so world.js can use it headless
+  return (noise(along * 0.008 + i * 37, i * 11) - 0.5) * 30 * t * t * (3 - 2 * t);
 }
 // World position of trail i at `along` metres from the centre.
 export function trailPoint(noise, i, along) {

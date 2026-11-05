@@ -24,13 +24,40 @@ ASSETS = [
     'Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb',
     'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb',
     'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Female Mannequin/Unreal-Godot/Mannequin_F.glb',
+    # Diamond kingdom (DIAMOND_KINGDOM_TERRAIN.md): particle sprites and the shack roofs' corrugated steel.
+    *[f'kenney_particle-pack/PNG (Transparent)/{n}.png' for n in ['smoke_04', 'circle_05', 'star_06', 'magic_02', 'spark_04']],
+    'kenney_particle-pack/License.txt',
+    'CorrugatedSteel005_1K-JPG/CorrugatedSteel005_1K-JPG_Color.jpg',
+    'CorrugatedSteel005_1K-JPG/CorrugatedSteel005_1K-JPG_NormalGL.jpg',
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/License.txt',
+    # Diamond Siege Yard (diamondSiege.js): Kenney Castle Kit engines share one colormap.
+    *[f'kenney_castle-kit/Models/GLB format/siege-{n}.glb' for n in ['ballista', 'ballista-demolished', 'catapult', 'catapult-demolished',
+                                                                      'trebuchet', 'trebuchet-demolished', 'ram', 'ram-demolished', 'tower', 'tower-demolished']],
+    # Prism Citadel (diamondKingdom.js): hexagon towers, curtain walls, banners and the drawbridge.
+    *[f'kenney_castle-kit/Models/GLB format/{n}.glb' for n in ['tower-hexagon-base', 'tower-hexagon-mid', 'tower-hexagon-top',
+                                                                'tower-hexagon-roof', 'wall', 'flag-banner-long', 'bridge-draw']],
+    'kenney_castle-kit/Models/GLB format/Textures/colormap.png',
+    'kenney_castle-kit/License.txt',
 ]
 # Kit packs where the game loads only a few models (cloverArchiveProps.js): copy each model's
 # .gltf, its buffers and the textures it references, not the whole pack.
 KIT_MODELS = {
     'Fantasy Props MegaKit[Standard]/Exports/glTF': ['Bookcase_2', 'Shelf_Arch', 'BookStand', 'Book_Stack_1', 'Book_Stack_2',
-                                                     'Scroll_2', 'Chandelier', 'Lantern_Wall', 'Vase_2'],
+                                                     'Scroll_2', 'Chandelier', 'Lantern_Wall', 'Vase_2',
+                                                     'Barrel', 'Crate_Wooden', 'Bucket_Wooden_1', 'Stall_Cart_Empty', 'Cauldron',
+                                                     # Diamond: Artificers' Row workshops and Orin's Hall (diamondRow.js)
+                                                     'Workbench', 'Workbench_Drawers', 'Anvil', 'Anvil_Log', 'Bucket_Metal', 'Whetstone',
+                                                     'Crate_Metal', 'Shelf_Simple', 'WeaponStand', 'Shield_Wooden', 'Sword_Bronze',
+                                                     'Peg_Rack', 'Table_Large', 'Scroll_1', 'Dummy'],
     'Medieval Village MegaKit[Standard]/glTF': ['Roof_RoundTiles_8x12', 'Prop_Vine5', 'Prop_Vine2'],
+    # Diamond: Dustward clutter and the Workers' Stockade camp (diamondDustward.js, diamondStockade.js).
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/decoration/props': ['tent', 'sack', 'barrel', 'crate_A_big', 'crate_long_A', 'wheelbarrow',
+                                                                           'resource_stone', 'bucket_water', 'pallet',
+                                                                           'target', 'weaponrack', 'bucket_arrows', 'resource_lumber', 'crate_B_big',
+                                                                           'crate_open', 'flag_yellow', 'flag_red'],
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/neutral': ['building_destroyed', 'building_scaffolding'],
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/yellow': ['building_well_yellow', 'building_barracks_yellow', 'building_archeryrange_yellow'],
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/red': ['building_tower_A_red'],
 }
 OPTIONAL = ['sounds']  # copied when present; the game falls back to synthesized sounds
 SKIP = shutil.ignore_patterns('desktop.ini', 'Desktop.ini', 'Thumbs.db', '.DS_Store', '__pycache__')

@@ -7,3 +7,11 @@ export function spadeClimateAt(x, z) {
   const t = Math.max(0, Math.min(1, (distance + 90) / 110));
   return t * t * (3 - 2 * t);
 }
+// Diamond's warm, dusty air, blended the same way across its southern border.
+export function diamondClimateAt(x, z) {
+  const circle = Math.hypot(x, z) - 350;
+  const southSector = (z - Math.abs(x)) / Math.SQRT2;
+  const distance = Math.min(circle, southSector);
+  const t = Math.max(0, Math.min(1, (distance + 90) / 110));
+  return t * t * (3 - 2 * t);
+}

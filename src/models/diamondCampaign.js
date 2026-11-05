@@ -5,6 +5,7 @@
 // escape gate and inversion core open. Return to Orin for the Prism Sigil.
 // Pure logic, no Three.js. The relay itself is the constraint solver in diamondWfc.js.
 import { createRelay, popcount } from './diamondWfc.js';
+import { SHOPS, fragmentSpot } from './diamondRow.js';
 
 // Diamond is the southern kingdom (demo key 4). The game passes the real gate from
 // createKingdomGates; this default only serves tests and the villager entry for Orin.
@@ -24,7 +25,8 @@ export function diamondLayout(gate = DIAMOND_GATE) {
     gate: { x: gate.x, z: gate.z },
     center: at(40, 0),
     orin: at(30, -11),
-    fragments: [at(28, 12), at(47, 16), at(58, -6), at(50, -19)].map((p, i) => ({ id: `fragment-${i + 1}`, ...p })),
+    // One fragment hidden in each Artificers' Row workshop, west of the quarry (diamondRow.js).
+    fragments: SHOPS.map(fragmentSpot).map(({ u, v }, i) => ({ id: `fragment-${i + 1}`, ...at(u, v) })),
   };
 }
 
@@ -132,7 +134,7 @@ export function createDiamondCampaign({ layout = diamondLayout(), ready = () => 
         return say('fixed', 'This socket accepts only one shape.', 3000);
       }
       if (collected.size - order.length <= 0) {
-        return say('empty', stage === 'collect' ? 'You carry no loose fragment. Find the rest around the relay.'
+        return say('empty', stage === 'collect' ? 'You carry no loose fragment. Find the rest in the Artificers’ Row workshops, west of the quarry.'
           : 'Every fragment is fitted. Press X to lift one and try another.', 3500);
       }
       for (const tile of conduits(relay.options(x, y))) {
@@ -167,7 +169,7 @@ export function createDiamondCampaign({ layout = diamondLayout(), ready = () => 
           return say('waiting', 'ORIN · Not yet. Heart’s stolen current still feeds the Triad’s chains. Bring me the Tide Sigil from Sera’s spring, then we can finish what my workers started.', 8000);
         }
         stage = 'collect'; version++;
-        return say('orin', 'ORIN · Do not mistake a kingdom for its captors. My workers broke the Shatterglass Relay so the Triad could not use it, and the pieces scattered. Gather the four conduit fragments around it while the world is calm, then fit them into its sockets.', 11000);
+        return say('orin', 'ORIN · Do not mistake a kingdom for its captors. My workers broke the Shatterglass Relay so the Triad could not use it, and hid the four conduit fragments in their workshops on Artificers’ Row, west of the quarry. Gather them while the world is calm, then fit them into its sockets.', 11000);
       }
       if (stage === 'collect') {
         if (!calm) return null;

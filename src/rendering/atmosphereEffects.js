@@ -2,7 +2,7 @@
 import { CONFIG } from '../models/chaosLookConfig.js';
 import { sampleLook } from '../models/look.js';
 import { sampleDaylight } from '../models/daylight.js';
-import { spadeClimateAt } from '../models/climate.js';
+import { spadeClimateAt, diamondClimateAt } from '../models/climate.js';
 import { createSky } from './sky.js';
 import { createChaosWeather } from './chaosWeather.js';
 import { createEnvironmentLighting } from './environmentLighting.js';
@@ -26,6 +26,9 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
   const stormSky = new THREE.Color(0x222c41).convertSRGBToLinear();
   const fogDay = new THREE.Color(0xa9c6d4), fogNight = new THREE.Color(0x101a2c);
   const fogDusk = new THREE.Color(0xa67d79), fogStorm = new THREE.Color(0x303b4a);
+  // Diamond: warm golden haze by day, an amber sandstorm in chaos.
+  const desertHaze = new THREE.Color(0xd9b97e), sandstorm = new THREE.Color(0x9a6a2e);
+  const desertHorizon = new THREE.Color(0xf0c98a).convertSRGBToLinear();
   const warmSun = new THREE.Color(0xffb46e), noonSun = new THREE.Color(0xfff2d9);
   const groundNight = new THREE.Color(0x111a2d), groundDay = new THREE.Color(0x59634c);
   const skyNight = new THREE.Color(0x849bcd), skyDay = new THREE.Color(0xc4ddff);
@@ -72,6 +75,15 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
       moon.target.position.copy(camera.position);
       moon.position.copy(camera.position).addScaledVector(u.uSunDirection.value, -100);
       moon.intensity = day.moonIntensity * (1 - storm * 0.65);
+      const dry = diamondClimateAt(camera.position.x, camera.position.z);
+      if (dry > 0) {
+        const storming = dry * Math.min(1, visual * 1.5);
+        scene.fog.color.lerp(desertHaze, dry * 0.55 * day.daylight).lerp(sandstorm, storming);
+        scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, 0.006 + visual * 0.022, storming);
+        u.uHorizon.value.lerp(desertHorizon, dry * 0.4 * day.daylight);
+        u.uFogColor.value.copy(scene.fog.color);
+        sun.color.lerp(warmSun, dry * 0.35);
+      }
       hemi.color.copy(skyNight).lerp(skyDay, day.daylight);
       hemi.groundColor.copy(groundNight).lerp(groundDay, day.daylight);
       hemi.intensity = day.ambientIntensity * (1 - storm * 0.4) + flash * 1.2;

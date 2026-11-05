@@ -108,7 +108,10 @@ const ITEM_ICONS = {
 };
 
 // The atlas, quest log and carried inventory each have an independent book page.
-export function createWorldMap({ world, player, state, quest, spade, clover, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
+// diamondLocations: Diamond's story places, built at runtime from its gate (diamondMapLocations).
+export function createWorldMap({ world, player, state, quest, spade, clover, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [] }) {
+  STORY_LOCATIONS.push(...diamondLocations);
+  LANDMARKS.push(...diamondLocations.map(p => ({ ...p, side: 1, color: '#ffd36b', callout: true })));
   const style = document.createElement('style');
   style.textContent = CSS;
   // Baseline atlas rules precede the responsive grimoire stylesheet.
@@ -233,7 +236,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
   const locationDetail=overlay.querySelector('.map-location-detail');
   const destinations = overlay.querySelector('.spade-destinations');
   destinations.setAttribute('aria-label', 'Story destinations');
-  for (const location of CLOVER_MAP_LOCATIONS) {
+  for (const location of [...CLOVER_MAP_LOCATIONS, ...diamondLocations]) {
     const button = document.createElement('button'); button.type = 'button';
     button.dataset.spade = location.id; button.setAttribute('aria-pressed', 'false'); button.textContent = location.name;
     destinations.append(button);
