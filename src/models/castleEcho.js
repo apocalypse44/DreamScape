@@ -65,6 +65,7 @@ export function createCastleEcho() {
       }
       return null;
     },
+    completeForTesting(){recovered=announced=true;},
     reset(){chaosVisible=engaged=active=recovered=announced=skipped=false;progress=-1;},
   };
 }

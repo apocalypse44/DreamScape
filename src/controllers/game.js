@@ -58,9 +58,11 @@ import { buildDiamondSigns } from '../rendering/diamondSigns.js'; // Diamond kin
 import { createChainOrderFlashback } from './diamondFlashback.js'; // Diamond kingdom: "The Chain Order"
 import { diamondMapLocations, DIAMOND_SHOTS, shotKeys } from '../models/diamondStory.js'; // Diamond kingdom: Atlas places and shots
 import { buildCloverCampaign } from '../rendering/cloverCampaign.js';
+import { applyTestStart, getTestStart } from '../models/testStarts.js';
 
-export function startGame(ui) {
+export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
+  const testStart = unlockAll && testStartId ? getTestStart(testStartId) : null;
   const startup = createStartupReadiness();
   const stopObservingLoads = observeStartupLoading(THREE.DefaultLoadingManager, startup);
   const startupStatus = document.querySelector('#startupStatus');
@@ -84,7 +86,7 @@ export function startGame(ui) {
     world,
     state,
     player,
-    demoCured: unlockAll, // Development-only preset; normal play still requires the real cure.
+    demoCured: unlockAll && testStart?.id !== 'ember-hound',
     onEmberPickup: (index, count, total) => encounters.pickupEmber(index, count, total),
     onEmberPosition: (index, position) => encounters.setEmberPosition(index, position),
     onOfferEmbers: onDone => encounters.startOffering(onDone),
@@ -107,7 +109,7 @@ export function startGame(ui) {
     onChapterComplete: () => { inventory.add('lantern-sigil'); doorScene.queue(9); } }); // cutscene after Neris's sigil lines
   // --- Clover chapter: The Living Road ---
   const livingRoad = buildCloverCampaign({ scene, world, keys, notify: toast,
-    ready: () => inventory.has('lantern-sigil') && (unlockAll || spade.castle.discovery.complete),
+    ready: () => inventory.has('lantern-sigil') && spade.castle.discovery.complete,
     onSigil: () => inventory.add('root-sigil'), onHook: () => inventory.add('tide-hook'),
     onScene: kind => cloverScenes?.queue(kind),
     onReady: root => atmosphere?.prepare?.(root) });
@@ -213,7 +215,6 @@ export function startGame(ui) {
     world.reset();
     player.position.set(0, terrainHeight(0, 0) + 2.05, 0);
     movement.reset();
-    updateChunks();
     quest.reset();
     encounters.reset();
     chaosLook.reset();
@@ -230,7 +231,14 @@ export function startGame(ui) {
     spade.reset();
     diamond.reset(); // Diamond chapter
     livingRoad.reset(); // Clover chapter: R clears growth, discoveries and both earned items.
-    if (unlockAll) inventory.add('lantern-sigil'); // Reapply only the earlier-chapter demo prerequisite.
+    if (testStart) {
+      const target = applyTestStart(testStart.id, { spade, clover: livingRoad.model, diamond: diamond.model, inventory });
+      movement.teleport({ ...target, top: target.top ?? world.surfaceHeight(target.x, target.z) });
+      companion.reset();
+    }
+    updateChunks();
+    diamondArrived = Boolean(testStart && testStart.chapter >= 4);
+    diamondStage = diamond.model.stage;
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -396,7 +404,7 @@ export function startGame(ui) {
     if (!skyIsland.journey.blocked && !houndScene.active) movement.update(startup.ready ? dt : 0);
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
-    if (!unlockAll) houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
+    if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
       !skyIsland.journey.blocked && player.grounded);
     companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation);
     if (!houndScene.active) quest.updateHoundEmber(companion.position);

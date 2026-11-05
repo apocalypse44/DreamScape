@@ -137,6 +137,15 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
       }
       return null;
     },
+    setTestStage(next) {
+      if (!['meet', 'lanterns', 'anchor', 'report', 'complete'].includes(next)) throw new Error(`Invalid Spade test stage: ${next}`);
+      reset(); stage = next;
+      if (['anchor', 'report', 'complete'].includes(next)) for (const site of LANTERN_SITES) {
+        lit.add(site.id); charge.set(site.id, LANTERN.hold);
+      }
+      if (next === 'report' || next === 'complete') strikes = STRIKE.needed;
+      gateOpen = next === 'complete';
+    },
     reset,
   };
 }

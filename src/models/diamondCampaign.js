@@ -192,6 +192,12 @@ export function createDiamondCampaign({ layout = diamondLayout(), ready = () => 
       }
       return null;
     },
+    setTestStage(next) {
+      if (!['meet', 'collect', 'repair'].includes(next)) throw new Error(`Invalid Diamond test stage: ${next}`);
+      reset(); stage = next;
+      if (next === 'repair') for (const fragment of layout.fragments) collected.add(fragment.id);
+      version++;
+    },
     reset,
   };
 }

@@ -23,11 +23,11 @@ export function createInventory({ onAdd } = {}) {
   const held = new Set(); // insertion order = order acquired
   return {
     has: id => held.has(id),
-    add(id) {
+    add(id, { silent = false } = {}) {
       if (!ITEMS[id]) throw new Error(`Unknown item: ${id}`);
       if (held.has(id)) return false;
       held.add(id);
-      onAdd?.(id, ITEMS[id]);
+      if (!silent) onAdd?.(id, ITEMS[id]);
       return true;
     },
     get items() { return [...held].map(id => ({ id, ...ITEMS[id] })); },
