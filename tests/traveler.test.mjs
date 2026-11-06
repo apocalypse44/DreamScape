@@ -46,9 +46,11 @@ test('releasing jump early creates a lower arc and teleport clears buffered move
 test('included traveller asset is a compact GLB: body + sword, cape springs, sockets, combat clips, no textures',()=>{
  const bytes=readFileSync(new URL('../src/assets/traveler.glb',import.meta.url));assert.equal(bytes.readUInt32LE(0),0x46546c67);assert.equal(bytes.readUInt32LE(8),bytes.length);
  const json=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString());
- assert.equal(json.meshes.length,2);assert.deepEqual(json.nodes.filter(n=>n.mesh!=null).map(n=>n.name).sort(),['Traveler','TravelerSword']);assert.equal(json.images?.length||0,0);
- for(const mesh of json.meshes)assert.deepEqual(mesh.primitives.map(p=>json.materials[p.material].name),['TravelerPalette','TravelerGlow']);
- const names=new Set(json.nodes.map(n=>n.name));for(const n of ['socket_hand_r','socket_back','cape_1','cape_2','cape_3'])assert.ok(names.has(n),n);
+ assert.equal(json.meshes.length,3);assert.deepEqual(json.nodes.filter(n=>n.mesh!=null).map(n=>n.name).sort(),['Traveler','TravelerFace','TravelerSword']);assert.equal(json.images?.length||0,0);
+ for(const mesh of json.meshes.filter(m=>m.primitives.length>1))assert.deepEqual(mesh.primitives.map(p=>json.materials[p.material].name),['TravelerPalette','TravelerGlow']);
+ // The face shell: UV-mapped (the runtime paints expressions on it) and parented under the head.
+ const face=json.meshes[json.nodes.find(n=>n.name==='TravelerFace').mesh].primitives[0];assert.ok(face.attributes.TEXCOORD_0!=null);assert.equal(json.materials[face.material].name,'TravelerFace');
+ const names=new Set(json.nodes.map(n=>n.name));for(const n of ['socket_hand_r','socket_back','socket_face','cape_1','cape_2','cape_3'])assert.ok(names.has(n),n);
  for(const name of ['idle','walk','jog','run','jumpStart','fall','land','cast','crouchWalk','combatIdle','slash1','slash2','slash3','slash1End','slash2End','block','roll','dash','hit','knockback'])assert.ok(json.animations.some(a=>a.name===name),name);
  // Only rotations, pelvis/root translation: constant scale/translation tracks are stripped.
  for(const a of json.animations)for(const c of a.channels){const node=json.nodes[c.target.node].name;assert.notEqual(c.target.path,'scale');if(c.target.path==='translation')assert.ok(['root','pelvis'].includes(node),`${a.name}:${node}`);}

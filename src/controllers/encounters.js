@@ -64,6 +64,7 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
 
   return {
     get keeper() { return people?.keeper ?? null; },
+    get dogState() { return dogBrain.state; }, // debugging: free / sit / bark / wait / pet / howl / fetch_go / fetch_back
     update(dt, t) {
       embers.setWorldVisible(stage() === 'cursed');
       embers.update(dt, t, player.position, state.chaos);

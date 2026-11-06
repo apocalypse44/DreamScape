@@ -1,11 +1,14 @@
 import { loadModel } from './models.js';
 import { createTravelerMotion } from '../models/travelerMotion.js';
+import { pickExpression } from '../models/faceExpression.js';
+import { createTravelerFace } from './travelerFace.js';
 
 // Sigil-blade wanderer: original outfit + CC0 rig/motions in one generated GLB.
 // Combat clips are sampled at the clip time chosen by travelerCombat, so what is
 // drawn matches the simulated hit frames. No reference game's assets or code are used.
 const ONE_SHOTS = ['jumpStart', 'land', 'interact', 'castShoot'];
-export function createTravelerCharacter({ scene, state, player, surfaceAt, status = document.querySelector('#characterStatus') }) {
+// walkSpeed: this place's normal walking speed (kingdoms 9 m/s, movement lab 4.2), to tell a sprint apart.
+export function createTravelerCharacter({ scene, state, player, surfaceAt, status = document.querySelector('#characterStatus'), walkSpeed = 9, reactiveFace = false }) {
   const root = new THREE.Group(); root.name = 'DreamScape traveller'; scene.add(root);
   const lean = new THREE.Group(); root.add(lean);
   const motion = createTravelerMotion(), actions = new Map(), legs = [], cape = [];
@@ -14,7 +17,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
   const rotation = new THREE.Quaternion(), parent = new THREE.Quaternion(), world = new THREE.Quaternion();
   const swing = new THREE.Quaternion(), euler = new THREE.Euler();
   let mixer = null, model = null, sword = null, sockets = {}, failed = false, label = '', name = 'loading', heading = state.yaw + Math.PI, tilt = 0, ik = 0;
-  let rootMotion = {}, modelScale = 1, clock = 0, drawn = false;
+  let rootMotion = {}, modelScale = 1, clock = 0, drawn = false, face = null, faceOverride = null, faceOverrideTime = 0, expression = 'neutral';
   const capeState = { pitch: .1, pitchV: 0, roll: 0, rollV: 0, lastHeading: heading };
   const trail = createTrail(scene);
   const ready = loadModel('src/assets/traveler.glb', 2.05).then(asset => {
@@ -31,6 +34,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       if (o.name.startsWith('socket_')) sockets[o.name] = o;
       if (o.name.startsWith('cape_')) cape.push({ bone: o, bind: o.quaternion.clone() });
       if (o.name === 'TravelerSword') sword = o; // a Group when the mesh has two materials
+      if (o.name === 'TravelerFace' && o.isMesh) { face = createTravelerFace(o, ramp); return; }
       if (!o.isMesh) return;
       const set = o.isSkinnedMesh ? skinned : rigid;
       o.material = Array.isArray(o.material) ? o.material.map(m => m.name === 'TravelerGlow' ? set[1] : set[0]) : set[0];
@@ -103,6 +107,9 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
     get pose() { return name; }, get loaded() { return Boolean(mixer); },
     get rootMotion() { return rootMotion; }, get modelScale() { return modelScale; },
     get heading() { return heading; },
+    get expression() { return expression; },
+    /** Show an expression for a while (cutscenes, dialogue): 'joy', 'sad', 'surprised', ... */
+    setExpression(name, seconds = 2) { faceOverride = name; faceOverrideTime = seconds; },
     swordTip(target, offset = .86) { if (!sword) return null; return sword.localToWorld(target.set(0, offset, 0)); },
     reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = 0; capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
     update(dt, cameraDistance = 3.8, castAt = null, combat = null) {
@@ -123,6 +130,10 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       lean.rotation.z += ((acting ? 0 : THREE.MathUtils.clamp(-difference * .09, -.12, .12)) - lean.rotation.z) * (1 - Math.exp(-10 * dt));
       holdSword(Boolean(combat?.drawn));
       if (!mixer || !root.visible) { trail.clear(); return; }
+      if ((faceOverrideTime -= dt) <= 0) faceOverride = null;
+      expression = pickExpression({ reactive: reactiveFace, override: faceOverride, combat: combat?.clip, casting: Boolean(castAt), grounded: player.grounded,
+        verticalSpeed: player.velocity.y, speed, sprinting: speed > walkSpeed * 1.25, chaos: state.chaos, petting: (state.interactionLock || 0) > 0 });
+      face?.update(dt, expression, Boolean(state.cinematic && /^(YOU|TRAVELL?ER)$/i.test(state.cinematicSpeaker || '')));
       if (pose.takeoff) actions.get('jumpStart')?.reset().play();
       if (pose.landed && !acting) actions.get('land')?.reset().play();
       for (const [clip, action] of actions) {
@@ -131,9 +142,9 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
         const weight = action.getEffectiveWeight() + (targetWeight - action.getEffectiveWeight()) * (1 - Math.exp(-rate * dt));
         action.enabled = targetWeight > 0 || weight > .0001; action.setEffectiveWeight(action.enabled ? weight : 0);
         if (acting && clip === combat.clip) { action.paused = false; action.time = combat.time; action.setEffectiveTimeScale(0); continue; }
-        if (clip === 'walk') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 1.5, .45, 2.5));
-        else if (clip === 'jog') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 3.2, .65, 2.5));
-        else if (clip === 'run') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 5.5, .65, 3.3));
+        if (clip === 'walk') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 1.5, .45, 1.6));
+        else if (clip === 'jog') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 3.2, .65, 1.6));
+        else if (clip === 'run') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 5.5, .65, 1.6)); // kingdoms sprint at 18 m/s
         else if (clip === 'crouchWalk') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 1.7, .6, 2.5));
         else if (action.getEffectiveTimeScale() === 0) action.setEffectiveTimeScale(1);
       }

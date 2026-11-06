@@ -33,13 +33,15 @@ const FRAGMENT = `
     if (uSpark > .5) { mask = pow(max(0.0, 1.0 - length(p) * 2.0), 1.8); sprite.rgb = vec3(1.0); }
     float alpha = mask * vTint.a;
     if (alpha < .002) discard;
-    gl_FragColor = vec4(uSmoke > .5 ? vTint.rgb : sprite.rgb * vTint.rgb, alpha);
+    // Veyr's curse burns violet: the orange flame sprite supplies brightness only, the tint the hue.
+    float heat = dot(sprite.rgb, vec3(.3, .5, .2)) * 1.5;
+    gl_FragColor = vec4(uSmoke > .5 ? vTint.rgb : heat * vTint.rgb, alpha);
   }`;
 
 export function createHoundFire({ scene, camera, renderer }) {
   const simulation = createFireParticles();
   const capacity = simulation.particles.length, screen = new THREE.Vector2();
-  const fallback = new THREE.DataTexture(new Uint8Array([255, 120, 25, 255]), 1, 1, THREE.RGBAFormat);
+  const fallback = new THREE.DataTexture(new Uint8Array([200, 140, 255, 255]), 1, 1, THREE.RGBAFormat);
   fallback.needsUpdate = true;
   const loader = new THREE.TextureLoader();
   const context = renderer.getContext();
@@ -66,7 +68,7 @@ export function createHoundFire({ scene, camera, renderer }) {
     scene.add(points);
     return { kind, geometry, material, points, order: [] };
   });
-  const light = new THREE.PointLight(0xff651b, 0, 6, 2); scene.add(light);
+  const light = new THREE.PointLight(0x9b4dff, 0, 6, 2); scene.add(light);
   const distance = p => (p.x - camera.position.x) ** 2 + (p.y - camera.position.y) ** 2 + (p.z - camera.position.z) ** 2;
   return {
     reset() {
@@ -90,7 +92,9 @@ export function createHoundFire({ scene, camera, renderer }) {
           geometry.attributes.position.setXYZ(vertex, p.x, p.y, p.z);
           geometry.attributes.aSize.setX(vertex, size);
           geometry.attributes.aAngle.setX(vertex, p.angle);
-          geometry.attributes.aTint.setXYZW(vertex, smoke ? .13 : 1, smoke ? .11 : .95 - age * .55, smoke ? .1 : .65 - age * .57, alpha);
+          // Violet fire: lavender-white when fresh, deep purple as it rises; plum-dark smoke.
+          if (smoke) geometry.attributes.aTint.setXYZW(vertex, .12, .08, .17, alpha);
+          else geometry.attributes.aTint.setXYZW(vertex, .9 - age * .45, .7 - age * .6, 1, alpha);
         });
         for (const attribute of Object.values(geometry.attributes)) attribute.needsUpdate = true;
         geometry.setDrawRange(0, order.length);

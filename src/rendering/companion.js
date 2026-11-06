@@ -1,4 +1,4 @@
-import { loadModel, makeGlow } from './models.js';
+import { createDogBody, playDog } from './dogCharacter.js';
 import { findPath } from '../models/pathfinding.js';
 import { companionScenePosition } from '../models/companionSpacing.js';
 import { createHoundFire } from './houndFire.js';
@@ -6,34 +6,13 @@ import { createHoundFire } from './houndFire.js';
 // [right, behind] offsets in metres, tried in order: beside, tighter beside, other side, behind.
 const SLOTS = [[1.5, 0], [1.1, 0.3], [-1.5, 0], [-1.1, 0.3], [0, 1.3]];
 
-// Dog and Ember Hound share one rig and clip set (Quaternius), so swapping models is a visibility toggle.
-function createBody(scene, url, height, glow) {
-  const body = { root: new THREE.Group(), mixer: null, actions: {}, current: null, fallback: null };
-  body.root.visible = false;
-  scene.add(body.root);
-  loadModel(url, height).then(({ object, animations }) => {
-    if (glow) makeGlow(object, 0xff3a12, .22).forEach(material => material.color?.multiplyScalar(.4));
-    body.root.add(object);
-    body.mixer = new THREE.AnimationMixer(object);
-    for (const clip of animations) body.actions[clip.name] = body.mixer.clipAction(clip);
-  }).catch(error => {
-    console.warn(`Companion model could not load: ${url}; using a procedural fallback.`, error);
-    body.fallback = makeFallbackAnimal(height, glow);
-    body.root.add(body.fallback.model);
-  });
-  return body;
+// Dog and Ember Hound share one rig family (Quaternius, CC0), rebuilt by tools/dogBuilder.js into
+// src/assets/dog.glb and hound.glb; swapping models is a visibility toggle.
+function createBody(scene, kind, height, glow) {
+  return createDogBody({ scene, kind, height, fallback: () => makeFallbackAnimal(height, glow) });
 }
 
-function play(body, name) {
-  if (body.current === name) return;
-  if (!body.actions[name]) {
-    if (body.fallback) body.current = name;
-    return;
-  }
-  body.actions[name].reset().fadeIn(0.25).play();
-  body.actions[body.current]?.fadeOut(0.25);
-  body.current = name;
-}
+function play(body, name) { playDog(body, name); }
 
 function makeFallbackAnimal(height, glow) {
   const model = new THREE.Group();
@@ -94,8 +73,8 @@ function animateFallback(body, dt) {
 export function createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation = null }) {
   // Climbs onto Clover terraces / Sky Garden instead of staying in the ravine below.
   const groundAt = (x, z) => surfaceAt(x, z, player.position.y - 2.05 + 1);
-  const dog = createBody(scene, 'assets/animals/ShibaInu.gltf', 0.9, false);
-  const hound = createBody(scene, 'assets/animals/Wolf.gltf', 1.5, true);
+  const dog = createBody(scene, 'dog', 0.9, false);
+  const hound = createBody(scene, 'hound', 1.5, true);
   let activeBody = dog;
   let houndGuarding = false;
   const position = new THREE.Vector3();
@@ -130,7 +109,17 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       Math.hypot(points[route.next].x - position.x, points[route.next].z - position.z) < 2.5) route.next++;
     return points[route.next];
   }
-  let yaw = 0;
+  let moodControl = false; // the mood brain (dog.js) owned the dog last frame, so it owns the clip
+  let yaw = 0, still = 0, idleClip = 'Idle', idleTimer = 6;
+  const look = new THREE.Vector3();
+  // Body language for this frame: calm makes a happy, wagging dog; chaos tucks the tail and flattens the ears.
+  function mood(body, speed, cursed) {
+    look.copy(player.position); look.y -= .35; // the player's face (player.position is eye height)
+    if (body === hound) return { speed, happy: .05, chaos: houndGuarding ? .55 : .35, alert: 1, scar: 1, look };
+    const petting = body.current === 'pet';
+    return { speed, happy: petting ? 1 : THREE.MathUtils.clamp(1.1 - state.chaos * 1.2, 0, 1), chaos: petting ? 0 : state.chaos,
+      alert: body.current === 'bark' ? 1 : 0, scar: cursed ? 1 : 0, look };
+  }
   let slot = SLOTS[0]; // kept while the player is airborne, so jumps don't reshuffle it
 
   const fire = createHoundFire({ scene, camera, renderer });
@@ -140,22 +129,24 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
     get object() { return activeBody.root; },
     play(name) {
       const clips = {
-        sit: 'Idle',
-        bark: 'Attack',
-        wait: 'Idle',
-        pet: 'Idle',
-        howl: 'Attack',
+        sit: 'sit',
+        bark: 'bark',
+        wait: 'sit',
+        pet: 'pet',
+        howl: 'howl',
         run: 'Gallop',
         fetch_go: 'Gallop',
         fetch_back: 'Gallop',
       };
       play(activeBody, clips[name] || 'Idle');
+      moodControl = true; // may come from a key handler between frames: keep the clip from being overwritten
     },
-    onRelease() { play(activeBody, 'Idle'); },
+    onRelease() { play(activeBody, 'Idle'); moodControl = false; },
   };
 
   const companion = {
     dogHandle,
+    get bodies() { return [dog, hound]; }, // debugging: dreamscape.companion.bodies[0].current
     get position() { return position; },
     route,
     prepareScene() {
@@ -182,7 +173,7 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
         body.root.position.copy(position);
         body.root.rotation.y = yaw;
         play(body, 'Idle');
-        body.mixer?.update(dt);
+        body.tick(dt, mood(body, 0, cursed));
         animateFallback(body, dt);
         fire.update(dt, { position, yaw, intensity: flame, wolf });
         return;
@@ -220,7 +211,9 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
         // and ledges the side slot can hang over a drop, so pull it in or swap sides until the
         // ground there is at the player's level; fall back to just behind.
         const feet = player.position.y - 2.05, c = Math.cos(state.yaw), sn = Math.sin(state.yaw);
-        if (player.grounded) slot = SLOTS.find(([r, b]) => {
+        // In chaos the dog keeps close behind the player instead of out at the side.
+        const order = state.chaos >= .65 ? [SLOTS[SLOTS.length - 1], ...SLOTS.slice(0, -1)] : SLOTS;
+        if (player.grounded) slot = order.find(([r, b]) => {
           const x = player.position.x + c * r + sn * b, z = player.position.z - sn * r + c * b;
           return Math.abs(groundAt(x, z) - feet) < 1.2;
         }) || SLOTS[SLOTS.length - 1];
@@ -255,15 +248,22 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       body.root.position.copy(position);
       body.root.rotation.y = yaw;
 
-      if (speed > 8) play(body, 'Gallop');
+      // Resting beside a still player: look around, sniff, then lie down after a while.
+      const playerStill = Math.hypot(player.velocity.x, player.velocity.z) < .3;
+      still = speed <= .5 && playerStill && !cursed && state.chaos < .65 ? still + dt : 0;
+      if ((idleTimer -= dt) <= 0) { idleTimer = 5 + Math.random() * 4; idleClip = ['Idle', 'Idle_2', 'Idle_2_HeadLow'][Math.floor(Math.random() * 3)]; }
+      if (moodControl) { /* sit, bark, pet, howl, fetch: the brain chose the clip */ }
+      else if (speed > 8) play(body, 'Gallop');
       else if (speed > 0.5) play(body, 'Walk');
       else if (quest.restless) play(body, 'Idle_HitReact1');
       else if (ember && !quest.houndCarrying) play(body, 'Attack');
-      else play(body, 'Idle');
-      body.mixer?.update(dt);
+      else if (still > 9) play(body, 'lie');
+      else play(body, cursed || state.chaos >= .65 ? 'Idle' : idleClip);
+      body.tick(dt, mood(body, speed, cursed));
       animateFallback(body, dt);
 
-      if (!authoredRoute && updateMoods(dt)) {
+      moodControl = !authoredRoute && updateMoods(dt);
+      if (moodControl) {
         position.copy(body.root.position);
         yaw = body.root.rotation.y;
       }

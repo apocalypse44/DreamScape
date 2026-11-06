@@ -11,8 +11,7 @@ MAX_FILES = 1000  # Cloudflare dashboard upload / itch.io limit
 
 APP = ['index.html', 'movement-lab.html', 'src', 'styles', 'vendor']
 ASSETS = [
-    'animals/ShibaInu.gltf',
-    'animals/Wolf.gltf',
+    # The dog and Ember Hound now ship as src/assets/dog.glb and hound.glb (tools/dogBuilder.js).
     'animals/License.txt',
     'crystals',
     'shrine',

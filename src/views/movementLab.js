@@ -19,7 +19,7 @@ async function start(){
   sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=sun.shadow.camera.bottom=-32;sun.shadow.camera.right=sun.shadow.camera.top=32;sun.shadow.normalBias=.025;scene.add(sun);
   const {state,keys,pointerButtons,player}=createGameState();state.pitch=-.12;
   const surfaces=[],colliders=[],obstacles=new T.Group();scene.add(obstacles);
-  let groundTime=0,living=false,groundDirty=false,inspect=true,portraitYaw=Math.PI+.5,portraitDistance=4.2;
+  let groundTime=0,living=false,groundDirty=false,inspect=true,portraitYaw=Math.PI+.5,portraitDistance=4.2,portraitHeight=.05,portraitAim=.8;
   function ground(x,z){
     if(x>13&&x<24&&z< -12&&z> -43)return -5;
     const hill=Math.max(0,1-Math.hypot((x-12)/8,(z-3)/9));
@@ -74,7 +74,7 @@ async function start(){
     courseRecovery:p=>p.position.x>13&&p.position.x<24&&p.position.z< -12&&p.position.y<.5?{x:18,z:-16,top:1.8}:null});
   const previous=new T.Vector3(),renderPosition=new T.Vector3(),renderPlayer=Object.create(player);renderPlayer.position=renderPosition;
   const view=createCameraController({camera,state,player:renderPlayer,chunks:new Map(),terrainHeight:ground,staticObstacles:[obstacles]});
-  const avatar=createTravelerCharacter({scene,state,player:renderPlayer,surfaceAt,status});
+  const avatar=createTravelerCharacter({scene,state,player:renderPlayer,surfaceAt,status,walkSpeed:4.2});
   function reset(target={x:0,z:0,top:0}){
     keys.clear();pointerButtons.clear();combat?.reset();combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
   }
@@ -102,7 +102,7 @@ async function start(){
     pressed.attack=pressed.dodge=pressed.sheathe=false;return input;
   }
   window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,get combat(){return combat;},get combatState(){return combatState;},
-    inspect:()=>{inspect=true;document.exitPointerLock();},explore:()=>{inspect=false;},portrait:(yaw,distance=4.2)=>{inspect=true;portraitYaw=yaw;portraitDistance=distance;}};
+    inspect:()=>{inspect=true;document.exitPointerLock();},explore:()=>{inspect=false;},portrait:(yaw,distance=4.2,height=.05,aim=.8)=>{inspect=true;portraitYaw=yaw;portraitDistance=distance;portraitHeight=height;portraitAim=aim;}};
   let last=performance.now(),frameCount=0,frameTime=0,groundRefresh=0;
   function frame(now){
     requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.1);last=now;
@@ -114,7 +114,7 @@ async function start(){
       if(combat)yard.step(step,{player,combat,combatState,toast});
     });
     renderPosition.lerpVectors(previous,player.position,alpha);
-    if(inspect){portraitYaw+=dt*.07;camera.position.set(renderPosition.x+Math.sin(portraitYaw)*portraitDistance,renderPosition.y+.05,renderPosition.z+Math.cos(portraitYaw)*portraitDistance);camera.lookAt(renderPosition.x,renderPosition.y-.8,renderPosition.z);}
+    if(inspect){portraitYaw+=dt*.07;camera.position.set(renderPosition.x+Math.sin(portraitYaw)*portraitDistance,renderPosition.y+portraitHeight,renderPosition.z+Math.cos(portraitYaw)*portraitDistance);camera.lookAt(renderPosition.x,renderPosition.y-portraitAim,renderPosition.z);}
     else view.update(dt);
     if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;shake=Math.max(0,shake-dt*.9);}
     yard.render(dt);

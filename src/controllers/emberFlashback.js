@@ -7,6 +7,7 @@
 import { ramp, pulse, poseActor, createTriad, createSmoke, createBeam } from './flashback.js';
 import { spadeOutline } from '../models/spade.js';
 import { loadModel } from '../rendering/models.js';
+import { DOG_ASSETS } from '../rendering/dogCharacter.js';
 
 export const MARK_PUP = Object.freeze({ x: 3, z: -1.5 });   // where the pup sleeps, ~10 m south of the tower
 const TOWER_TOP = { x: 0, z: -11, up: 10.2 };                // the shrine's warmth leaves the tower's top
@@ -42,9 +43,11 @@ function pupClip(t) { return t >= 15.6 && t < 16.8 ? ['Idle_HitReact1', true] : 
 export function createEmberFlashback({ scene, npcs, look, state, groundAt = () => 0 }) {
   const group = new THREE.Group(); group.name = 'Flashback · The Mark in the Flame'; scene.add(group);
   const smoke = createSmoke(group, 0x8c5cff), thread = createBeam(group, 0xff3a4f, .07);
-  // The pup: the companion's own Shiba model, smaller, with its clips.
+  // The pup: the companion's own model, smaller, with its clips. Before the curse it has no
+  // ember scar, and it has not met the player yet, so no bandana either.
   let pup = null;
-  loadModel('assets/animals/ShibaInu.gltf', .55).then(({ object, animations }) => {
+  loadModel(DOG_ASSETS.dog, .55).then(({ object, animations }) => {
+    object.traverse(o => { if (o.name === 'DogAccessories' || o.material?.name === 'DogGlow') o.visible = false; });
     const mixer = new THREE.AnimationMixer(object), actions = {};
     for (const clip of animations) actions[clip.name] = mixer.clipAction(clip);
     let current = null;

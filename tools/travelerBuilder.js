@@ -217,16 +217,10 @@ export async function buildTraveler() {
   for (const side of [-1, 1]) {
     put(new T.ConeGeometry(1, 1, 6), 'skin', 'Head', [side * .225, 1.79, -.015], [.042, .16, .026], [-.35, 0, -side * 1.15]);
     put(new T.ConeGeometry(1, 1, 6), 'blush', 'Head', [side * .228, 1.79, -.008], [.022, .11, .014], [-.35, 0, -side * 1.15]);
-    sphere('white', 'Head', [side * .078, 1.778, .178], [.044, .054, .016]);
-    sphere('iris', 'Head', [side * .076, 1.772, .191], [.03, .04, .009]);
-    sphere('pupil', 'Head', [side * .076, 1.77, .197], [.015, .021, .005]);
-    sphere('white', 'Head', [side * .067, 1.787, .2], [.009, .011, .004]);
-    box('brow', 'Head', [side * .08, 1.85, .178], [.07, .013, .012], [-.15, 0, side * .14]);
-    box('pupil', 'Head', [side * .079, 1.828, .19], [.085, .008, .008], [0, 0, side * .06]);
-    sphere('blush', 'Head', [side * .125, 1.72, .155], [.03, .011, .008]);
   }
-  sphere('skin', 'Head', [0, 1.745, .2], [.016, .02, .02]);
-  box('lip', 'Head', [0, 1.69, .184], [.04, .007, .01], [0, 0, .04]);
+  // Eyes, brows, mouth and blush are drawn at runtime on the face shell (section 6b), so
+  // the face can change expression; only the small nose stays as geometry.
+  sphere('skin', 'Head', [0, 1.728, .2], [.011, .013, .014]);
   // Hair: dome, back mass, radial spikes, a side-swept fringe and a tied tail.
   put(new T.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * .52), 'hair', 'Head', [0, 1.8, -.005], [.222, .252, .212]);
   sphere('hair', 'Head', [0, 1.765, -.105], [.205, .2, .13]);
@@ -275,6 +269,31 @@ export async function buildTraveler() {
   const grip = at('middle_01_r').lerp(at('hand_r'), .15).add(new T.Vector3(0, -.035, -.012));
   socket('socket_hand_r', bone('hand_r'), grip, handQ);
   socket('socket_back', bone('spine_03'), guard.clone().addScaledVector(bladeDir, -.075), backQ).add(swordMesh);
+
+  // 6b. Face shell: a thin UV patch hugging the front of the head and chin (raycast onto those
+  // two skin shapes only, so it never slides over the hair). The runtime draws anime eyes,
+  // brows, mouth and blush into a small canvas texture on it and swaps expressions.
+  {
+    const centre = new T.Vector3(0, 1.75, .01), skinShapes = [
+      [[0, 1.77, .01], [.205, .228, .192]], [[0, 1.705, .06], [.15, .11, .14]],
+    ].map(([at, scale]) => { const m = new T.Mesh(new T.SphereGeometry(1, 32, 24)); m.position.set(...at); m.scale.set(...scale); m.updateMatrixWorld(true); return m; });
+    // Front patch: phi spans the face width (+z is the front), theta from brow to chin.
+    const patch = new T.SphereGeometry(1, 36, 28, Math.PI / 2 - .95, 1.9, Math.PI * .3, Math.PI * .42);
+    const ray = new T.Raycaster(), dir = new T.Vector3(), pos = patch.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      dir.fromBufferAttribute(pos, i).normalize();
+      ray.set(centre.clone().addScaledVector(dir, 1), dir.clone().negate());
+      const hit = ray.intersectObjects(skinShapes)[0];
+      const p = hit ? hit.point.addScaledVector(dir, .0025) : centre.clone().addScaledVector(dir, .21);
+      pos.setXYZ(i, p.x, p.y, p.z);
+    }
+    patch.computeVertexNormals();
+    for (const m of skinShapes) m.geometry.dispose();
+    // Geometry is in model space; the socket at the origin with identity orientation keeps it there.
+    const faceSocket = socket('socket_face', bone('Head'), new T.Vector3(), new T.Quaternion());
+    const face = new T.Mesh(patch, new T.MeshStandardMaterial({ name: 'TravelerFace', transparent: true }));
+    face.name = 'TravelerFace'; faceSocket.add(face);
+  }
 
   // 7. One skinned mesh with an opaque palette group and an unlit glow group.
   const geometry = body.finish();
