@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DreamScape traveller asset builder</title>
+<style>body{font:16px system-ui;background:#132a29;color:#ede5cc;padding:3rem}button{padding:1rem;cursor:pointer}pre{white-space:pre-wrap}</style>
+<h1>Traveller asset builder</h1>
+<p>Builds the original outfit and face, using the project's CC0 humanoid rig and selected animations. No Blender or paid service is required.</p>
+<button id="build">Build and download traveller.glb</button><pre id="status">Ready.</pre>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../vendor/GLTFLoader.js"></script>
+<script src="../vendor/GLTFExporter.js"></script>
+<script type="module">
+import { buildTraveler } from './travelerBuilder.js';
+window.buildTraveler = buildTraveler;
+document.querySelector('#build').onclick = async () => {
+  const status=document.querySelector('#status'); status.textContent='Building…';
+  try {
+    const {buffer,stats}=await buildTraveler();
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buffer],{type:'model/gltf-binary'}));a.download='traveler.glb';a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);status.textContent=JSON.stringify(stats,null,2);
+  }catch(error){status.textContent=error.stack;throw error;}
+};
+</script>

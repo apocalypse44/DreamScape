@@ -23,7 +23,7 @@ export function createSurfaceAt(platforms, terrainHeight) {
 // player who stepped off a ledge dropped inside the wall's blocking band and could not move.
 const EDGE = 0.55;
 
-export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, allowFallRecovery, isMovementBlocked = () => false, colliderFilter = () => true }) {
+export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, allowFallRecovery, isMovementBlocked = () => false, colliderFilter = () => true, locomotion = null }) {
   const indices = new WeakMap(), nearby = [];
   function candidates(colliders, x, z, radius) {
     let index = indices.get(colliders);
@@ -76,11 +76,15 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     const interactionLocked = (state.interactionLock || 0) > 0;
     state.interactionLock = Math.max(0, (state.interactionLock || 0) - dt);
     const blocked = isMovementBlocked() || interactionLocked;
-    const moving = state.locked && !blocked && Boolean(forward || side);
-    if (blocked) player.jumpBuffer = 0;
+    // Optional combat/dodge drive: it owns horizontal velocity while an action plays.
+    const drive = locomotion?.drive?.() || null;
+    const driven = Boolean(drive?.velocity) && state.locked && !blocked;
+    const moving = state.locked && !blocked && !driven && Boolean(forward || side);
+    if (blocked || drive?.blockJump) player.jumpBuffer = 0;
     state.crouching = state.locked && (keys.has("KeyC") || interactionLocked);
     const sprint = !state.crouching && (keys.has("ShiftLeft") || keys.has("ShiftRight"));
-    const walkSpeed = state.crouching ? 4.5 : 9;
+    const walkSpeed = state.crouching ? (locomotion?.crouchSpeed ?? 4.5) : (locomotion?.walkSpeed ?? 9);
+    const sprintSpeed = locomotion?.sprintSpeed ?? 18;
     if (moving) {
       const length = Math.hypot(forward, side);
       const f = forward / length;
@@ -89,7 +93,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
       const cos = Math.cos(state.yaw);
       const dx = -sin * f + cos * s;
       const dz = -cos * f - sin * s;
-      const speed = sprint ? 18 : walkSpeed;
+      const speed = sprint ? sprintSpeed : walkSpeed;
       const response = 1 - Math.exp(-12 * dt);
       player.velocity.x += (dx * speed - player.velocity.x) * response;
       player.velocity.z += (dz * speed - player.velocity.z) * response;
@@ -99,16 +103,21 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
       state.lastMoveAngle = angle;
       state.hintTimer += dt;
     }
-    const horizontalSpeed = Math.hypot(player.velocity.x, player.velocity.z);
     const targetChaos = moving ? (sprint ? 0.88 : state.crouching ? 0.12 : 0.28) : 0.03; // sneaking keeps the world calm
     state.chaos += (targetChaos - state.chaos) * dt * (moving ? 0.32 : 0.16);
     state.chaos = THREE.MathUtils.clamp(state.chaos, 0.025, 0.98);
-    if (!moving) {
-      player.velocity.x = 0;
-      player.velocity.z = 0;
+    if (driven) {
+      player.velocity.x = drive.velocity.x;
+      player.velocity.z = drive.velocity.z;
+    } else if (!moving) {
+      const braking = locomotion?.smooth && state.locked && !blocked ? Math.exp(-18 * dt) : 0;
+      player.velocity.x *= braking;
+      player.velocity.z *= braking;
+      if (Math.hypot(player.velocity.x, player.velocity.z) < .035) player.velocity.x = player.velocity.z = 0;
     }
-    const maxSpeed = sprint ? 18 : walkSpeed;
-    if (horizontalSpeed > maxSpeed) {
+    const horizontalSpeed = Math.hypot(player.velocity.x, player.velocity.z);
+    const maxSpeed = sprint ? sprintSpeed : walkSpeed;
+    if (!driven && horizontalSpeed > maxSpeed) {
       const scale = maxSpeed / horizontalSpeed;
       player.velocity.x *= scale;
       player.velocity.z *= scale;
@@ -121,11 +130,16 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
       if (player.jumpBuffer <= 0 || player.coyote <= 0) return;
       player.velocity.y = 10.5;
       player.grounded = false;
+      player.jumpCut = false;
       player.coyote = player.jumpBuffer = 0;
       state.chaos += 0.08;
       jumped = true;
     }
     tryJump();
+    if (locomotion?.variableJump && !player.grounded && player.velocity.y > 0 && !keys.has('Space') && !player.jumpCut) {
+      player.velocity.y *= .55;
+      player.jumpCut = true;
+    }
     const wasGrounded = player.grounded;
     const prevFeet = player.position.y - MOVEMENT.eyeHeight;
     player.velocity.y -= 25 * dt;
@@ -202,6 +216,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
       player.grounded = true;
       player.coyote = 0.12;
       player.jumpBuffer = 0;
+      player.jumpCut = false;
       recovery.reset();
     }
   };

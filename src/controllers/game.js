@@ -10,6 +10,7 @@ import { bindInput } from './input.js';
 import { createPlayerController, createSurfaceAt } from './player.js';
 import { createCameraController } from './camera.js';
 import { createCharacter } from '../rendering/character.js';
+import { createTravelerCharacter } from '../rendering/travelerCharacter.js';
 import { createQuest, SHRINE } from '../models/quest.js';
 import { createShrine } from '../rendering/shrine.js';
 import { createCompanion } from '../rendering/companion.js';
@@ -236,6 +237,7 @@ export function startGame(ui, { testStartId = null } = {}) {
       movement.teleport({ ...target, top: target.top ?? world.surfaceHeight(target.x, target.z) });
       companion.reset();
     }
+    character.reset?.();
     updateChunks();
     diamondArrived = Boolean(testStart && testStart.chapter >= 4);
     diamondStage = diamond.model.stage;
@@ -264,7 +266,8 @@ export function startGame(ui, { testStartId = null } = {}) {
   atmosphere.prepare?.(livingRoad.root); // Clover chapter
   const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles] });
-  const character = createCharacter({ scene, state, player, surfaceAt });
+  const character = new URLSearchParams(location.search).get('character') === 'traveler'
+    ? createTravelerCharacter({ scene, state, player, surfaceAt }) : createCharacter({ scene, state, player, surfaceAt });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
@@ -307,7 +310,7 @@ export function startGame(ui, { testStartId = null } = {}) {
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
   // Diamond's shots are laid out from its gate. The flyover and the power-up stream terrain along the camera.
   for (const [name, shot] of Object.entries(DIAMOND_SHOTS)) {

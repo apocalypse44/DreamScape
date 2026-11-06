@@ -1,0 +1,181 @@
+import { loadModel } from './models.js';
+import { createTravelerMotion } from '../models/travelerMotion.js';
+
+// Sigil-blade wanderer: original outfit + CC0 rig/motions in one generated GLB.
+// Combat clips are sampled at the clip time chosen by travelerCombat, so what is
+// drawn matches the simulated hit frames. No reference game's assets or code are used.
+const ONE_SHOTS = ['jumpStart', 'land', 'interact', 'castShoot'];
+export function createTravelerCharacter({ scene, state, player, surfaceAt, status = document.querySelector('#characterStatus') }) {
+  const root = new THREE.Group(); root.name = 'DreamScape traveller'; scene.add(root);
+  const lean = new THREE.Group(); root.add(lean);
+  const motion = createTravelerMotion(), actions = new Map(), legs = [], cape = [];
+  const foot = new THREE.Vector3(), goal = new THREE.Vector3(), hip = new THREE.Vector3(), knee = new THREE.Vector3();
+  const direction = new THREE.Vector3(), bend = new THREE.Vector3(), projected = new THREE.Vector3(), desired = new THREE.Vector3();
+  const rotation = new THREE.Quaternion(), parent = new THREE.Quaternion(), world = new THREE.Quaternion();
+  const swing = new THREE.Quaternion(), euler = new THREE.Euler();
+  let mixer = null, model = null, sword = null, sockets = {}, failed = false, label = '', name = 'loading', heading = state.yaw + Math.PI, tilt = 0, ik = 0;
+  let rootMotion = {}, modelScale = 1, clock = 0, drawn = false;
+  const capeState = { pitch: .1, pitchV: 0, roll: 0, rollV: 0, lastHeading: heading };
+  const trail = createTrail(scene);
+  const ready = loadModel('src/assets/traveler.glb', 2.05).then(asset => {
+    model = asset.object; lean.add(model);
+    const ramp = new THREE.DataTexture(new Uint8Array([105, 105, 105, 185, 185, 185, 255, 255, 255]), 3, 1, THREE.RGBFormat);
+    ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+    const look = skinning => [
+      new THREE.MeshToonMaterial({ vertexColors: true, skinning, gradientMap: ramp, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ vertexColors: true, skinning, toneMapped: false }),
+    ];
+    const skinned = look(true), rigid = look(false);
+    model.traverse(o => {
+      if (o.userData.rootMotion) rootMotion = o.userData.rootMotion;
+      if (o.name.startsWith('socket_')) sockets[o.name] = o;
+      if (o.name.startsWith('cape_')) cape.push({ bone: o, bind: o.quaternion.clone() });
+      if (o.name === 'TravelerSword') sword = o; // a Group when the mesh has two materials
+      if (!o.isMesh) return;
+      const set = o.isSkinnedMesh ? skinned : rigid;
+      o.material = Array.isArray(o.material) ? o.material.map(m => m.name === 'TravelerGlow' ? set[1] : set[0]) : set[0];
+      o.castShadow = o.receiveShadow = true; o.frustumCulled = false;
+    });
+    cape.sort((a, b) => a.bone.name.localeCompare(b.bone.name));
+    modelScale = model.children[0]?.scale.x || 1;
+    mixer = new THREE.AnimationMixer(model);
+    for (const clip of asset.animations) {
+      const action = mixer.clipAction(clip);
+      if (ONE_SHOTS.includes(clip.name) || clip.name in (rootMotion || {}) || ['roll', 'block', 'hit', 'death', 'knockback'].includes(clip.name)) { action.setLoop(THREE.LoopOnce); action.clampWhenFinished = true; }
+      action.play().setEffectiveWeight(0); action.enabled = false; actions.set(clip.name, action);
+    }
+    root.updateMatrixWorld(true);
+    for (const side of ['l', 'r']) {
+      const thigh = model.getObjectByName(`thigh_${side}`), calf = model.getObjectByName(`calf_${side}`), ankle = model.getObjectByName(`foot_${side}`);
+      if (thigh && calf && ankle) { ankle.getWorldPosition(foot); legs.push({ thigh, calf, ankle, sole: foot.y - root.position.y }); }
+    }
+  }).catch(error => { failed = true; console.warn('Traveller could not load.', error); });
+  function rotate(bone, q) {
+    bone.parent.getWorldQuaternion(parent); bone.getWorldQuaternion(world).premultiply(q);
+    bone.quaternion.copy(parent.invert().multiply(world)); bone.updateMatrixWorld(true);
+  }
+  function solve(leg) {
+    leg.thigh.getWorldPosition(hip); leg.calf.getWorldPosition(knee); leg.ankle.getWorldPosition(foot);
+    const a = hip.distanceTo(knee), b = knee.distanceTo(foot), c = THREE.MathUtils.clamp(hip.distanceTo(goal), .01, a + b - .001);
+    direction.subVectors(goal, hip).normalize(); bend.subVectors(knee, hip); bend.sub(projected.copy(direction).multiplyScalar(bend.dot(direction)));
+    if (bend.lengthSq() < 1e-8) return;
+    bend.normalize(); const cosine = THREE.MathUtils.clamp((a * a + c * c - b * b) / (2 * a * c), -1, 1);
+    desired.copy(hip).addScaledVector(direction, a * cosine).addScaledVector(bend, a * Math.sqrt(1 - cosine * cosine));
+    rotate(leg.thigh, rotation.setFromUnitVectors(knee.sub(hip).normalize(), desired.sub(hip).normalize()));
+    leg.calf.getWorldPosition(knee); leg.ankle.getWorldPosition(foot);
+    rotate(leg.calf, rotation.setFromUnitVectors(foot.sub(knee).normalize(), direction.subVectors(goal, knee).normalize()));
+  }
+  function placeFeet(dt, allowed) {
+    ik += ((allowed && player.grounded && !state.crouching ? 1 : 0) - ik) * (1 - Math.exp(-12 * dt));
+    if (ik < .01 || !surfaceAt) return;
+    root.updateMatrixWorld(true);
+    for (const leg of legs) {
+      leg.ankle.getWorldPosition(foot);
+      const ground = surfaceAt(foot.x, foot.z, root.position.y + .65);
+      const change = ground + leg.sole - foot.y;
+      if (change < -.16 || Math.abs(change) < .004) continue; // leave the swing foot free
+      goal.copy(foot); goal.y += THREE.MathUtils.clamp(change, -.18, .32) * ik; solve(leg);
+    }
+  }
+  // Cheap secondary motion: one damped spring per axis, spread down three bones.
+  function swingCape(dt, forwardSpeed, lateralSpeed, turnRate) {
+    if (!cape.length || dt <= 0) return;
+    clock += dt;
+    const fall = player.grounded ? 0 : THREE.MathUtils.clamp(-player.velocity.y * .045, -.15, .6);
+    const targetPitch = .08 + THREE.MathUtils.clamp(forwardSpeed * .075, -.05, .8) + fall + Math.sin(clock * 9.5) * .018 * Math.min(1, Math.abs(forwardSpeed) / 4);
+    const targetRoll = THREE.MathUtils.clamp(-turnRate * .08 - lateralSpeed * .05, -.5, .5);
+    const s = capeState, k = 70, c = 10;
+    s.pitchV += ((targetPitch - s.pitch) * k - s.pitchV * c) * dt; s.pitch = Math.max(.02, s.pitch + s.pitchV * dt);
+    s.rollV += ((targetRoll - s.roll) * k - s.rollV * c) * dt; s.roll += s.rollV * dt;
+    const share = [.5, .3, .2];
+    cape.forEach(({ bone, bind }, i) => {
+      euler.set(s.pitch * share[i] + (i ? s.pitchV * .006 * i : 0), 0, s.roll * share[i]);
+      bone.quaternion.copy(bind).multiply(swing.setFromEuler(euler));
+    });
+  }
+  function holdSword(inHand) {
+    if (!sword || drawn === inHand) return;
+    const target = sockets[inHand ? 'socket_hand_r' : 'socket_back'];
+    if (target) { target.add(sword); drawn = inHand; }
+  }
+  return {
+    root, ready,
+    get pose() { return name; }, get loaded() { return Boolean(mixer); },
+    get rootMotion() { return rootMotion; }, get modelScale() { return modelScale; },
+    get heading() { return heading; },
+    swordTip(target, offset = .86) { if (!sword) return null; return sword.localToWorld(target.set(0, offset, 0)); },
+    reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = 0; capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
+    update(dt, cameraDistance = 3.8, castAt = null, combat = null) {
+      const speed = Math.hypot(player.velocity.x, player.velocity.z);
+      const pose = motion.update(dt, { speed, grounded: player.grounded, verticalSpeed: player.velocity.y, crouching: state.crouching, casting: Boolean(castAt), inFlight: player.inFlight, armed: Boolean(combat?.drawn) });
+      const acting = Boolean(combat?.clip && actions.has(combat.clip));
+      name = acting ? combat.clip : pose.name;
+      const nextLabel = failed ? 'Traveller unavailable' : `${state.perspective === 'first' ? 'FPP' : 'TPP'} · Traveller · ${name}`;
+      if (status && nextLabel !== label) { status.textContent = nextLabel; label = nextLabel; }
+      root.visible = Boolean(mixer) && !state.memory && (state.perspective !== 'first' || state.cinematic || player.inFlight) && cameraDistance > .65;
+      root.position.copy(player.position); root.position.y -= 2.05;
+      const target = state.cinematic ? state.cinematicYaw ?? heading : acting ? combat.facing : speed > .15 ? Math.atan2(player.velocity.x, player.velocity.z) : heading;
+      const difference = Math.atan2(Math.sin(target - heading), Math.cos(target - heading));
+      heading += difference * (1 - Math.exp(-(acting ? 26 : 12) * dt)); root.rotation.y = heading;
+      const turnRate = dt > 0 ? Math.atan2(Math.sin(heading - capeState.lastHeading), Math.cos(heading - capeState.lastHeading)) / dt : 0; capeState.lastHeading = heading;
+      const targetTilt = player.grounded && !acting ? THREE.MathUtils.clamp(pose.acceleration * .005, -.06, .10) : 0;
+      tilt += (targetTilt - tilt) * (1 - Math.exp(-8 * dt)); lean.rotation.x = tilt;
+      lean.rotation.z += ((acting ? 0 : THREE.MathUtils.clamp(-difference * .09, -.12, .12)) - lean.rotation.z) * (1 - Math.exp(-10 * dt));
+      holdSword(Boolean(combat?.drawn));
+      if (!mixer || !root.visible) { trail.clear(); return; }
+      if (pose.takeoff) actions.get('jumpStart')?.reset().play();
+      if (pose.landed && !acting) actions.get('land')?.reset().play();
+      for (const [clip, action] of actions) {
+        const targetWeight = acting ? (clip === combat.clip ? 1 : 0) : pose.weights[clip] || 0;
+        const rate = acting && clip === combat.clip ? 30 : 16;
+        const weight = action.getEffectiveWeight() + (targetWeight - action.getEffectiveWeight()) * (1 - Math.exp(-rate * dt));
+        action.enabled = targetWeight > 0 || weight > .0001; action.setEffectiveWeight(action.enabled ? weight : 0);
+        if (acting && clip === combat.clip) { action.paused = false; action.time = combat.time; action.setEffectiveTimeScale(0); continue; }
+        if (clip === 'walk') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 1.5, .45, 2.5));
+        else if (clip === 'jog') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 3.2, .65, 2.5));
+        else if (clip === 'run') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 5.5, .65, 3.3));
+        else if (clip === 'crouchWalk') action.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / 1.7, .6, 2.5));
+        else if (action.getEffectiveTimeScale() === 0) action.setEffectiveTimeScale(1);
+      }
+      mixer.update(dt);
+      const forward = player.velocity.x * Math.sin(heading) + player.velocity.z * Math.cos(heading);
+      const lateral = player.velocity.x * Math.cos(heading) - player.velocity.z * Math.sin(heading);
+      swingCape(dt, forward, lateral, turnRate);
+      placeFeet(dt, !acting || combat.clip === 'block' || combat.clip === 'combatIdle');
+      if (combat?.trail && sword) { root.updateMatrixWorld(true); trail.push(sword); } else trail.fade(dt);
+    },
+  };
+}
+
+// A short ribbon between the sword's guard and tip over the last few frames.
+function createTrail(scene, length = 14) {
+  const positions = new Float32Array(length * 2 * 3), alphas = new Float32Array(length * 2);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+  const index = []; for (let i = 0; i < length - 1; i++) { const a = i * 2; index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  geometry.setIndex(index);
+  const material = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: { color: { value: new THREE.Color(0xa47dff) } },
+    vertexShader: 'attribute float alpha; varying float vAlpha; void main(){ vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform vec3 color; varying float vAlpha; void main(){ gl_FragColor = vec4(mix(vec3(1.0), color, 0.35 + 0.65 * (1.0 - vAlpha)), vAlpha * 0.6); }',
+  });
+  const mesh = new THREE.Mesh(geometry, material); mesh.frustumCulled = false; mesh.visible = false; mesh.renderOrder = 5; scene.add(mesh);
+  const base = new THREE.Vector3(), tip = new THREE.Vector3(); let count = 0, strength = 0;
+  function refresh() {
+    for (let i = 0; i < length; i++) { const a = i < count ? (1 - i / length) * .8 * strength : 0; alphas[i * 2] = a * .15; alphas[i * 2 + 1] = a; }
+    geometry.attributes.alpha.needsUpdate = true; mesh.visible = count > 1 && strength > .02;
+  }
+  return {
+    push(sword) {
+      positions.copyWithin(6, 0, (length - 1) * 6);
+      sword.localToWorld(base.set(0, .12, 0)); sword.localToWorld(tip.set(0, .9, 0));
+      positions.set([base.x, base.y, base.z, tip.x, tip.y, tip.z], 0);
+      if (count === 0) for (let i = 1; i < length; i++) positions.copyWithin(i * 6, 0, 6);
+      count = Math.min(length, count + 1); strength = 1; geometry.attributes.position.needsUpdate = true; refresh();
+    },
+    fade(dt) { if (!count) return; strength *= Math.exp(-14 * dt); if (strength < .02) count = 0; refresh(); },
+    clear() { count = 0; strength = 0; refresh(); },
+  };
+}
