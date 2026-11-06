@@ -1,4 +1,5 @@
 import { createFrameQueue } from '../models/streaming.js';
+import { loadModelAsset } from './models.js';
 
 // Stylized Nature MegaKit (Quaternius, CC0) dressing for the Grimoire Tower lands.
 // Layout follows real landscapes: groves instead of even scatter, bushes on forest edges,
@@ -323,13 +324,12 @@ export function createProps({ scene, world, blockers, onReady }) {
 
   // Limit concurrent parses and install one mesh per frame. Cached downloads
   // must not turn into dozens of installation callbacks in the same frame.
-  const loader = new THREE.GLTFLoader();
   const remaining = [...MODELS];
   async function loadNext() {
     while (remaining.length) {
       const name = remaining.shift();
       try {
-        const gltf = await new Promise((resolve, reject) => loader.load(`${DIR}${name}.gltf`, resolve, undefined, reject));
+        const gltf = await loadModelAsset(`${DIR}${name}.gltf`);
         gltf.scene.updateMatrixWorld(true);
         heights[name] = new THREE.Box3().setFromObject(gltf.scene).max.y;
         parts[name] = [];

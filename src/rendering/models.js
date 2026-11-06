@@ -28,9 +28,9 @@ function prepareKitTexture(texture) {
   if (!THREE.Cache.enabled) image.close?.();
   return texture;
 }
-// Load each kit once; instances own their transforms and materials, while
-// geometry and compatible texture sheets are shared.
-export async function loadModel(url, height) {
+// Raw dimensions are needed by terrain prop instancing and Spade's modular
+// buildings. Give those callers the same cache/queue without normalizing size.
+export async function loadModelAsset(url) {
   assets ||= createModelAssetStore({
     createLoader: () => new THREE.GLTFLoader(),
     manager: THREE.DefaultLoadingManager,
@@ -49,6 +49,14 @@ export async function loadModel(url, height) {
     if (!object.isMesh) return;
     object.material = Array.isArray(object.material) ? object.material.map(ownMaterial) : ownMaterial(object.material);
   });
+  return { scene: model, animations: gltf.animations };
+}
+
+// Load each kit once; instances own their transforms and materials, while
+// geometry and compatible texture sheets are shared.
+export async function loadModel(url, height) {
+  const gltf = await loadModelAsset(url);
+  const model = gltf.scene;
   model.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(model);
   const scale = height / Math.max(box.max.y - box.min.y, 1e-6);

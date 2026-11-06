@@ -154,9 +154,9 @@ export function startGame(ui, { testStartId = null } = {}) {
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement,
+  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, diamond: diamond.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement,
     diamondLocations: diamondMapLocations(world.diamond) });
-  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, state });
+  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, diamond: diamond.model, state });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {

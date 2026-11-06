@@ -13,7 +13,7 @@ export const CONFIG = {
 
   // Look
   tintGround: true,      // tint vertex-coloured terrain toward ash in chaos
-  weather: { embers: 900, ash: 1400 }, // lower if FPS drops
+  weather: { embers: 900, ash: 1400, sand: 18000, sandFar: 10000 }, // GPU particles; lower if FPS drops
   showHud: true,         // small "CHAOS 0.42 ▲" label (bottom-left)
 
   // Evil mode (after Swordigo): deep chaos turns the world into dark silhouettes under a blood-red sky with

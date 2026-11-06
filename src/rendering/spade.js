@@ -6,6 +6,7 @@ import { createFrameQueue } from '../models/streaming.js';
 import { buildSpadeStory } from './spadeStory.js';
 import { buildCastleEcho } from './castleEcho.js';
 import { buildSpadeCampaign } from './spadeCampaign.js';
+import { loadModelAsset } from './models.js';
 
 // Large forms are procedural and available immediately. Ten curated modules stream
 // on approach, then render in batches (one draw per source mesh, not per building).
@@ -212,7 +213,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
       while (entries.length) {
         const [name, placements] = entries.shift();
         try {
-          const gltf = await new Promise((resolve, reject) => new THREE.GLTFLoader().load(`assets/spade/${name}.glb`, resolve, undefined, reject));
+          const gltf = await loadModelAsset(`assets/spade/${name}.glb`);
           const source = gltf.scene; source.updateMatrixWorld(true);
           const bounds = new THREE.Box3().setFromObject(source), size = bounds.getSize(new THREE.Vector3());
           const normal = new THREE.Matrix4().makeScale(1 / Math.max(size.x, 0.001), 1 / Math.max(size.y, 0.001), 1 / Math.max(size.z, 0.001));

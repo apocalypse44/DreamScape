@@ -165,15 +165,67 @@ export function buildDiamondQuarry({ scene, quarry, layout, surfaceHeight }) {
     }
   }
 
-  // Chaos: two dust devils wander the pit, twisting columns of sand (Kenney Particle Pack circle sprite).
-  const DEVIL = 140;
-  const dustSprite = new THREE.TextureLoader().load(encodeURI('assets/kenney_particle-pack/PNG (Transparent)/circle_05.png'));
+  // Dense sand funnels, animated on the GPU. Independent phases and radii fill
+  // the column instead of outlining it with a handful of large circle sprites.
+  const DEVIL = 48000;
+  const VORTEX_HEIGHT = 56;
   const devils = [0, 1].map(k => {
     const positions = new Float32Array(DEVIL * 3), geometry = new THREE.BufferGeometry();
+    const seeds = new Float32Array(DEVIL * 4);
+    for (let i = 0; i < seeds.length; i++) seeds[i] = Math.random();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const points = new THREE.Points(geometry, new THREE.PointsMaterial({ map: dustSprite, color: 0xb08a5a, size: 0.6, transparent: true, opacity: 0, depthWrite: false }));
+    geometry.setAttribute('aVortex', new THREE.BufferAttribute(seeds, 4));
+    const points = new THREE.Points(geometry, new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uStorm: { value: 0 }, uSpin: { value: 4 + k }, uHeight: { value: VORTEX_HEIGHT },
+        uColor: { value: new THREE.Color(0xc5a16a) }, ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog) },
+      vertexShader: /* glsl */`
+        uniform float uTime, uStorm, uSpin, uHeight;
+        attribute vec4 aVortex;
+        varying float vAlpha, vShade;
+        #include <fog_pars_vertex>
+        void main() {
+          // Sand descends from the sky; extra grains fill the lower funnel so
+          // extending the column does not dilute its density near the player.
+          float life = 1.0 - fract(aVortex.x + uTime * (0.065 + aVortex.z * 0.035));
+          float skirt = aVortex.w < 0.12 ? 1.0 : 0.0;
+          float lower = aVortex.w < 0.55 ? 1.0 : 0.0;
+          float canopy = aVortex.w > 0.9 ? 1.0 : 0.0;
+          float h = life * mix(uHeight, 14.0, lower);
+          h = mix(h, life * 1.6, skirt);
+          h = mix(h, uHeight - 7.0 + life * 7.0, canopy);
+          float altitude = h / uHeight;
+          float angle = aVortex.y * 6.283185 + uTime * uSpin * (1.4 - altitude * 0.85) - h * 0.45;
+          float radius = (0.45 + h * 0.16 + pow(altitude, 4.0) * 4.0) * sqrt(aVortex.z);
+          // The broad overhead sand bank feeds the funnel; a ground skirt
+          // spreads its descending sand across the quarry floor.
+          radius += skirt * (0.8 + (1.0 - life) * 3.2);
+          radius = mix(radius, (9.0 + life * 8.0) * sqrt(aVortex.z), canopy);
+          vec3 p = vec3(cos(angle) * radius, h, sin(angle) * radius);
+          p.x += h * 0.08 + sin(uTime * 0.8 + altitude * 3.0) * h * 0.035;
+          p.z += cos(uTime * 0.65 + altitude * 4.0) * h * 0.035;
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          gl_PointSize = clamp((0.08 + aVortex.z * 0.1) * 300.0 / max(0.1, -mvPosition.z), 1.0, 4.0);
+          vAlpha = uStorm * (0.55 + aVortex.z * 0.4) * smoothstep(0.0, 0.035, life)
+            * (1.0 - smoothstep(0.94, 1.0, life)) * smoothstep(0.5, 2.0, -mvPosition.z);
+          vShade = 0.7 + aVortex.z * 0.5;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */`
+        uniform vec3 uColor;
+        varying float vAlpha, vShade;
+        #include <fog_pars_fragment>
+        void main() {
+          float d = length(gl_PointCoord - 0.5);
+          if (d > 0.5) discard;
+          gl_FragColor = vec4(uColor * vShade, vAlpha * (1.0 - smoothstep(0.12, 0.5, d)));
+          #include <fog_fragment>
+        }`,
+      transparent: true, depthWrite: false, fog: true, blending: THREE.NormalBlending,
+    }));
+    points.name = `quarry-sand-vortex-${k + 1}`;
     points.frustumCulled = false; points.visible = false; root.add(points);
-    return { k, points, positions };
+    return { k, points };
   });
 
   const tint = new THREE.Color(), glow = new THREE.Color();
@@ -186,17 +238,12 @@ export function buildDiamondQuarry({ scene, quarry, layout, surfaceHeight }) {
       for (const d of devils) {
         d.points.visible = storm > 0;
         if (!d.points.visible) continue;
-        d.points.material.opacity = storm * 0.55;
+        d.points.material.uniforms.uTime.value = time;
+        d.points.material.uniforms.uStorm.value = storm;
         // Each wanders a loop over the floor and benches; the column leans and spins.
         const a = time * (0.12 + d.k * 0.05) + d.k * 3, r = 7 + d.k * 9 + Math.sin(time * 0.3 + d.k) * 3;
         const cx = quarry.center.x + Math.cos(a) * r, cz = quarry.center.z + Math.sin(a) * r, cy = quarry.pit(cx, cz);
-        for (let i = 0; i < DEVIL; i++) {
-          const h = (i / DEVIL) * 9, spin = time * (4 + d.k) + i * 0.7, rad = 0.3 + h * 0.32;
-          d.positions[i * 3] = cx + Math.cos(spin) * rad + h * 0.15;
-          d.positions[i * 3 + 1] = cy + h;
-          d.positions[i * 3 + 2] = cz + Math.sin(spin) * rad;
-        }
-        d.points.geometry.attributes.position.needsUpdate = true;
+        d.points.position.set(cx, cy, cz);
       }
       for (let k = 0; k < hoisted.length; k++) hoisted[k].rotation.y = time * 0.3 + k; // blocks turn on the rope
       const c = Math.round(Math.max(0, Math.min(1, (chaos - 0.3) / 0.4)) * 50) / 50;

@@ -45,7 +45,8 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
     update(dt, visual, camera, { hour = 9, rift = 0, indoors = 0 } = {}) {
       time += dt;
       const look = sampleLook(visual);
-      const flash = weather.update(dt, visual, camera.position);
+      const dry = diamondClimateAt(camera.position.x, camera.position.z);
+      const flash = weather.update(dt, visual, camera.position, { desert: dry, indoors });
       const climate = spadeClimateAt(camera.position.x, camera.position.z);
       // Spade cannot become sunny while its full snow climate is being added.
       const day = sampleDaylight(hour, climate);
@@ -75,12 +76,13 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
       moon.target.position.copy(camera.position);
       moon.position.copy(camera.position).addScaledVector(u.uSunDirection.value, -100);
       moon.intensity = day.moonIntensity * (1 - storm * 0.65);
-      const dry = diamondClimateAt(camera.position.x, camera.position.z);
       if (dry > 0) {
         const storming = dry * Math.min(1, visual * 1.5);
         scene.fog.color.lerp(desertHaze, dry * 0.55 * day.daylight).lerp(sandstorm, storming);
         scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, 0.006 + visual * 0.022, storming);
         u.uHorizon.value.lerp(desertHorizon, dry * 0.4 * day.daylight);
+        u.uZenith.value.lerp(sandstorm, storming * 0.45 * day.daylight);
+        u.uHorizon.value.lerp(desertHorizon, storming * 0.65 * day.daylight);
         u.uFogColor.value.copy(scene.fog.color);
         sun.color.lerp(warmSun, dry * 0.35);
       }
