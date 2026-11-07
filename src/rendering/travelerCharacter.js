@@ -16,7 +16,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
   const direction = new THREE.Vector3(), bend = new THREE.Vector3(), projected = new THREE.Vector3(), desired = new THREE.Vector3();
   const rotation = new THREE.Quaternion(), parent = new THREE.Quaternion(), world = new THREE.Quaternion();
   const swing = new THREE.Quaternion(), euler = new THREE.Euler();
-  // Swarm gestures, posed over whatever the legs are doing: E opens both arms wide to gather the wisps,
+  // Swarm gestures, posed over whatever the legs are doing (E keeps the one-hand cast clip):
   // Q thrusts both palms at them in pulses, F raises both arms overhead and beckons them home.
   const arms = [], up = new THREE.Vector3(0, 1, 0), side = new THREE.Vector3(), aim = new THREE.Vector3(), lastCast = new THREE.Vector3();
   const shoulder = new THREE.Vector3(), elbow = new THREE.Vector3(), wrist = new THREE.Vector3(), knuckle = new THREE.Vector3(), turn = new THREE.Quaternion();
@@ -24,6 +24,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
   function aimBone(bone, from, to, goal, weight) { turn.setFromUnitVectors(to.sub(from).normalize(), goal); rotate(bone, turn.slerp(rotation.identity(), 1 - weight)); }
   function castArms(dt, castAt, gesture) {
     castTime += dt;
+    if (gesture === 'attract') castAt = null; // E plays the one-hand cast clip instead
     castWeight += ((castAt && arms.length ? 1 : 0) - castWeight) * (1 - Math.exp(-8 * dt));
     if (castAt) lastCast.copy(castAt).sub(player.position); // relative, so lowering arms follow the player
     if (castWeight < .01) return;
@@ -40,9 +41,11 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       const off = Math.atan2(Math.sin(Math.atan2(aim.x, aim.z) - heading), Math.cos(Math.atan2(aim.x, aim.z) - heading));
       const bearing = heading + THREE.MathUtils.clamp(off, -.95, .95), flat = Math.hypot(aim.x, aim.z); // never behind the body
       aim.set(Math.sin(bearing) * flat, THREE.MathUtils.clamp(aim.y, -flat * .4, flat * .8), Math.cos(bearing) * flat).normalize();
-      if (gesture === 'attract') aim.addScaledVector(side, arm.sign * 1.1).addScaledVector(up, .35).normalize();
+      if (gesture === 'grab') aim.addScaledVector(side, arm.sign * .08).normalize();
+      else if (gesture === 'attract') aim.addScaledVector(side, arm.sign * 1.1).addScaledVector(up, .35).normalize();
       else if (gesture === 'push') { aim.y *= .3; aim.addScaledVector(side, arm.sign * (.12 - .1 * pulse)).normalize(); }
-      else aim.lerp(up, .75 + .2 * Math.sin(castTime * 6 + arm.sign)).addScaledVector(side, arm.sign * .25).normalize();
+      else if (gesture === 'recall') aim.lerp(up, .75 + .2 * Math.sin(castTime * 6 + arm.sign)).addScaledVector(side, arm.sign * .25).normalize();
+      // 'grab' (a chest reveal): straight at the item, the hands a little apart
       arm.fore.getWorldPosition(elbow); aimBone(arm.upper, shoulder, elbow, aim, castWeight);
       arm.fore.getWorldPosition(elbow); arm.hand.getWorldPosition(wrist); aimBone(arm.fore, elbow, wrist, aim, castWeight);
       arm.hand.getWorldPosition(wrist); arm.finger.getWorldPosition(knuckle);
@@ -157,7 +160,8 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       if (status && nextLabel !== label) { status.textContent = nextLabel; label = nextLabel; }
       root.visible = Boolean(mixer) && !state.memory && cameraDistance > .65;
       root.position.copy(player.position); root.position.y -= 2.05;
-      const target = state.cinematic ? state.cinematicYaw ?? heading : acting ? combat.facing : speed > .15 ? Math.atan2(player.velocity.x, player.velocity.z) : heading;
+      const target = state.cinematic ? state.cinematicYaw ?? heading : acting ? combat.facing : speed > .15 ? Math.atan2(player.velocity.x, player.velocity.z)
+        : castAt && state.swarmGesture === 'grab' ? Math.atan2(castAt.x - player.position.x, castAt.z - player.position.z) : heading; // turn to the chest
       const difference = Math.atan2(Math.sin(target - heading), Math.cos(target - heading));
       heading += difference * (1 - Math.exp(-(acting ? 26 : 12) * dt)); root.rotation.y = heading;
       const turnRate = dt > 0 ? Math.atan2(Math.sin(heading - capeState.lastHeading), Math.cos(heading - capeState.lastHeading)) / dt : 0; capeState.lastHeading = heading;

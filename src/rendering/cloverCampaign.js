@@ -11,6 +11,7 @@ import { cloverShapes, banner } from './kingdomGates.js';
 import { dressLivingRoad, shrineLayout, ARCH_SPAN } from './cloverArchiveProps.js';
 import { createVineRoad } from './cloverVines.js';
 import { loadModel } from './models.js';
+import { createSigil } from './sigil.js';
 
 export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil, onHook, onScene, onReady }) {
   const model = createCloverCampaign({ seed: world.seed, ready });
@@ -286,8 +287,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
   for (const geometry of [inlayGeometry, ringGeometry]) {
     const mesh = new THREE.Mesh(geometry, inlay); mesh.position.set(scar.x, scar.top + .02, scar.z); root.add(mesh);
   }
-  const sigilGeometry = new THREE.ExtrudeGeometry(cloverShapes(1.3), { depth: .2, bevelEnabled: false }).center();
-  const sigil = new THREE.Mesh(sigilGeometry, mat(0x63d483));
+  const sigil = createSigil('root', 2.2); // the Accord's sigil family (sigil.js)
   sigil.position.set(scar.x, 14, scar.z); root.add(sigil);
   sign('STORMLEAF SCAR', 'The original pattern survives · Read in calm', scar.x, 14.8, scar.z - 7, 4.5);
   // The Scar's memory for its cutscene: the whole L-system road, shrunk onto the ground, traced in
@@ -463,6 +463,8 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
   return {
     model, root, obstacles, colliders, platforms: model.platforms,
     atInteraction: position => Boolean(model.interaction(position)),
+    // While the Tide Hook rises out of the sky chest: where the player's hands reach.
+    get reachAt() { return hook.visible ? hook.position : null; },
     // Cutscene effects, k from 0 to 1; Infinity ends the effect.
     memoryStage,
     scarReveal(k) {
@@ -514,7 +516,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       if (!model.hook) revealed = Infinity; else revealed += dt;
       if (!state.cinematic) { hook.visible = revealed < 3; hook.position.y = CLOVER_STORY.chest.top + .9 + Math.min(1, revealed / 2) * 1.3; }
       hook.rotation.y += dt;
-      sigil.rotation.y += dt * .4; sigil.visible = !model.sigil;
+      sigil.userData.tick(dt); sigil.visible = !model.sigil;
     },
     recovery: player => model.recovery(player),
     reset() { model.reset(); trace.visible = decoys.visible = hook.visible = false; revealed = Infinity; pressed = studyPressed = inspecting = false; seen = -1; open = 0; prompt.hidden = debug.hidden = true; roots.count = preview.count = 0; vineRoad.clear(); },

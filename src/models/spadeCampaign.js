@@ -107,7 +107,7 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
         anchor: `BORDER ANCHOR · STRIKES ${strikes}/${STRIKE.needed} · CHAOS OPENS ITS SHIELD · HOLD Q TO STRIKE`,
         report: 'THE ANCHOR FELL · RETURN TO NERIS AT THE LANTERN REFUGE',
         complete: crownKnown() ? 'LANTERN SIGIL EARNED · NEXT · GO NORTH TO CLOVER · FIND IVEN'
-          : 'LANTERN SIGIL EARNED · NEXT · ENTER SPADE CASTLE · FIND OUT WHAT PROTECTS THE CROWN',
+          : 'SPADE CASTLE · TAKE THE LANTERN SIGIL FROM THE ARCHIVE CHEST · FIND OUT WHAT PROTECTS THE CROWN',
       }[stage];
     },
     // swarm: { enabled, positions, previous } (any {x, y, z}). Returns a story event or null.
@@ -131,7 +131,7 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
       if (stage === 'anchor') return strikeWard(dt, position, chaos, swarm);
       if (stage === 'report' && calmInRefuge) {
         stage = 'complete';
-        return say('sigil', 'LANTERN SIGIL · NERIS · Thank you. Take this Lantern Sigil. But the Hollow Crown is still protected by three spells. If you attack it now, it only gets stronger. ' +
+        return say('sigil', 'LANTERN SIGIL · NERIS · Thank you. My Lantern Sigil is sealed in the chest in the castle archive, upstairs. It will open for you now. But the Hollow Crown is still protected by three spells. If you attack it now, it only gets stronger. ' +
           (crownKnown() ? 'You have already seen those spells. Go north to Clover. Iven can tell you which ones are real.'
             : 'The castle is open now. Read the old records in its archive, then look at the spells in the observatory upstairs.'), 12000);
       }

@@ -16,7 +16,6 @@ ASSETS = [
     'crystals',
     'shrine',
     'spade',
-    'character',
     'music',
     'particles',
     'Stylized Nature MegaKit[Standard]/glTF',

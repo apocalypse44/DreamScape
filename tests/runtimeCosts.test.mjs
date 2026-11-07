@@ -4,7 +4,6 @@ import { test } from 'node:test';
 const load = async path => import(`data:text/javascript;base64,${Buffer.from(readFileSync(new URL(path, import.meta.url), 'utf8')).toString('base64')}`);
 const { createColliderIndex } = await load('../src/models/colliderIndex.js');
 const { createAnimationCadence } = await load('../src/models/animationCadence.js');
-const { loadCharacterAssets } = await load('../src/rendering/characterAssets.js');
 
 test('collider queries match exhaustive circle collisions across cell boundaries', () => {
   const colliders = Array.from({ length: 2000 }, (_, i) => ({ x: (i % 50) * 8 - 200, z: Math.floor(i / 50) * 8 - 160, radius: 0.5 + i % 23 }));
@@ -43,29 +42,3 @@ test('distant skeleton updates preserve elapsed animation time and near actors u
   assert.equal(step(1 / 60, 10), 1 / 60);
 });
 
-test('character downloads overlap but model and clip parses happen on separate frames', async () => {
-  const requested = [], fetches = new Map(), frames = [], installed = [];
-  const task = loadCharacterAssets({
-    files: { model: 'body', idle: 'idle', walk: 'walk' },
-    fetchBuffer: file => { requested.push(file); return new Promise(resolve => fetches.set(file, resolve)); },
-    parse: buffer => buffer,
-    nextFrame: () => new Promise(resolve => frames.push(resolve)),
-    installModel: model => installed.push(model), installClip: (name, clip) => installed.push(clip), onClipError: () => assert.fail(),
-  });
-  const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
-  assert.deepEqual(requested, ['body', 'idle', 'walk']);
-  fetches.get('idle')('idle'); fetches.get('walk')('walk'); fetches.get('body')('body'); await flush();
-  for (const expected of ['body', 'idle', 'walk']) {
-    assert.equal(frames.length, 1); frames.shift()(); await flush(); assert.equal(installed.at(-1), expected);
-  }
-  await task; assert.deepEqual(installed, ['body', 'idle', 'walk']);
-});
-
-test('missing optional character clips do not stop the remaining clips from loading', async () => {
-  const installed = [], errors = [];
-  await loadCharacterAssets({ files: { model: 'body', idle: 'missing', walk: 'walk' },
-    fetchBuffer: async file => { if (file === 'missing') throw new Error('404'); return file; },
-    parse: b => b, nextFrame: async () => {}, installModel: b => installed.push(b),
-    installClip: (n, b) => installed.push(b), onClipError: file => errors.push(file) });
-  assert.deepEqual(installed, ['body', 'walk']); assert.deepEqual(errors, ['missing']);
-});

@@ -47,13 +47,15 @@ export function applyTestStart(id, { spade, clover, diamond, inventory }) {
     case 'ember-hound': return { x: 0, z: 0 };
     case 'spade': return { x: -365, z: -14, yaw: Math.PI / 2 };
     case 'spade-lanterns': return { x: -375, z: 0, yaw: Math.PI / 2 };
-    case 'spade-anchor': return { x: -435, z: -40, yaw: Math.PI / 2 };
+    // Outside the anchor plaza's solid block (-433, -42, 12 m square), facing the ward (WARD -447, -48).
+    case 'spade-anchor': return { x: -435, z: -33, yaw: Math.atan2(12, 15) };
     case 'spade-castle': return { x: -472, z: 0, top: 16.12, yaw: Math.PI / 2 };
     case 'clover': case 'clover-road': return { x: -34, z: -420, top: 12 };
     case 'clover-scar': return { x: -104, z: -452, top: 12 };
     case 'sky-hook': return { ...SUMMIT_ARRIVAL };
     case 'diamond': return { x: diamond.layout.orin.x, z: diamond.layout.orin.z - 6, yaw: Math.PI };
-    case 'diamond-fragments': return { x: diamond.layout.fragments[0].x, z: diamond.layout.fragments[0].z + 3 };
+    // West of the first fragment, clear of the workshop's clutter, facing it.
+    case 'diamond-fragments': return { x: diamond.layout.fragments[0].x - 5, z: diamond.layout.fragments[0].z, yaw: -Math.PI / 2 };
     case 'diamond-repair': return { ...diamond.layout.center };
   }
 }

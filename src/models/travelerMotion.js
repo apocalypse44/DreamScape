@@ -19,8 +19,9 @@ export function createTravelerMotion() {
       else if (!onGround) { name = verticalSpeed > 0 ? 'jumping' : 'falling'; weights[verticalSpeed > 0 && airTime < .14 ? 'jumpStart' : 'fall'] = 1; }
       else if (landTime > 0) { name = 'landing'; weights.land = 1; }
       else if (crouching) { name = speed > .15 ? 'crouching walk' : 'crouching'; weights[speed > .15 ? 'crouchWalk' : 'crouchIdle'] = 1; }
-      else if (casting && speed < .3) { // the arms are posed procedurally per gesture (travelerCharacter castArms)
-        name = casting === 'push' ? 'pushing' : casting === 'recall' ? 'recalling' : 'casting'; weights.idle = 1; }
+      else if (casting && speed < .3) {
+        // Q, F and chest grabs: arms posed in code (travelerCharacter castArms). E: the one-hand cast clip.
+        name = { push: 'pushing', recall: 'recalling', grab: 'reaching' }[casting] ?? 'casting'; weights[name === 'casting' ? 'cast' : 'idle'] = 1; }
       else if (speed < .15) { name = armed ? 'on guard' : 'idle'; weights[armed ? 'combatIdle' : 'idle'] = 1; }
       else if (speed < 2.2) { name = 'walking'; weights.walk = 1; }
       else if (speed < 5.4) {

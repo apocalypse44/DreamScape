@@ -9,7 +9,6 @@ import { updateHUD, updateQuestHUD } from '../views/hud.js';
 import { bindInput } from './input.js';
 import { createPlayerController, createSurfaceAt } from './player.js';
 import { createCameraController } from './camera.js';
-import { createCharacter } from '../rendering/character.js';
 import { createTravelerCharacter } from '../rendering/travelerCharacter.js';
 import { createQuest, SHRINE } from '../models/quest.js';
 import { createShrine } from '../rendering/shrine.js';
@@ -107,7 +106,8 @@ export function startGame(ui, { testStartId = null } = {}) {
   const inventory = createInventory({ onAdd: (id, item) => toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500) });
   const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
     chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
-    onChapterComplete: () => { inventory.add('lantern-sigil'); doorScene.queue(9); } }); // cutscene after Neris's sigil lines
+    onChapterComplete: () => doorScene.queue(9), // the castle doors open; the sigil waits in the archive chest
+    keys, hasSigil: () => inventory.has('lantern-sigil'), onSigil: () => inventory.add('lantern-sigil') });
   // --- Clover chapter: The Living Road ---
   const livingRoad = buildCloverCampaign({ scene, world, keys, notify: toast,
     ready: () => inventory.has('lantern-sigil') && spade.castle.discovery.complete,
@@ -266,8 +266,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   atmosphere.prepare?.(livingRoad.root); // Clover chapter
   const grass = createGrass({ hash, chunks });
   const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles] });
-  const character = new URLSearchParams(location.search).get('character') === 'traveler'
-    ? createTravelerCharacter({ scene, state, player, surfaceAt }) : createCharacter({ scene, state, player, surfaceAt });
+  const character = createTravelerCharacter({ scene, state, player, surfaceAt }); // the sigil-blade wanderer (src/assets/traveler.glb)
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
@@ -447,7 +446,10 @@ export function startGame(ui, { testStartId = null } = {}) {
     else if (cloverScenes.active) cameraDistance = cloverScenes.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
     else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(dt); }
-    character.update(dt, cameraDistance, houndScene.active ? null : swarmCast);
+    // A chest reveal (Spade's archive, Clover's sky chest): both hands reach for the rising item.
+    const reach = spade.reachAt ?? livingRoad.reachAt;
+    if (reach) state.swarmGesture = 'grab';
+    character.update(dt, cameraDistance, houndScene.active ? null : reach ?? swarmCast);
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     if (startup.ready) help.update(dt);
@@ -455,10 +457,11 @@ export function startGame(ui, { testStartId = null } = {}) {
     cullLandmarks();
     updateHUD(ui, state, player, biomeAt);
     // After the cure: the Spade chapter's objective, then the castle's next step once the sigil is earned.
-    const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete;
+    const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete, chestNext = spade.campaign.sigil && !inventory.has('lantern-sigil');
     updateQuestHUD(ui, quest, quest.stage !== 'cured' ? quest.goal
       : diamond.model.available ? diamond.model.goal // Diamond chapter, once the Tide Sigil is held
       : livingRoad.model.available ? livingRoad.model.goal // Clover chapter, after the Spade discoveries
+      : chestNext ? 'SPADE CASTLE · OPEN THE CHEST IN THE ARCHIVE UPSTAIRS · TAKE THE LANTERN SIGIL'
       : castleNext ? `SPADE CASTLE · ${spade.castle.discovery.objective.toUpperCase()}` : spade.campaign.goal);
     encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");

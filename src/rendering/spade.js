@@ -7,12 +7,16 @@ import { buildSpadeStory } from './spadeStory.js';
 import { buildCastleEcho } from './castleEcho.js';
 import { buildSpadeCampaign } from './spadeCampaign.js';
 import { loadModelAsset } from './models.js';
+import { createChestReveal } from './chestReveal.js';
+import { createSigil } from './sigil.js';
+import { CASTLE_PROPS } from '../models/spadeCastle.js';
 
 // Large forms are procedural and available immediately. Ten curated modules stream
 // on approach, then render in batches (one draw per source mesh, not per building).
 // onChapterComplete: Neris's quest is done (the game plays the castle doors' cutscene).
 // chapterReady(): whether Neris's chapter may begin (the Ember Hound is cured).
-export function createSpade({ scene, world, onReady, notify, onChapterComplete, chapterReady }) {
+// keys: held key codes. hasSigil/onSigil: the Lantern Sigil in the satchel, taken from the castle's archive chest.
+export function createSpade({ scene, world, onReady, notify, onChapterComplete, chapterReady, keys = new Set(), hasSigil = () => false, onSigil }) {
   const root = new THREE.Group(); root.name = 'Spade · The Swarm Remembers'; scene.add(root);
   const details = new THREE.Group(); root.add(details);
   const obstacles = new THREE.Group(); root.add(obstacles);
@@ -191,6 +195,24 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
     mesh.receiveShadow = true; root.add(mesh);
     if (key === 'cone:roof' || key === 'cone:snow') standInRoofs.push(mesh);
   }
+  // Neris's Lantern Sigil waits in the archive chest upstairs: E opens it once her chapter is done.
+  const chestProp = CASTLE_PROPS.find(p => p.name === 'archive-chest'), chestAt = { x: -344 - chestProp.u, y: chestProp.bottom, z: chestProp.v };
+  const archiveChest = createChestReveal({ parent: root, at: chestAt, height: 1.2, item: createSigil('lantern', .6) });
+  const chestPrompt = document.createElement('aside'); chestPrompt.className = 'clover-action'; chestPrompt.hidden = true; chestPrompt.setAttribute('role', 'status'); document.body.append(chestPrompt);
+  let chestPressed = false;
+  function updateChest(dt, player, state) {
+    // The chest follows the satchel: emptied for a later test start, closed again after a reset.
+    if (!archiveChest.opening && hasSigil() !== archiveChest.taken) archiveChest.reset(hasSigil());
+    const feet = player.position.y - 2.05, near = Math.abs(feet - chestAt.y) < 1 && Math.hypot(player.position.x - chestAt.x, player.position.z - chestAt.z) < 2.6;
+    const down = keys.has('KeyE'), tapped = down && !chestPressed; chestPressed = down;
+    const free = state.locked && !state.mapOpen && !state.cinematic;
+    const hint = !near || archiveChest.taken || archiveChest.opening ? '' : !campaign.model.sigil ? 'LOCKED CHEST · NERIS HOLDS ITS KEY · FINISH HER TASKS FIRST' : 'E · OPEN THE CHEST · TAKE THE LANTERN SIGIL';
+    chestPrompt.hidden = !free || !hint; if (hint && chestPrompt.textContent !== hint) chestPrompt.textContent = hint;
+    if (free && near && tapped && campaign.model.sigil && !archiveChest.taken) archiveChest.open();
+    if (archiveChest.update(dt, player.position) === 'taken') {
+      onSigil?.(); notify?.('LANTERN SIGIL · Neris’s light, the first of the Accord’s four sigils. Read the records here, then climb to the observatory.', 8000);
+    }
+  }
   const emblem = createSpadeEmblem(); emblem.position.set(-342.2, 21.6, 0); emblem.rotation.y = Math.PI / 2; root.add(emblem);
   // One local fill light, no extra shadow map; enough to read the hall at night.
   // Cold violet, flickering like torchlight (see update) for the castle's gloom.
@@ -239,6 +261,8 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
   return {
     root, obstacles, platforms, colliders, castle, story, echo:echo.model, campaign:campaign.model,
     openGate: () => campaign.openGate(),
+    // While the archive chest's sigil hovers: where the player's hands reach.
+    get reachAt() { return archiveChest.reachAt; },
     get streaming(){return {pending:preparation.pending,prepared:preparation.completed};},
     isInsideCastle: isInsideSpadeCastle,
     get status() { return status; }, get errors() { return [...errors]; },
@@ -257,6 +281,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
       emblem.rotation.y += dt * .35; emblem.position.y = 21.6 + Math.sin(performance.now() / 1000) * .15; // the crest turns like Clover's
       echo.update(dt,player,state);
       castle.update(dt,player,state,inHall);
+      updateChest(dt,player,state);
       story.update(dt,player,state,notify);
       campaign.update(dt,player,state,swarm);
       // Keep the light count constant. Toggling visibility changes shader
@@ -279,7 +304,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
       visit('hall', inHall && player.position.x > -490,
         'MEMORY HALL · Clover reveals the true binding. Heart restores the stolen current. Diamond turns the chains.');
     },
-    reset() { memories.clear(); castle.reset(); echo.reset(); story.reset(); campaign.reset(); },
+    reset() { memories.clear(); archiveChest.reset(false); chestPrompt.hidden = true; castle.reset(); echo.reset(); story.reset(); campaign.reset(); },
   };
 }
 

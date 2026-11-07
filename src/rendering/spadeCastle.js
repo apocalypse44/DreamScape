@@ -56,7 +56,7 @@ export function buildCastleInterior({root,add,block,module,label,notify,echo}) {
     }else if(p.name==='lectern'){
       block(p.u,p.v,.36,.36,p.height-.08,p.bottom,'obsidian');
       block(p.u,p.v,p.width,p.depth,.08,p.bottom+p.height-.08,'gold');
-    }else if(p.name==='archive-chest')module('chest',p.u,p.bottom,p.v,p.width,p.height,p.depth);
+    }else if(p.name==='archive-chest'){} // an opening chest with the Lantern Sigil (spade.js, chestReveal.js)
     else {
       block(p.u,p.v,p.width,p.depth,p.height,p.bottom,'obsidian');
       block(p.u,p.v,p.width+.2,p.depth+.2,.12,p.bottom+p.height,'gold');

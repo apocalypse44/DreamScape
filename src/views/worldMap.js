@@ -102,8 +102,11 @@ function drawClover(ctx, x, y, size, fill, stroke) {
 // canvas: the game's canvas, used to free and recapture the mouse around the map.
 // Satchel item icons (inline SVG, drawn in the grimoire's ink colour).
 const ITEM_ICONS = {
-  root: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M12 8L6 4M12 12l6-7M12 16l-7-3M12 19l7-5"/></svg>',
-  spade: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10 6 4 9 4 13.5c0 2.6 2 4.3 4.3 4.3 1.3 0 2.4-.6 3.1-1.4L10 22h4l-1.4-5.6c.7.8 1.8 1.4 3.1 1.4 2.3 0 4.3-1.7 4.3-4.3C20 9 14 6 12 2z" fill="currentColor"/></svg>',
+  // Sigils match their 3D design (rendering/sigil.js): the kingdom's shape in its colour (the round frame is the CSS border).
+  spade: '<svg class="satchel-icon" viewBox="5.5 3.5 13 16.5" aria-hidden="true" style="color:#7b4fe0" fill="currentColor"><path d="M12 4.5C10.6 7.4 6.5 9.4 6.5 12.6c0 1.9 1.4 3.1 3 3.1.9 0 1.7-.4 2.2-1L10.8 19h2.4l-.9-4.3c.5.6 1.3 1 2.2 1 1.6 0 3-1.2 3-3.1 0-3.2-4.1-5.2-5.5-8.1z"/></svg>',
+  clover: '<svg class="satchel-icon" viewBox="5.5 3.5 13 16.5" aria-hidden="true" style="color:#2f9a5a" fill="currentColor"><path d="M12 11.2c-1.7-2.9-5.2-1.7-4.2.6.6 1.3 2.5 1.3 4.2-.6zM12.8 12c2.9-1.7 1.7-5.2-.6-4.2-1.3.6-1.3 2.5.6 4.2zM12 12.8c1.7 2.9 5.2 1.7 4.2-.6-.6-1.3-2.5-1.3-4.2.6zM11.2 12c-2.9 1.7-1.7 5.2.6 4.2 1.3-.6 1.3-2.5-.6-4.2z"/><path d="M12.4 13.4l2.2 4" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
+  heart: '<svg class="satchel-icon" viewBox="5.5 3.5 13 16.5" aria-hidden="true" style="color:#1f93ab" fill="currentColor"><path d="M12 18.5c-3.4-2.4-6-4.6-6-7.3 0-1.9 1.4-3.2 3-3.2 1.3 0 2.4.8 3 1.9.6-1.1 1.7-1.9 3-1.9 1.6 0 3 1.3 3 3.2 0 2.7-2.6 4.9-6 7.3z"/></svg>',
+  diamond: '<svg class="satchel-icon" viewBox="5.5 3.5 13 16.5" aria-hidden="true" style="color:#b8902e" fill="currentColor"><path d="M12 4.5l4.6 6.2L12 19.5l-4.6-8.8z"/><path d="M7.4 10.7h9.2" stroke="#fff8" stroke-width=".8"/></svg>',
   hook: '<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v11a4 4 0 1 1-4-4"/><path d="M9 5l3-3 3 3"/><path d="M12 13c0 4 3 7 7 7"/></svg>',
 };
 
