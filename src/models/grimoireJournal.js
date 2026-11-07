@@ -1,5 +1,5 @@
 // Read live quest state without inventing completion or future campaign rewards.
-export function grimoireQuests(quest, spade, clover) {
+export function grimoireQuests(quest, spade, clover, diamond) {
   const stage=quest.stage,embers=quest.embers.filter(e=>e.taken).length;
   const archive=spade?.castle.discovery.count??0;
   const witness=Boolean(spade?.echo.recovered),crown=Boolean(spade?.castle.discovery.complete);
@@ -8,6 +8,9 @@ export function grimoireQuests(quest, spade, clover) {
   const early=stage!=='cured'&&chapter==='meet';
   // Spade castle's doors stay sealed until Neris's chapter is complete.
   const sealed=chapter!=='complete',SEALED='The castle doors are sealed by a Triad spell. Finish Neris’s quest to open them.';
+  const diamondStage=diamond?.stage??'meet';
+  const diamondLocked=diamondStage==='meet'&&!diamond?.available;
+  const fitted=diamond?.fitted??0;
   return [
     {id:'hound',chapter:'I · THE CROSSING',title:'The Ember Hound',done:stage==='cured',locked:false,
       progress:stage==='companion'?'Your companion walks beside you.':`${embers}/3 embers gathered`,
@@ -58,5 +61,19 @@ export function grimoireQuests(quest, spade, clover) {
         :clover.generation===3?'Cross the new bridges to the Stormleaf Scar. Calm down and press E to read it.'
         :'Talk to Iven at the Archive. At each stop, press E while calm to turn the guide toward the gold leaf. Then stir chaos and press E to grow the bridge. The path goes west, north, west.',
       stamp:'LIVING ROAD RESTORED',destination:clover?.sigil&&!clover?.hook?'clover-sky-chest':clover?.generation===3&&!clover?.sigil?'clover-scar':'clover-archive'},
+    {id:'unbroken-pattern',chapter:'IV · THE DIAMOND KINGDOM',title:'The Unbroken Pattern',done:diamondStage==='complete',locked:diamondLocked,
+      progress:diamondLocked?'Requires the Tide Sigil from Heart'
+        :{meet:'Orin waits beside the Shatterglass Relay',collect:`${diamond?.collected??0}/4 conduit fragments collected`,
+          repair:diamond?.jammed?'The relay jammed · refit a fragment':`${fitted}/4 fragments fitted`,
+          report:'The workers are free · return to Orin',complete:'Prism Sigil earned'}[diamondStage],
+      hint:diamondLocked?'Bring the Tide Sigil from Sera in Heart. Then approach Artificer Orin calmly in Shatterglass Quarry, beyond the Diamond gate.'
+        :{meet:'Take the haul ramp down into Shatterglass Quarry. Approach Orin calmly beside the relay on the pit floor.',
+          collect:'Go to Artificers’ Row, west of the quarry. Walk calmly near the floating fragment in each of the four workshops to collect it. Then return to the relay.',
+          repair:diamond?.jammed?'Stand still to calm down. Press X to lift the last fragment, then stand on a socket and press V to refit it. Stir chaos near the relay to try again.'
+            :fitted<4?'While calm, stand on a relay square and press V to fit a fragment. V cycles the last fitted fragment’s available shapes; X lifts it. The numbers count possible shapes for each square, not a matching or addition puzzle. Fit all four fragments.'
+            :'All four fragments are fitted. Run with Shift near the relay to stir chaos. The relay fills the remaining squares and sends power to the escape gate and inversion core.',
+          report:'Stand still to calm down, then return to Orin beside the relay in the quarry to receive the Prism Sigil.',
+          complete:'The workers are free and you carry the Prism Sigil. Return to Spade with all four sigils; the Hollow Crown is waiting.'}[diamondStage],
+      stamp:'PRISM SIGIL',destination:diamondStage==='complete'?'spade-castle':diamondStage==='collect'?'diamond-row':'diamond-quarry'},
   ];
 }

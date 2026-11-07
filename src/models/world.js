@@ -6,6 +6,8 @@ import { skyLakeTerrain, skyLakeArea } from './skyIsland.js';
 import { spadeGround, spadeArea, spadeStableArea } from './spade.js';
 import { nextChunkPrefetch } from './streaming.js';
 import { livingRoadGround, livingRoadArea } from './cloverCampaign.js';
+import { createDiamondKingdom, strataColor, PAVING, MARBLE, DIAMOND_BASE } from './diamond.js';
+import { trailPoint } from '../rendering/props.js';
 const landmarkTerrain = (x, z, original) => livingRoadGround(x, z, spadeGround(x, z, cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original)))))));
 
 export function createWorld({ scene, state, player, onChunk }) {
@@ -65,6 +67,12 @@ export function createWorld({ scene, state, player, onChunk }) {
     const gi2 = perm[i + 1 + perm[(j + 1) & 255] & 255];
     return corner(x0,y0,gi0)*35 + corner(x1,y1,gi1)*35 + corner(x2,y2,gi2)*35 + 0.5;
   }
+
+  // Diamond's authored kingdom (quarry, mesas, citadel, roads) is laid out from its gate on the south
+  // trail: the same trailPoint the gate uses, so the relay, the pit and the gate always line up.
+  const diamond = createDiamondKingdom(trailPoint(noise, 2, KINGDOM_START - 6));
+  const quarry = diamond.quarry;
+  const ground = (x, z, h) => diamond.ground(x, z, landmarkTerrain(x, z, h));
 
   function biomeAt(x, z) {
     if (Math.hypot(x, z) < KINGDOM_START) return BIOMES.hub;
@@ -126,11 +134,12 @@ export function createWorld({ scene, state, player, onChunk }) {
   // flat plains (hill = 0) need no layers, calm-blended hills need no warped layer.
   function heightFor(x, z, shift) {
     if(spadeStableArea(x,z))return spadeGround(x,z,0);
+    if (diamond.stable(x, z)) return diamond.ground(x, z, FLAT_Y); // fixed kingdom ground, like Spade's city
     const hill = hillMask(x, z);
-    if (hill <= 0) return landmarkTerrain(x, z, FLAT_Y);
+    if (hill <= 0) return ground(x, z, FLAT_Y);
     const base = calmBase(x, z), weight = chaosWeight(x, z);
     const rough = base + shift * weight > 0 ? roughHeight(x, z) : 0;
-    return landmarkTerrain(x, z, blendHeight(lowHeight(x, z), rough, base, weight, hill, shift));
+    return ground(x, z, blendHeight(lowHeight(x, z), rough, base, weight, hill, shift));
   }
   const terrainHeight = (x, z) => heightFor(x, z, terrainShift);
   // The ground exactly as drawn: chunk meshes are a grid of flat triangles, so between vertices they sit
@@ -160,6 +169,8 @@ export function createWorld({ scene, state, player, onChunk }) {
   const leafMat = new THREE.MeshLambertMaterial({ color: 0x7fb06a });
   const crystalMat = new THREE.MeshPhongMaterial({ color: 0xff5a42, emissive: 0x5d0b06, shininess: 85 });
   const stoneMat = new THREE.MeshLambertMaterial({ color:0xb89a68 });
+  const shardGeo = new THREE.CylinderGeometry(0, 0.55, 1, 6);
+  const shardMat = new THREE.MeshPhongMaterial({ color: 0xcfe9ff, emissive: 0x2a4f70, shininess: 90, flatShading: true });
   const ruinMat = new THREE.MeshLambertMaterial({ color:0x67746a });
 
   // Basic Poisson-disk dart throwing: accepted points always keep a minimum distance.
@@ -185,7 +196,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5)) return;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5) || diamond.decorFree(wx, wz, 2)) return;
       const kind = biomeAt(wx, wz).kind;
       if (kind === "hub" || kind === "trees" || kind === "wisps") return; // these kingdoms have authored dressing
       const y = terrainHeight(wx, wz);
@@ -213,10 +224,17 @@ export function createWorld({ scene, state, player, onChunk }) {
         }
         addCollider(group, wx, wz, 0.9);
       } else {
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.75,3.5,6),stoneMat);
-        pillar.position.y = 1.7;
-        object.add(pillar);
-        addCollider(group, wx, wz, 0.7);
+        // Diamond: leaning six-sided crystal clusters, the seams the kingdom mines.
+        for (let s = 0; s < 3; s++) {
+          const shard = new THREE.Mesh(shardGeo, shardMat);
+          const h = (s ? 1.6 : 3.2) * (0.7 + hash(i + s, cx - cz) * 0.6), side = s === 1 ? 1 : s === 2 ? -1 : 0;
+          shard.scale.set(s ? 0.65 : 1, h, s ? 0.65 : 1);
+          shard.position.set(side * 0.6, h / 2 - 0.2, side * 0.25);
+          shard.rotation.z = -side * 0.4 + (s ? 0 : (hash(i, cz) - 0.5) * 0.3);
+          shard.castShadow = s === 0;
+          object.add(shard);
+        }
+        addCollider(group, wx, wz, 0.9);
       }
       object.position.set(x, y, z);
       object.rotation.y = hash(i + cx, cz) * Math.PI * 2;
@@ -248,7 +266,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
       // Mixed border chunks must not place a neighbouring kingdom's ruin in Spade.
       if (biomeAt(wx, wz).kind === "wisps") continue;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5)) continue;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5) || diamond.area(wx, wz)) continue; // ruins stay outside the authored kingdom
       const y = terrainHeight(wx,wz);
       const ruin = new THREE.Group();
       const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
@@ -279,12 +297,13 @@ export function createWorld({ scene, state, player, onChunk }) {
         positions.setY(i,spadeGround(wx,wz,0));
         continue; // fixed city ground needs no noise layers or chaos reshaping
       }
+      if (diamond.stable(wx, wz)) { positions.setY(i, diamond.ground(wx, wz, FLAT_Y)); continue; }
       parts[i * 5] = lowHeight(wx, wz);
       parts[i * 5 + 1] = roughHeight(wx, wz);
       parts[i * 5 + 2] = calmBase(wx, wz);
       parts[i * 5 + 3] = chaosWeight(wx, wz);
       parts[i * 5 + 4] = hillMask(wx, wz);
-      positions.setY(i, landmarkTerrain(wx, wz, blendHeight(...parts.subarray(i * 5, i * 5 + 5))));
+      positions.setY(i, ground(wx, wz, blendHeight(...parts.subarray(i * 5, i * 5 + 5))));
     }
     // Only vertices on hills inside the chaos ring can move (landmarks just blend the base height),
     // so reshape() touches those alone and skips chunks that cannot change at all.
@@ -293,10 +312,18 @@ export function createWorld({ scene, state, player, onChunk }) {
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
     // Per-vertex ground colour so kingdom borders follow the real 350 m circle, not chunk squares.
-    const colors = new Float32Array(positions.count * 3), tint = new THREE.Color();
+    const colors = new Float32Array(positions.count * 3), tint = new THREE.Color(), strata = new THREE.Color();
     for (let i = 0; i < positions.count; i++) {
       // Hex is the on-screen colour (sRGB); vertex colours are linear.
-      tint.set(biomeAt(cx * CHUNK_SIZE + positions.getX(i), cz * CHUNK_SIZE + positions.getZ(i)).ground).convertSRGBToLinear().toArray(colors, i * 3);
+      const wx = cx * CHUNK_SIZE + positions.getX(i), wz = cz * CHUNK_SIZE + positions.getZ(i);
+      tint.set(biomeAt(wx, wz).ground);
+      if (diamond.area(wx, wz)) { // Diamond: paved roads, banded sandstone wherever the ground leaves the floor
+        const y = positions.getY(i), rock = Math.min(1, Math.abs(y - DIAMOND_BASE) / 1.5);
+        if (diamond.royal(wx, wz) && y > DIAMOND_BASE + 15) tint.set(MARBLE); // royals walk on marble
+        else if (diamond.road(wx, wz)) tint.set(PAVING);
+        else if (rock > 0) tint.lerp(strata.set(strataColor(y)), rock);
+      }
+      tint.convertSRGBToLinear().toArray(colors, i * 3);
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     const material = new THREE.MeshStandardMaterial({
@@ -359,7 +386,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     for (const i of dynamic) {
       const k = i * 5;
       const wx = chunk.position.x + positions.getX(i), wz = chunk.position.z + positions.getZ(i);
-      positions.setY(i, landmarkTerrain(wx, wz, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4])));
+      positions.setY(i, ground(wx, wz, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4])));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -386,9 +413,9 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
-  return { seed, kingdomStart: KINGDOM_START, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, kingdomStart: KINGDOM_START, quarry, diamond, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
-    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6) || livingRoadArea(x, z, 5),
+    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6) || livingRoadArea(x, z, 5) || diamond.area(x, z),
     get formed() { return formed; },
     get pendingChunks() { return pendingChunks; },
     get terrainVersion() { return terrainVersion; },
@@ -411,6 +438,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       [leafMat, { roughness: 0.8, metalness: 0 }],
       [crystalMat, { roughness: 0.18, metalness: 0.35 }],
       [stoneMat, { roughness: 0.85, metalness: 0 }],
+      [shardMat, { roughness: 0.15, metalness: 0.1 }],
       [ruinMat, { roughness: 0.9, metalness: 0 }]
     ]
   };

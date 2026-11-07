@@ -1,4 +1,5 @@
 import { createFrameQueue } from '../models/streaming.js';
+import { loadModelAsset } from './models.js';
 
 // Stylized Nature MegaKit (Quaternius, CC0) dressing for the Grimoire Tower lands.
 // Layout follows real landscapes: groves instead of even scatter, bushes on forest edges,
@@ -28,7 +29,8 @@ const DRESSED = new Set(['hub', 'trees']); // Grimoire Tower + Clover Kingdom
 // kingdom gates, which stand where each trail crosses into its kingdom.
 export const ROADS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 export function trailOffset(noise, along, i) {
-  return (noise(along * 0.008 + i * 37, i * 11) - 0.5) * 30 * THREE.MathUtils.smoothstep(along, 20, 80);
+  const t = Math.max(0, Math.min(1, (along - 20) / 60)); // smoothstep(along, 20, 80); no THREE so world.js can use it headless
+  return (noise(along * 0.008 + i * 37, i * 11) - 0.5) * 30 * t * t * (3 - 2 * t);
 }
 // World position of trail i at `along` metres from the centre.
 export function trailPoint(noise, i, along) {
@@ -322,13 +324,12 @@ export function createProps({ scene, world, blockers, onReady }) {
 
   // Limit concurrent parses and install one mesh per frame. Cached downloads
   // must not turn into dozens of installation callbacks in the same frame.
-  const loader = new THREE.GLTFLoader();
   const remaining = [...MODELS];
   async function loadNext() {
     while (remaining.length) {
       const name = remaining.shift();
       try {
-        const gltf = await new Promise((resolve, reject) => loader.load(`${DIR}${name}.gltf`, resolve, undefined, reject));
+        const gltf = await loadModelAsset(`${DIR}${name}.gltf`);
         gltf.scene.updateMatrixWorld(true);
         heights[name] = new THREE.Box3().setFromObject(gltf.scene).max.y;
         parts[name] = [];

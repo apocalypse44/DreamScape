@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DreamScape companion builder</title>
+<base href="../">
+<style>body{font:15px system-ui;background:#1b1f2e;color:#ede5cc;margin:0;display:grid;grid-template-columns:320px 1fr;height:100vh}aside{padding:1.5rem}button{padding:.7rem;margin:.2rem 0;width:100%;cursor:pointer}pre{white-space:pre-wrap;font-size:11px}canvas{width:100%;height:100%;display:block}</style>
+<aside><h2>Companion builder</h2><p>Rebuilds src/assets/dog.glb and hound.glb from the CC0 Quaternius animals. Dev-only; not deployed.</p>
+<button id="dog">Build and download dog.glb</button><button id="hound">Build and download hound.glb</button><pre id="status">Ready.</pre></aside>
+<canvas id="view"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="vendor/GLTFExporter.js"></script>
+<script type="module">
+import { buildDog } from './tools/dogBuilder.js';
+import { createDogBody, playDog } from './src/rendering/dogCharacter.js';
+window.buildDog = buildDog;
+const status = document.querySelector('#status');
+for (const kind of ['dog', 'hound']) document.querySelector('#' + kind).onclick = async () => {
+  status.textContent = 'Building...';
+  try {
+    const { buffer, stats } = await buildDog(kind);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buffer], { type: 'model/gltf-binary' })); a.download = kind + '.glb'; a.click();
+    status.textContent = JSON.stringify(stats, null, 2);
+  } catch (error) { status.textContent = error.stack; throw error; }
+};
+// Preview through the deployed runtime path: window.previewDog({ kind, clip, time, yaw, mood }).
+const canvas = document.querySelector('#view'), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xdce7de);
+scene.add(new THREE.HemisphereLight(0xe9f0df, 0x7f907b, .95));
+const sun = new THREE.DirectionalLight(0xffebc8, 1.4); sun.position.set(-3, 6, 4); sun.castShadow = true; scene.add(sun);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(4, 40), new THREE.MeshStandardMaterial({ color: 0x9fb48f })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const camera = new THREE.PerspectiveCamera(40, 1, .05, 50);
+const bodies = {};
+window.previewDog = async ({ kind = 'dog', clip = 'Idle', time = .5, yaw = .6, distance = 2.4, mood = {}, accessories = true, height } = {}) => {
+  const key = kind + accessories;
+  for (const b of Object.values(bodies)) b.root.visible = false;
+  bodies[key] ||= createDogBody({ scene, kind, height: height ?? (kind === 'dog' ? .9 : 1.5), accessories });
+  const body = bodies[key]; await body.ready; body.root.visible = true;
+  for (const a of Object.values(body.actions)) a.stop();
+  body.current = null; playDog(body, clip, 0);
+  const look = mood.look ? new THREE.Vector3(...mood.look) : null;
+  for (let i = 0; i < 90; i++) body.tick(1 / 60, { ...mood, look });
+  body.actions[clip].time = time; body.tick(0.0001, { ...mood, look });
+  const h = kind === 'dog' ? .9 : 1.5;
+  camera.position.set(Math.sin(yaw) * distance * h, h * .55, Math.cos(yaw) * distance * h); camera.lookAt(0, h * .4, 0);
+  const w = canvas.clientWidth, hh = canvas.clientHeight; renderer.setSize(w, hh, false); camera.aspect = w / hh; camera.updateProjectionMatrix();
+  renderer.render(scene, camera);
+  return Object.keys(body.actions);
+};
+window.previewReady = true;
+</script>

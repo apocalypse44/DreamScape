@@ -4,16 +4,16 @@
 import { grimoireQuests } from '../models/grimoireJournal.js';
 
 const PEEK = 9; // seconds a new step's tip stays open
-const KEY = /\b(Shift|Space|[EQFMGV])\b/g; // single capitals the hints use for keys
+const KEY = /\b(Shift|Space|[EQFMGVX])\b/g; // single capitals the hints use for keys
 const escape = text => text.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
 const withKeys = text => escape(text).replace(KEY, '<kbd>$1</kbd>');
 const CONTROLS = [
   ['W A S D', 'Move'], ['Shift', 'Run (stirs chaos)'], ['Space', 'Jump'],
   ['E', 'Call the wisps · talk · use'], ['Q', 'Push the wisps away (stirs chaos)'], ['F', 'Call the wisps back'],
-  ['M', 'Map and journal'], ['G', 'Show or hide the route'], ['V', 'Switch camera'], ['I', 'Hide side panels'],
+  ['M', 'Map and journal'], ['G', 'Show or hide the route'], ['I', 'Hide side panels'],
 ];
 
-export function createHelpPanel({ quest, spade, clover, state }) {
+export function createHelpPanel({ quest, spade, clover, diamond, state }) {
   const button = document.createElement('button');
   button.id = 'helpButton'; button.type = 'button';
   button.setAttribute('aria-label', 'What to do next (H)'); button.setAttribute('aria-expanded', 'false');
@@ -38,7 +38,7 @@ export function createHelpPanel({ quest, spade, clover, state }) {
   });
 
   function current() {
-    const tasks = grimoireQuests(quest, spade, clover);
+    const tasks = grimoireQuests(quest, spade, clover, diamond);
     return tasks.find(t => !t.done && !t.locked) ?? tasks.at(-1);
   }
   function render(task) {

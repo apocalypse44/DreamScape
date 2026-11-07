@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 const load = file => import(`data:text/javascript;base64,${Buffer.from(readFileSync(new URL(file, import.meta.url),'utf8')).toString('base64')}`);
-const { spadeClimateAt } = await load('../src/models/climate.js');
+const { spadeClimateAt, diamondClimateAt } = await load('../src/models/climate.js');
 const { sampleDaylight } = await load('../src/models/daylight.js');
 
 test('Spade darkness builds before its gate and reaches permanent night inside', () => {
@@ -38,4 +38,13 @@ test('fractional climate blends both directions without changing time or celesti
     for(const key of ['daylight','twilight','sunIntensity','moonIntensity','ambientIntensity','stars'])
       assert.ok(Math.abs(middle[key]-(daylight[key]+night[key])/2)<1e-10);
   }
+});
+
+test('Diamond’s dusty air builds before its gate, fills the kingdom and stays out of the others', () => {
+  assert.equal(diamondClimateAt(0, 260), 0);
+  assert.equal(diamondClimateAt(0, 370), 1);
+  assert.ok(diamondClimateAt(0, 344) > .8);
+  let previous = 0;
+  for (let z = 260; z <= 400; z += .1) { const w = diamondClimateAt(0, z); assert.ok(w >= previous - 1e-10 && w - previous < .002); previous = w; }
+  for (const [x, z] of [[0, 0], [400, 0], [-400, 0], [0, -400]]) assert.equal(diamondClimateAt(x, z), 0);
 });

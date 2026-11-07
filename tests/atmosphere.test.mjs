@@ -4,11 +4,13 @@ import { test } from 'node:test';
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const clockUrl = moduleUrl(readFileSync(new URL('../src/models/worldClock.js', import.meta.url), 'utf8'));
+const climateUrl = moduleUrl(readFileSync(new URL('../src/models/climate.js', import.meta.url), 'utf8'));
 const effectsUrl = moduleUrl(`export function createAtmosphereEffects() {
   return { update(...args) { globalThis.atmosphereCalls.push(args); }, reset() {} };
 }`);
 const source = readFileSync(new URL('../src/rendering/atmosphere.js', import.meta.url), 'utf8')
   .replace("'../models/worldClock.js'", JSON.stringify(clockUrl))
+  .replace("'../models/climate.js'", JSON.stringify(climateUrl))
   .replace("'./atmosphereEffects.js'", JSON.stringify(effectsUrl));
 const { createAtmosphere } = await import(moduleUrl(source));
 
@@ -70,4 +72,15 @@ test('world rendering runs without an external timeline and follows actual chaos
   assert.ok(Math.abs(moteMat.size - .85) < 1e-8);
   atmosphere.reset();
   assert.equal(atmosphere.clock.hour, 9);
+});
+
+test('Diamond suppresses ambient glowing motes while other kingdoms keep them', () => {
+  const { atmosphere, moteMat } = fixture();
+  atmosphere.update(.9, { fog: 0, sky: 0 });
+  atmosphere.finish(.02, .9, { position: { x: 0, y: 2, z: 400 } });
+  assert.equal(moteMat.opacity, 0);
+  atmosphere.update(.9, { fog: 0, sky: 0 });
+  const opacity = moteMat.opacity;
+  atmosphere.finish(.02, .9, { position: { x: 400, y: 2, z: 0 } });
+  assert.equal(moteMat.opacity, opacity);
 });

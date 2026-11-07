@@ -108,7 +108,10 @@ const ITEM_ICONS = {
 };
 
 // The atlas, quest log and carried inventory each have an independent book page.
-export function createWorldMap({ world, player, state, quest, spade, clover, inventory, companion, navigation, gates = [], canvas: gameCanvas }) {
+// diamondLocations: Diamond's story places, built at runtime from its gate (diamondMapLocations).
+export function createWorldMap({ world, player, state, quest, spade, clover, diamond, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [] }) {
+  STORY_LOCATIONS.push(...diamondLocations);
+  LANDMARKS.push(...diamondLocations.map(p => ({ ...p, side: 1, color: '#ffd36b', callout: true })));
   const style = document.createElement('style');
   style.textContent = CSS;
   // Baseline atlas rules precede the responsive grimoire stylesheet.
@@ -180,7 +183,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
     }));
   }
   function updateQuests(){
-    const tasks=grimoireQuests(quest,spade,clover),items=inventory?.items??[];
+    const tasks=grimoireQuests(quest,spade,clover,diamond),items=inventory?.items??[];
     const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
     if(signature===questSignature)return;
     questSignature=signature;
@@ -203,7 +206,8 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
       card.querySelector('.completion-seal span').textContent=task.stamp;
       const route=card.querySelector('.quest-route');route.dataset.journalRoute=task.destination;
       route.textContent=task.destination==='quest'?'FOLLOW THE EMBER QUEST':task.destination==='spade-refuge'?'FIND NERIS · LANTERN REFUGE':task.destination==='spade-anchor'?'MARK THE BORDER ANCHOR'
-        :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':task.destination==='clover-sky-chest'?'MARK THE SKY GARDEN CHEST':'MARK CASTLE ENTRANCE';
+        :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':task.destination==='clover-sky-chest'?'MARK THE SKY GARDEN CHEST'
+        :task.destination==='diamond-row'?'FIND FRAGMENTS · ARTIFICERS’ ROW':task.destination==='diamond-quarry'?'FIND ORIN · SHATTERGLASS RELAY':'MARK CASTLE ENTRANCE';
     }
   }
   function setPage(page){
@@ -233,7 +237,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, inv
   const locationDetail=overlay.querySelector('.map-location-detail');
   const destinations = overlay.querySelector('.spade-destinations');
   destinations.setAttribute('aria-label', 'Story destinations');
-  for (const location of CLOVER_MAP_LOCATIONS) {
+  for (const location of [...CLOVER_MAP_LOCATIONS, ...diamondLocations]) {
     const button = document.createElement('button'); button.type = 'button';
     button.dataset.spade = location.id; button.setAttribute('aria-pressed', 'false'); button.textContent = location.name;
     destinations.append(button);

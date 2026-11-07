@@ -10,6 +10,7 @@ import { bindInput } from './input.js';
 import { createPlayerController, createSurfaceAt } from './player.js';
 import { createCameraController } from './camera.js';
 import { createCharacter } from '../rendering/character.js';
+import { createTravelerCharacter } from '../rendering/travelerCharacter.js';
 import { createQuest, SHRINE } from '../models/quest.js';
 import { createShrine } from '../rendering/shrine.js';
 import { createCompanion } from '../rendering/companion.js';
@@ -47,10 +48,22 @@ import { createInventory } from '../models/inventory.js';
 import { riftOpenness } from '../models/rift.js';
 import { createMusic } from '../rendering/music.js';
 import { buildDiamondCampaign } from '../rendering/diamondCampaign.js'; // Diamond chapter
+import { buildDiamondQuarry } from '../rendering/diamondQuarry.js'; // Diamond kingdom: the quarry around the relay
+import { buildDiamondKingdom } from '../rendering/diamondKingdom.js'; // Diamond kingdom: the Prism Citadel
+import { buildDiamondRoyal } from '../rendering/diamondRoyal.js'; // Diamond kingdom: the royal enclave and Great Prism
+import { buildDiamondDustward } from '../rendering/diamondDustward.js'; // Diamond kingdom: the workers' slum and Tithe Yard
+import { buildDiamondStockade } from '../rendering/diamondStockade.js'; // Diamond kingdom: the Workers' Stockade, freed by the relay
+import { buildDiamondRow } from '../rendering/diamondRow.js'; // Diamond kingdom: Artificers' Row and Orin's Hall
+import { buildDiamondSiege } from '../rendering/diamondSiege.js'; // Diamond kingdom: Siege Yard and Barracks
+import { buildDiamondSigns } from '../rendering/diamondSigns.js'; // Diamond kingdom: fingerposts
+import { createChainOrderFlashback } from './diamondFlashback.js'; // Diamond kingdom: "The Chain Order"
+import { diamondMapLocations, DIAMOND_SHOTS, shotKeys } from '../models/diamondStory.js'; // Diamond kingdom: Atlas places and shots
 import { buildCloverCampaign } from '../rendering/cloverCampaign.js';
+import { applyTestStart, getTestStart } from '../models/testStarts.js';
 
-export function startGame(ui) {
+export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
+  const testStart = unlockAll && testStartId ? getTestStart(testStartId) : null;
   const startup = createStartupReadiness();
   const stopObservingLoads = observeStartupLoading(THREE.DefaultLoadingManager, startup);
   const startupStatus = document.querySelector('#startupStatus');
@@ -74,7 +87,7 @@ export function startGame(ui) {
     world,
     state,
     player,
-    demoCured: unlockAll, // Development-only preset; normal play still requires the real cure.
+    demoCured: unlockAll && testStart?.id !== 'ember-hound',
     onEmberPickup: (index, count, total) => encounters.pickupEmber(index, count, total),
     onEmberPosition: (index, position) => encounters.setEmberPosition(index, position),
     onOfferEmbers: onDone => encounters.startOffering(onDone),
@@ -97,7 +110,7 @@ export function startGame(ui) {
     onChapterComplete: () => { inventory.add('lantern-sigil'); doorScene.queue(9); } }); // cutscene after Neris's sigil lines
   // --- Clover chapter: The Living Road ---
   const livingRoad = buildCloverCampaign({ scene, world, keys, notify: toast,
-    ready: () => inventory.has('lantern-sigil') && (unlockAll || spade.castle.discovery.complete),
+    ready: () => inventory.has('lantern-sigil') && spade.castle.discovery.complete,
     onSigil: () => inventory.add('root-sigil'), onHook: () => inventory.add('tide-hook'),
     onScene: kind => cloverScenes?.queue(kind),
     onReady: root => atmosphere?.prepare?.(root) });
@@ -111,12 +124,25 @@ export function startGame(ui) {
   const diamond = buildDiamondCampaign({ scene, gate: gates.gates.find(g => /diamond/i.test(g.name)) ?? gates.gates[3],
     surfaceHeight: world.surfaceHeight, keys, notify: toast,
     ready: () => inventory.has('tide-sigil'),            // Heart's Tide Sigil opens the chapter
-    onChapterComplete: () => inventory.add('prism-sigil') });
+    // Orin's Hall remembers "The Chain Order", then Orin points the way back to Spade.
+    onChapterComplete: () => { inventory.add('prism-sigil'); cloverScenes?.queue('diamond-chain-order'); cloverScenes?.queue('diamond-lead'); } });
   // Orin stands beside the relay, wherever the Diamond gate really is.
   const orin = VILLAGERS.find(v => v.name === 'Orin');
   if (orin) orin.home = [diamond.model.layout.orin.x, diamond.model.layout.orin.z];
+  const diamondQuarry = buildDiamondQuarry({ scene, quarry: world.quarry, layout: diamond.model.layout, surfaceHeight: world.surfaceHeight });
+  // The Triad holds the citadel until the relay's pulse reaches the inversion core.
+  const diamondKingdom = buildDiamondKingdom({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight, held: () => !['report', 'complete'].includes(diamond.model.stage) });
+  // The kingdom's divide: the royals' enclave on the mesa, the workers' Dustward below.
+  const diamondRoyal = buildDiamondRoyal({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight });
+  const diamondDustward = buildDiamondDustward({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight });
+  // Workers are villager mannequins; npcs is created below and only called once the game runs.
+  const diamondStockade = buildDiamondStockade({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight, actor: def => npcs.actor(def) });
+  const diamondRow = buildDiamondRow({ scene, kingdom: world.diamond, keys, notify: toast });
+  const diamondSiege = buildDiamondSiege({ scene, kingdom: world.diamond });
+  const diamondSigns = buildDiamondSigns({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight });
+  shrine.colliders.push(...diamondQuarry.colliders, ...diamondKingdom.colliders, ...diamondRoyal.colliders, ...diamondDustward.colliders, ...diamondStockade.colliders, ...diamondRow.colliders, ...diamondSiege.colliders, ...diamondSigns.colliders, ...world.diamond.bridge.rails);
   // --- end Diamond chapter ---
-  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms];
+  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms, world.diamond.bridge.platform];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
   // Standing and feet use the ground as drawn (flat mesh triangles), not the smooth height between vertices.
   const surfaceAt = createSurfaceAt(platforms, world.surfaceHeight);
@@ -129,8 +155,9 @@ export function startGame(ui) {
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement });
-  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, state });
+  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, diamond: diamond.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement,
+    diamondLocations: diamondMapLocations(world.diamond) });
+  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, diamond: diamond.model, state });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
@@ -146,7 +173,8 @@ export function startGame(ui) {
   const cast = { actor: def => npcs.actor(def), setHidden: (name, hidden) => npcs.setHidden(name, hidden) }; // npcs is created below
   const severing = createSeveringFlashback({ scene, campaign: livingRoad, look: memory.look, state, npcs: cast });
   const mark = createEmberFlashback({ scene, look: memory.look, state, npcs: cast, groundAt: terrainHeight });
-  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement, flashbacks: { severing, mark }, groundAt: terrainHeight,
+  const chainOrder = createChainOrderFlashback({ scene, kingdom: world.diamond, look: memory.look, state, npcs: cast });
+  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement, flashbacks: { severing, mark, chainOrder }, groundAt: terrainHeight,
     heart: heartGate && { x: heartGate.x, y: terrainHeight(heartGate.x, heartGate.z), z: heartGate.z } }); // gates expose only name, x, z
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...towerPlaza.colliders, ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   // Where an NPC must not stand: ground obstacles (not other NPCs) and solid structures at ground level.
@@ -159,7 +187,7 @@ export function startGame(ui) {
       platforms.some(p => p.solid && p.bottom < ground + 1.8 && (p.top ?? Infinity) > ground + 0.3 &&
         (p.contains ? p.contains(x, z, 0.5) : Math.abs(x - p.x) < (p.width ?? 0) / 2 + 0.5 && Math.abs(z - p.z) < (p.depth ?? 0) / 2 + 0.5));
   };
-  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, blocked: npcBlocked, onReady: root => atmosphere?.prepare?.(root) });
+  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, blocked: npcBlocked, onReady: root => atmosphere?.prepare?.(root), hour: () => atmosphere?.clock.hour ?? 12 });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
   startup.begin(performance.now());
   npcs.ready.finally(() => startup.end(performance.now()));
@@ -188,7 +216,6 @@ export function startGame(ui) {
     world.reset();
     player.position.set(0, terrainHeight(0, 0) + 2.05, 0);
     movement.reset();
-    updateChunks();
     quest.reset();
     encounters.reset();
     chaosLook.reset();
@@ -205,7 +232,15 @@ export function startGame(ui) {
     spade.reset();
     diamond.reset(); // Diamond chapter
     livingRoad.reset(); // Clover chapter: R clears growth, discoveries and both earned items.
-    if (unlockAll) inventory.add('lantern-sigil'); // Reapply only the earlier-chapter demo prerequisite.
+    if (testStart) {
+      const target = applyTestStart(testStart.id, { spade, clover: livingRoad.model, diamond: diamond.model, inventory });
+      movement.teleport({ ...target, top: target.top ?? world.surfaceHeight(target.x, target.z) });
+      companion.reset();
+    }
+    character.reset?.();
+    updateChunks();
+    diamondArrived = Boolean(testStart && testStart.chapter >= 4);
+    diamondStage = diamond.model.stage;
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
   function stress(step) {
@@ -221,10 +256,18 @@ export function startGame(ui) {
   atmosphere.prepare?.(skyIsland.root);
   atmosphere.prepare?.(spade.root);
   atmosphere.prepare?.(diamond.root); // Diamond chapter
+  atmosphere.prepare?.(diamondQuarry.root);
+  atmosphere.prepare?.(diamondKingdom.root);
+  atmosphere.prepare?.(diamondRoyal.root);
+  atmosphere.prepare?.(diamondDustward.root);
+  atmosphere.prepare?.(diamondStockade.root);
+  atmosphere.prepare?.(diamondRow.root);
+  atmosphere.prepare?.(diamondSiege.root);
   atmosphere.prepare?.(livingRoad.root); // Clover chapter
   const grass = createGrass({ hash, chunks });
-  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles] });
-  const character = createCharacter({ scene, state, player, surfaceAt });
+  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles] });
+  const character = new URLSearchParams(location.search).get('character') === 'traveler'
+    ? createTravelerCharacter({ scene, state, player, surfaceAt }) : createCharacter({ scene, state, player, surfaceAt });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
@@ -248,8 +291,10 @@ export function startGame(ui) {
     if (insideSwarmWorld && mode === "attract") state.chaos -= 0.12 * dt;
     if (insideSwarmWorld && (mode === "repel" || mode === "strike")) state.chaos += 0.2 * dt;
     swarm.setEnabled(insideSwarmWorld, player.position);
+    swarm.remembered = spade.campaign.lit; // one wisp remembers its name per lit memory lantern
     swarm.update(dt, player.position, camera, mode, state.chaos, strike);
     swarmCast = swarm.enabled && mode !== "roaming" ? swarm.target : null; // the character raises its arms at it
+    state.swarmGesture = swarmCast ? (mode === 'attract' ? 'attract' : mode === 'recall' ? 'recall' : 'push') : null;
     swarmPanelEl.classList.toggle("active", insideSwarmWorld);
     swarmStatusEl.textContent = mode.toUpperCase();
   }
@@ -267,8 +312,17 @@ export function startGame(ui) {
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters, npcs };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
+  // Diamond's shots are laid out from its gate. The flyover and the power-up stream terrain along the camera.
+  for (const [name, shot] of Object.entries(DIAMOND_SHOTS)) {
+    const keys = shotKeys(world.diamond, shot).map(([t, a, b]) => [t, new THREE.Vector3(a.x, a.y, a.z), new THREE.Vector3(b.x, b.y, b.z)]);
+    const along = t => { const i = Math.max(0, keys.findLastIndex(k => k[0] <= t)), a = keys[i], b = keys[Math.min(i + 1, keys.length - 1)];
+      return a[1].clone().lerp(b[1], b[0] > a[0] ? Math.min(1, (t - a[0]) / (b[0] - a[0])) : 0); };
+    cloverScenes.define(`diamond-${name.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}`, { ...shot, keys, focus: ['arrival', 'power'].includes(name) ? along : undefined });
+  }
+  let diamondArrived = false, diamondStage = diamond.model.stage;
+  window.dreamscape.chainOrder = chainOrder;
   window.dreamscape.scenes = cloverScenes; window.dreamscape.severing = severing; window.dreamscape.mark = mark; // e.g. dreamscape.scenes.queue('severing')
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
@@ -355,7 +409,7 @@ export function startGame(ui) {
     if (!skyIsland.journey.blocked && !houndScene.active) movement.update(startup.ready ? dt : 0);
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
-    if (!unlockAll) houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
+    if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
       !skyIsland.journey.blocked && player.grounded);
     companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation);
     if (!houndScene.active) quest.updateHoundEmber(companion.position);
@@ -363,6 +417,18 @@ export function startGame(ui) {
     gates.update(playDt);
     if (!houndScene.active) spade.update(dt, player, state, swarm);
     if (!houndScene.active) diamond.update(dt, player, state); // Diamond chapter
+    diamondQuarry.update(dt, state.chaos);
+    diamondKingdom.update(dt, state.chaos);
+    diamondRoyal.update(dt, state.chaos);
+    diamondDustward.update(dt, state.chaos, player);
+    diamondStockade.update(dt, state.chaos, ['report', 'complete'].includes(diamond.model.stage), player);
+    if (!houndScene.active) diamondRow.update(dt, player);
+    diamondSiege.update(dt, state.chaos, player);
+    // Diamond's story shots: the flyover the first time past the gate, the power-up when the relay runs.
+    if (!diamondArrived && world.diamond.area(player.position.x, player.position.z) && world.diamond.local(player.position.x, player.position.z).u > 4) {
+      diamondArrived = true; cloverScenes.queue('diamond-arrival');
+    }
+    if (diamond.model.stage !== diamondStage) { diamondStage = diamond.model.stage; if (diamondStage === 'report') cloverScenes.queue('diamond-power'); }
     livingRoad.update(dt, player, state, startup.ready && !houndScene.active && !doorScene.active && !skyIsland.journey.blocked); // Clover chapter (cutscenes pause its input via state.cinematic)
     heavenly.update(dt, player.position);
     npcs.update(dt);
@@ -380,7 +446,7 @@ export function startGame(ui) {
     else if (doorScene.active) cameraDistance = doorScene.update(dt);
     else if (cloverScenes.active) cameraDistance = cloverScenes.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
-    else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(); }
+    else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(dt); }
     character.update(dt, cameraDistance, houndScene.active ? null : swarmCast);
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
@@ -425,7 +491,7 @@ export function startGame(ui) {
     grass.update();
     if (!houndScene.active) applyCameraShake(camera, dt);
     const chaosScore = chaosLook.update(houndScene.active ? 0 : dt, state);
-    indoors += ((!doorScene.active && spade.isInsideCastle(player.position) ? 1 : 0) - indoors) * (1 - Math.exp(-3 * dt));
+    indoors += ((!doorScene.active && (spade.isInsideCastle(player.position) || diamondRow.isInsideHall(player.position)) ? 1 : 0) - indoors) * (1 - Math.exp(-3 * dt));
     atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade), indoors });
     darkenCastle();
     updateShortcuts();

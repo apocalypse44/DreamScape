@@ -23,48 +23,22 @@ export function poseActor(actor, keys, face, t, dt, y) {
   actor.play(pose.clip); actor.update(dt);
 }
 
-const solid = color => new THREE.MeshStandardMaterial({ color, roughness: .7 });
-// The Dark Triad, after Black Clover's: Veyr the Binder (Dante: long black hair, flared collar, violet
-// coat), Sile the Harvester (Vanica: crimson, horns) and Morcant the Gatekeeper (Zenon: charcoal, a
-// pale bone crown). Mannequin actors with head pieces that follow the 'Head' bone, and each an aura.
-function headPieces(name) {
-  const pieces = [];
-  const add = (geometry, material, offset, rotation = [0, 0, 0]) => {
-    const mesh = new THREE.Mesh(geometry, material); mesh.rotation.set(...rotation);
-    const holder = new THREE.Group(); holder.add(mesh); pieces.push({ holder, offset }); return mesh;
-  };
-  if (name === 'veyr') {
-    const hair = solid(0x120c1e);
-    add(new THREE.SphereGeometry(.15, 12, 8, 0, Math.PI * 2, 0, Math.PI * .58), hair, [0, .04, -.01]);
-    add(new THREE.CylinderGeometry(.15, .22, .85, 10), hair, [0, -.38, -.12]).scale.z = .45;      // long hair down the back
-    add(new THREE.CylinderGeometry(.36, .2, .42, 14, 1, true, Math.PI * .2, Math.PI * 1.6), solid(0x3a2a62), [0, -.2, -.02]); // flared collar
-  } else if (name === 'sile') {
-    for (const side of [-1, 1]) add(new THREE.ConeGeometry(.045, .34, 8), solid(0x2a0a12), [side * .09, .16, .02], [0, 0, -side * .45]); // horns
-  } else {
-    const bone = solid(0xe8e2d0);
-    add(new THREE.TorusGeometry(.15, .025, 6, 18), bone, [0, .1, 0], [Math.PI / 2, 0, 0]);       // crown band
-    for (let i = 0; i < 5; i++) {
-      const a = i / 5 * Math.PI * 2;
-      add(new THREE.ConeGeometry(.03, .16, 6), bone, [Math.sin(a) * .15, .2, Math.cos(a) * .15]);
-    }
-  }
-  return pieces;
-}
+// The Triad: Veyr the Binder, Sile the Harvester and Morcant the Gatekeeper, each an original
+// people-kit recipe (tools/peopleBuilder.js, CHARACTER_PLAN.md 5.12) floating in an aura.
 export const TRIAD = {
-  veyr: { body: 'M', tint: 0x2b2244, robe: 0x221838, aura: 0x7a45ff },
-  sile: { body: 'F', tint: 0x5a1020, robe: 0x7a1530, aura: 0xff3355 },
-  morcant: { body: 'M', tint: 0x2c2c33, robe: 0x26262c, aura: 0xd8c27a },
+  veyr: { person: 'veyr', size: 1.12, aura: 0x7a45ff },
+  sile: { person: 'sile', size: 1, aura: 0xff3355 },
+  morcant: { person: 'morcant', size: 1.15, aura: 0xd8c27a },
 };
 export function createTriad({ npcs, group }) {
-  const members = {}, head = new THREE.Vector3(), offset = new THREE.Vector3();
+  const members = {};
   for (const [name, def] of Object.entries(TRIAD)) {
     const actor = npcs?.actor?.(def);
     if (!actor) continue;
-    const pieces = headPieces(name), bone = actor.model.getObjectByName('Head');
     const aura = new THREE.Mesh(new THREE.SphereGeometry(1.3, 16, 12), new THREE.MeshBasicMaterial({ color: def.aura, transparent: true,
       opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-    group.add(actor.group, aura); for (const p of pieces) group.add(p.holder);
-    members[name] = { actor, pieces, bone, aura, phase: Object.keys(members).length * 2.1 };
+    group.add(actor.group, aura);
+    members[name] = { actor, aura, size: def.size, phase: Object.keys(members).length * 2.1 };
   }
   return {
     members,
@@ -72,17 +46,11 @@ export function createTriad({ npcs, group }) {
     update(t, dt, place, presence, clips) {
       for (const [name, m] of Object.entries(members)) {
         const p = place[name], k = presence[name] ?? 0, g = m.actor.group;
-        g.visible = k > 0; g.scale.setScalar(Math.max(.001, k));
+        g.visible = k > 0; g.scale.setScalar(Math.max(.001, k * m.size));
         g.position.set(p.x, p.y + Math.sin(t * 1.3 + m.phase) * .3, p.z); g.rotation.y = p.yaw;
         const [clip, once] = clips[name] ?? ['Spell_Simple_Idle_Loop', false]; m.actor.play(clip, .2, once); m.actor.update(dt);
         m.aura.position.set(g.position.x, g.position.y + 1.2 * k, g.position.z);
         m.aura.material.opacity = k * (.16 + .05 * Math.sin(t * 5 + m.phase));
-        g.updateMatrixWorld(true); m.bone?.getWorldPosition(head);
-        for (const piece of m.pieces) {
-          piece.holder.visible = k > 0 && Boolean(m.bone);
-          offset.set(...piece.offset).multiplyScalar(k).applyAxisAngle(THREE.Object3D.DefaultUp, p.yaw);
-          piece.holder.position.copy(head).add(offset); piece.holder.rotation.y = p.yaw; piece.holder.scale.setScalar(Math.max(.001, k));
-        }
       }
     },
     // A member's casting hand, roughly: in front of the chest.
@@ -92,7 +60,7 @@ export function createTriad({ npcs, group }) {
       return out.set(g.position.x + Math.sin(g.rotation.y) * .5, g.position.y + 1.3 * g.scale.y, g.position.z + Math.cos(g.rotation.y) * .5);
     },
     dispose() {
-      for (const m of Object.values(members)) { m.actor.dispose(); m.aura.parent?.remove(m.aura); for (const p of m.pieces) p.holder.parent?.remove(p.holder); }
+      for (const m of Object.values(members)) { m.actor.dispose(); m.aura.parent?.remove(m.aura); }
     },
   };
 }

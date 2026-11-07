@@ -4,6 +4,7 @@
 // drop, the crystal goes dark and the sign reads that the settlement is free.
 import { WARD } from '../models/spadeCampaign.js';
 import { spadeHeight, spadeOutline } from '../models/spade.js';
+import { createHologram, hologramUniforms } from './hologram.js';
 
 const VIOLET = new THREE.Color(0xb48cff), IRON = new THREE.Color(0x4a4d63), DEAD = new THREE.Color(0x2a2833);
 const FIRE = new THREE.Color(0x8a4dff), FIRE_CORE = new THREE.Color(0xe2ccff);   // the Triad's cold fire
@@ -30,18 +31,6 @@ const domeShader = {
       vec3 col=mix(vec3(.28,.2,.55),vec3(.8,.66,1.),rim+uOpen*.3);col=mix(col,vec3(.97,.93,1.),min(c,1.));
       gl_FragColor=vec4(col,a*uFade);}`,
 };
-// Veyr's projection: a hollow violet glow with scanlines and a flicker; uGlitch tears it sideways.
-const ghostShader = {
-  vertexShader: `uniform float uTime,uGlitch;varying vec3 vN;varying float vY;
-    void main(){vec3 p=position;vec4 w=modelMatrix*vec4(p,1.);
-      float band=floor(w.y*5.);w.x+=uGlitch*(fract(sin(band*91.7+floor(uTime*24.))*43758.5)-.5)*1.2;
-      vN=normalize(normalMatrix*normal);vY=w.y;gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader: `uniform float uTime,uOpacity,uChaos;varying vec3 vN;varying float vY;
-    void main(){float rim=pow(1.-abs(vN.z),1.8);float scan=.65+.35*sin(vY*38.-uTime*5.);
-      float flicker=.85+.15*sin(uTime*23.)*sin(uTime*7.3);
-      gl_FragColor=vec4(mix(vec3(.42,.28,.85),vec3(.85,.75,1.),rim),(.1+rim*.75)*scan*flicker*uOpacity*(1.+uChaos*.7));}`,
-};
-
 export function createBorderAnchor(root) {
   const base = spadeHeight(WARD.x), center = new THREE.Vector3(WARD.x, base, WARD.z);
   const group = new THREE.Group(); group.position.copy(center); root.add(group);
@@ -158,24 +147,12 @@ export function createBorderAnchor(root) {
     links.instanceMatrix.needsUpdate = true; links.instanceColor.needsUpdate = true;
   }
 
-  // Veyr's projection: a tall hooded figure hovering above the dome, arms reaching down to the heart.
-  const ghostUniforms = { uTime: { value: 0 }, uGlitch: { value: 0 }, uOpacity: { value: 1 }, uChaos: { value: 0 } };
-  const ghostMat = new THREE.ShaderMaterial({ ...ghostShader, uniforms: ghostUniforms, transparent: true, depthWrite: false,
-    side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  // Veyr's projection: Veyr himself (people kit), three times life size, casting over the heart,
+  // rendered entirely in the hologram shader, with two glowing eyes.
+  const ghostUniforms = hologramUniforms(0x9d6bff);
   const ghost = new THREE.Group(); ghost.position.y = 9; group.add(ghost);
-  const robe = new THREE.Mesh(new THREE.CylinderGeometry(.55, 1.7, 4.6, 16, 1, true), ghostMat); ghost.add(robe);
-  const hood = new THREE.Mesh(new THREE.SphereGeometry(.8, 16, 12, 0, Math.PI * 2, 0, Math.PI * .72), ghostMat);
-  hood.position.y = 2.75; ghost.add(hood);
-  const peak = new THREE.Mesh(new THREE.ConeGeometry(.5, 1, 12, 1, true), ghostMat);
-  peak.position.set(0, 3.55, -.25); peak.rotation.x = -.5; ghost.add(peak);
-  const face = new THREE.Mesh(new THREE.SphereGeometry(.55, 12, 10), new THREE.MeshBasicMaterial({ color: 0x05030a }));
-  face.position.set(0, 2.62, .28); ghost.add(face);
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xf0e4ff });
-  for (const x of [-.18, .18]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 6), eyeMat); eye.position.set(x, 2.7, .78); ghost.add(eye); }
-  for (const s of [-1, 1]) { // arms angle forward and down toward the crystal
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(.32, .12, 2.8, 10, 1, true), ghostMat);
-    arm.position.set(s * 1.05, .6, .7); arm.rotation.set(.75, 0, s * .45); ghost.add(arm);
-  }
+  const veyr = createHologram({ name: 'veyr', clip: 'Spell_Simple_Idle_Loop', scale: 3.1, uniforms: ghostUniforms, eyes: true });
+  veyr.root.position.y = -2.4; ghost.add(veyr.root);
 
   // The plaza sign, redrawn when the settlement is freed. It hangs above the projection.
   const canvas = document.createElement('canvas'); canvas.width = 768; canvas.height = 128;
@@ -227,6 +204,7 @@ export function createBorderAnchor(root) {
       ghost.visible = ghostUniforms.uOpacity.value > 0;
       ghost.position.y = 9 + Math.sin(time * .9) * .25 + (free ? broke * 2 : 0);
       if (player) ghost.rotation.y = Math.atan2(player.position.x - center.x, player.position.z - center.z);
+      if (ghost.visible) veyr.update(dt, false); // time comes from the anchor's own clock
 
       // The heart spins while bound; once free it goes dark and drops onto the obelisk's tip.
       crystalMat.emissiveIntensity = free ? 1.2 * (1 - fallK) : 1 + .4 * Math.sin(time * 2.4) + glitch;

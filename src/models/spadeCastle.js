@@ -73,6 +73,7 @@ export function createCastleDiscovery({hasEcho=()=>true}={}) {
       }
       return null;
     },
+    completeForTesting(){for(const record of CASTLE_RECORDS)found.add(record.id);inspected=true;},
     reset(){found.clear();inspected=false;},
   };
 }

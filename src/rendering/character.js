@@ -1,4 +1,5 @@
 // Mixamo character + clips (FBX). Clips share the mixamorig skeleton, so any clip plays on the model.
+import { loadCharacterAssets } from './characterAssets.js';
 const DIR = 'assets/character/';
 const CLIPS = {
   idle: 'Breathing Idle.fbx', walk: 'Walking.fbx', run: 'Running.fbx', jump: 'Jump.fbx',
@@ -26,6 +27,7 @@ const MAX_STEP = 0.6; // largest height difference a foot may adjust by (m)
 const v = () => new THREE.Vector3();
 const [hip, knee, foot, target, dir, bend] = [v(), v(), v(), v(), v(), v()];
 const turn = new THREE.Quaternion(), parentQ = new THREE.Quaternion(), worldQ = new THREE.Quaternion();
+const projection = v(), footGoal = v(), palmGoal = v();
 
 // Rotate a bone in world space by q, keeping its parent untouched.
 function rotateWorld(bone, q) {
@@ -44,7 +46,7 @@ function solveLeg({ thigh, calf, ankle }, goal) {
   const c = THREE.MathUtils.clamp(hip.distanceTo(goal), 0.01, a + b - 0.001);
   dir.subVectors(goal, hip).normalize();
   bend.subVectors(knee, hip);
-  bend.sub(dir.clone().multiplyScalar(bend.dot(dir))); // knee direction, perpendicular to hip→goal
+  bend.sub(projection.copy(dir).multiplyScalar(bend.dot(dir))); // knee direction, perpendicular to hip→goal
   if (bend.lengthSq() < 1e-8) return; // leg perfectly straight: no bend plane, skip this frame
   bend.normalize();
   const cosA = THREE.MathUtils.clamp((a * a + c * c - b * b) / (2 * a * c), -1, 1);
@@ -86,44 +88,61 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
   const lastCast = new THREE.Vector3();
   let failed = false;
   let lastStatus = '';
+  const footDeltas = new Float64Array(2);
+  const targetWeights = { idle: 0, walk: 0, run: 0, jump: 0, crouchIdle: 0, crouchWalk: 0 };
 
-  loader.load(DIR + 'Erika Archer.fbx', model => {
-    model.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(model);
-    const scale = 2.05 / Math.max(box.max.y - box.min.y, 0.001);
-    model.scale.multiplyScalar(scale);
-    model.position.x -= (box.min.x + box.max.x) * 0.5 * scale;
-    model.position.y -= box.min.y * scale;
-    model.position.z -= (box.min.z + box.max.z) * 0.5 * scale;
-    model.traverse(object => {
-      if (!object.isMesh) return;
-      object.castShadow = true;
-      object.receiveShadow = true;
-      object.frustumCulled = false; // skinned bounds use the bind pose
-    });
-    root.add(model);
-    for (const side of ['Left', 'Right']) {
-      const bone = part => model.getObjectByName(`mixamorig${side}${part}`);
-      if (bone('UpLeg') && bone('Leg') && bone('Foot')) legs.push({ thigh: bone('UpLeg'), calf: bone('Leg'), ankle: bone('Foot') });
-      if (bone('Arm') && bone('ForeArm') && bone('Hand') && bone('HandMiddle1'))
-        arms.push({ sign: side === 'Left' ? 1 : -1, upper: bone('Arm'), fore: bone('ForeArm'), hand: bone('Hand'), finger: bone('HandMiddle1') });
-    }
-    mixer = new THREE.AnimationMixer(model);
-    for (const [name, file] of Object.entries(CLIPS)) {
-      loader.load(DIR + file, clipFile => {
-        const action = mixer.clipAction(inPlace(clipFile.animations[0]));
-        if (name === 'jump') {
-          action.setLoop(THREE.LoopOnce);
-          action.clampWhenFinished = true; // hold the last airborne pose until landing
-        }
-        action.setEffectiveWeight(0).play();
-        actions[name] = action;
-      }, undefined, error => console.warn(`Clip ${file} could not load.`, error));
-    }
-  }, undefined, error => {
+  const manager = THREE.DefaultLoadingManager;
+  const loadingToken = 'dreamscape-character';
+  manager.itemStart(loadingToken);
+  const ready = loadCharacterAssets({
+    files: { model: 'Erika Archer.fbx', ...CLIPS },
+    fetchBuffer: async file => {
+      const response = await fetch(encodeURI(DIR + file));
+      if (!response.ok) throw new Error(`${file}: ${response.status}`);
+      return response.arrayBuffer();
+    },
+    parse: buffer => loader.parse(buffer, DIR),
+    nextFrame: () => new Promise(resolve => requestAnimationFrame(resolve)),
+    installModel(model) {
+      model.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(model);
+      const scale = 2.05 / Math.max(box.max.y - box.min.y, 0.001);
+      model.scale.multiplyScalar(scale);
+      model.position.x -= (box.min.x + box.max.x) * 0.5 * scale;
+      model.position.y -= box.min.y * scale;
+      model.position.z -= (box.min.z + box.max.z) * 0.5 * scale;
+      model.traverse(object => {
+        if (!object.isMesh) return;
+        object.castShadow = true;
+        object.receiveShadow = true;
+        object.frustumCulled = false; // skinned bounds use the bind pose
+      });
+      root.add(model);
+      for (const side of ['Left', 'Right']) {
+        const bone = part => model.getObjectByName(`mixamorig${side}${part}`);
+        if (bone('UpLeg') && bone('Leg') && bone('Foot')) legs.push({ thigh: bone('UpLeg'), calf: bone('Leg'), ankle: bone('Foot') });
+        if (bone('Arm') && bone('ForeArm') && bone('Hand') && bone('HandMiddle1'))
+          arms.push({ sign: side === 'Left' ? 1 : -1, upper: bone('Arm'), fore: bone('ForeArm'), hand: bone('Hand'), finger: bone('HandMiddle1') });
+      }
+      mixer = new THREE.AnimationMixer(model);
+    },
+    installClip(name, clipFile) {
+      const clip = clipFile.animations[0];
+      if (!clip) throw new Error('No animation in FBX');
+      const action = mixer.clipAction(inPlace(clip).optimize());
+      if (name === 'jump') {
+        action.setLoop(THREE.LoopOnce);
+        action.clampWhenFinished = true; // hold the last airborne pose until landing
+      }
+      action.setEffectiveWeight(0).play();
+      action.enabled = false;
+      actions[name] = action;
+    },
+    onClipError: (file, error) => console.warn(`Clip ${file} could not load.`, error),
+  }).catch(error => {
     failed = true;
     console.warn('Character FBX could not load.', error);
-  });
+  }).finally(() => manager.itemEnd(loadingToken));
 
   // Lower the hips so the lowest foot can reach its ground, then IK each leg onto the terrain.
   function placeFeet(dt) {
@@ -134,10 +153,12 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
     ikWeight += ((onTerrain && legs.length === 2 ? 1 : 0) - ikWeight) * (1 - Math.exp(-10 * dt));
     if (ikWeight < 0.01) { hipDrop = 0; return; }
     root.updateMatrixWorld(true);
-    const deltas = legs.map(({ ankle }) => {
+    for (let i = 0; i < legs.length; i++) {
+      const { ankle } = legs[i];
       ankle.getWorldPosition(foot);
-      return THREE.MathUtils.clamp(ground(foot.x, foot.z) - base, -MAX_STEP, MAX_STEP);
-    });
+      footDeltas[i] = THREE.MathUtils.clamp(ground(foot.x, foot.z) - base, -MAX_STEP, MAX_STEP);
+    }
+    const deltas = footDeltas;
     hipDrop += (Math.min(0, ...deltas) - hipDrop) * (1 - Math.exp(-12 * dt)); // smoothed so steps don't jitter
     root.position.y = base + hipDrop * ikWeight;
     root.updateMatrixWorld(true);
@@ -145,12 +166,16 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       const raise = (deltas[i] - hipDrop) * ikWeight;
       if (raise < 0.005) return;
       leg.ankle.getWorldPosition(foot);
-      solveLeg(leg, foot.clone().setY(foot.y + raise));
+      solveLeg(leg, footGoal.copy(foot).setY(foot.y + raise));
     });
   }
 
   // Raise both arms toward `castAt` (world point) like a repulsor pose; eases out when castAt is null.
-  function castArms(dt, castAt) {
+  // gesture: 'attract' opens both arms wide to gather the wisps, 'push' thrusts both palms at them in pulses,
+  // 'recall' lifts both arms overhead and beckons them home.
+  let castTime = 0;
+  function castArms(dt, castAt, gesture = 'attract') {
+    castTime += dt;
     castWeight += ((castAt && arms.length ? 1 : 0) - castWeight) * (1 - Math.exp(-CAST_EASE * dt));
     // Kept relative to the player, so after release the lowering arms travel with them.
     if (castAt) lastCast.copy(castAt).sub(player.position);
@@ -165,24 +190,29 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       const flat = Math.hypot(aim.x, aim.z), off = Math.atan2(Math.sin(Math.atan2(aim.x, aim.z) - facing), Math.cos(Math.atan2(aim.x, aim.z) - facing));
       const bearing = facing + THREE.MathUtils.clamp(off, -CAST_REACH, CAST_REACH);
       aim.set(Math.sin(bearing) * flat, aim.y, Math.cos(bearing) * flat).normalize();
+      if (gesture === 'attract') aim.addScaledVector(side, arm.sign * 1.1).addScaledVector(up, .35).normalize(); // arms open wide, gathering
+      else if (gesture === 'push') aim.y = Math.max(aim.y, -.05) * .4; // level, straight out in front
+      else if (gesture === 'recall') aim.lerp(up, .75 + .2 * Math.sin(castTime * 6 + arm.sign)).normalize(); // up, beckoning
+      const weight = castWeight * (gesture === 'push' ? .75 + .25 * Math.sin(castTime * 9) : 1); // pulsing shoves
       arm.fore.getWorldPosition(elbow);
-      aimBone(arm.upper, shoulder, elbow, aim, castWeight);
+      aimBone(arm.upper, shoulder, elbow, aim, weight);
       arm.fore.getWorldPosition(elbow); arm.hand.getWorldPosition(wrist);
-      aimBone(arm.fore, elbow, wrist, aim, castWeight);
+      aimBone(arm.fore, elbow, wrist, aim, weight);
       // Palm out: tip the fingers from along the arm toward straight up.
       arm.hand.getWorldPosition(wrist); arm.finger.getWorldPosition(knuckle);
-      aimBone(arm.hand, wrist, knuckle, aim.clone().lerp(up, FINGERS_UP).normalize(), castWeight);
+      aimBone(arm.hand, wrist, knuckle, palmGoal.copy(aim).lerp(up, FINGERS_UP).normalize(), weight);
     }
   }
 
   return {
+    ready,
     // castAt: world point the player is directing the swarm at, or null.
     update(dt, cameraDistance, castAt = null) {
-      const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
-      const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
+      const mode = 'TPP';
+      const label = `${mode} · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
       // state.memory: a flashback is replaying the past, where the player was not.
-      root.visible = Boolean(mixer) && !state.memory && (state.cinematic || state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
+      root.visible = Boolean(mixer) && !state.memory && cameraDistance > 0.8;
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
@@ -204,7 +234,8 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       // ponytail: falls reuse the held jump pose; add 'Falling Idle.fbx' as a fall clip if drops look off.
       const moving = speed > 0.5;
       const run = THREE.MathUtils.smoothstep(speed, 10, 17); // walk at 9 m/s blends into run at 18 m/s
-      const target = { idle: 0, walk: 0, run: 0, jump: 0, crouchIdle: 0, crouchWalk: 0 };
+      const target = targetWeights;
+      for (const name of Object.keys(target)) target[name] = 0;
       if (player.inFlight) target.idle = 1;
       else if (!player.grounded) target.jump = 1;
       else if (state.crouching) target[moving ? 'crouchWalk' : 'crouchIdle'] = 1;
@@ -212,14 +243,17 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       else { target.walk = 1 - run; target.run = run; }
       const ease = 1 - Math.exp(-12 * dt);
       for (const [name, action] of Object.entries(actions)) {
-        action.setEffectiveWeight(action.getEffectiveWeight() + (target[name] - action.getEffectiveWeight()) * ease);
+        const weight = action.getEffectiveWeight() + (target[name] - action.getEffectiveWeight()) * ease;
+        action.enabled = weight > 0.0001 || target[name] > 0;
+        action.setEffectiveWeight(action.enabled ? weight : 0);
       }
       actions.walk?.setEffectiveTimeScale(WALK_RATE * Math.min(speed / 9, 1));
-      actions.run?.setEffectiveTimeScale(RUN_RATE * Math.min(speed / 9, 1));
+      actions.run?.setEffectiveTimeScale(RUN_RATE * Math.min(speed / 18, 1));
       actions.crouchWalk?.setEffectiveTimeScale(CROUCH_RATE * Math.min(speed / 4.5, 1));
+      if (!root.visible) { hipDrop = ikWeight = castWeight = 0; return; }
       mixer.update(dt);
       placeFeet(dt);
-      castArms(dt, castAt);
+      castArms(dt, castAt, state.swarmGesture || 'attract');
     }
   };
 }

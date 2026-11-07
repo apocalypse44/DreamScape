@@ -244,6 +244,9 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
       if (kind === 'meet') queue.push('ask', 'severing');
       if (shots[kind]) queue.push(kind);
     },
+    // Register a shot built at runtime (Diamond's shots depend on where the noisy south trail put its gate).
+    // shot: { keys: [[seconds, Vector3, Vector3], ...], lines, title?, chapter?, flashback?, fx?, focus? }.
+    define(name, shot) { shots[name] = prepare(shot); },
     observe(ready) {
       if (!queue.length || !ready || time >= 0) return;
       shot = shots[queue.shift()]; time = 0; shown = -1; pace.show();

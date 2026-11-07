@@ -8,7 +8,7 @@ const fixture=()=>({quest:{stage:'companion',embers:[{taken:false},{taken:false}
 const ARCHIVE=2,WITNESS=3,CROWN=4;
 test('grimoire hints follow the hound quest without marking an unfinished cure complete',()=>{
   const {quest,spade}=fixture();
-  let tasks=grimoireQuests(quest,spade);assert.equal(tasks.length,6);assert.equal(tasks.some(t=>t.done),false);
+  let tasks=grimoireQuests(quest,spade);assert.equal(tasks.length,7);assert.equal(tasks.some(t=>t.done),false);
   quest.stage='cursed';quest.houndCarrying=true;quest.embers[0].taken=true;
   const hound=grimoireQuests(quest,spade)[0];assert.equal(hound.done,false);assert.match(hound.hint,/calmly/);assert.match(hound.progress,/1\/3/);
   quest.stage='return';quest.embers.forEach(e=>e.taken=true);
@@ -57,8 +57,8 @@ test('active parkour hints and completion inscriptions remain useful without fut
   const {quest,spade}=fixture();spade.campaign.stage='complete';spade.echo.engaged=true;spade.echo.objective='Be still on the witness seal.';
   const tasks=grimoireQuests(quest,spade);
   assert.equal(tasks[WITNESS].hint,spade.echo.objective);
-  assert.equal(new Set(tasks.map(t=>t.stamp)).size,6);
-  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest'].includes(t.destination)));
+  assert.equal(new Set(tasks.map(t=>t.stamp)).size,7);
+  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest','diamond-quarry','diamond-row'].includes(t.destination)));
   assert.equal(grimoireQuests(quest,undefined)[CROWN].done,false);
   assert.equal(grimoireQuests(quest,undefined)[1].done,false);
 });
@@ -72,4 +72,41 @@ test('the existing Living Road entry directs the player from the Scar through th
   assert.equal(card().locked,false);assert.equal(card().done,false);assert.equal(card().destination,'clover-scar');
   clover.sigil=true;assert.equal(card().destination,'clover-sky-chest');assert.match(card().hint,/summit/);assert.equal(card().done,false);
   clover.hook=true;assert.equal(card().done,true);assert.match(card().hint,/Heart/);
+});
+
+test('Diamond journal follows actual fragment, relay and sigil progress and resets',async()=>{
+  const {createDiamondCampaign,socketCenter}=await import('../src/models/diamondCampaign.js');
+  const {quest,spade}=fixture();
+  let tide=false;
+  const diamond=createDiamondCampaign({ready:()=>tide});
+  const card=()=>grimoireQuests(quest,spade,undefined,diamond).find(t=>t.id==='unbroken-pattern');
+  assert.equal(card().locked,true);assert.match(card().hint,/Tide Sigil/);assert.equal(card().done,false);
+  tide=true;
+  assert.equal(card().locked,false);assert.match(card().hint,/Orin/);assert.equal(card().destination,'diamond-quarry');
+  diamond.update(.1,diamond.layout.orin,0);
+  assert.equal(card().destination,'diamond-row');assert.match(card().hint,/four workshops/);
+  diamond.update(.1,diamond.layout.fragments[0],0);
+  assert.match(card().progress,/1\/4/);
+  for(const fragment of diamond.layout.fragments.slice(1))diamond.update(.1,fragment,0);
+  assert.match(card().progress,/0\/4/);assert.match(card().hint,/numbers count possible shapes/);
+  assert.equal(card().destination,'diamond-quarry');
+  for(const [x,y] of [[0,0],[3,3],[1,2],[3,0]])diamond.fit(socketCenter(diamond.layout,x,y),0);
+  assert.match(card().progress,/4\/4/);assert.match(card().hint,/Shift/);assert.equal(card().done,false);
+  diamond.lift();assert.match(card().progress,/3\/4/);assert.match(card().hint,/press V/);
+  diamond.fit(socketCenter(diamond.layout,3,0),0);
+  diamond.update(.1,diamond.layout.center,.8);
+  assert.equal(diamond.stage,'report');assert.equal(card().done,false);assert.match(card().hint,/return to Orin/);
+  diamond.update(.1,diamond.layout.orin,0);
+  assert.equal(card().done,true);assert.equal(card().stamp,'PRISM SIGIL');
+  assert.equal(card().destination,'spade-castle');assert.match(card().hint,/all four sigils/);
+  diamond.reset();assert.equal(card().done,false);assert.match(card().hint,/Orin/);
+  tide=false;assert.equal(card().locked,true);
+});
+
+test('Diamond journal explains recovery from a jam without granting completion',()=>{
+  const {quest,spade}=fixture();
+  const diamond={stage:'repair',available:true,collected:4,fitted:4,jammed:true};
+  const card=grimoireQuests(quest,spade,undefined,diamond).find(t=>t.id==='unbroken-pattern');
+  assert.equal(card.done,false);assert.equal(card.locked,false);
+  assert.match(card.progress,/jammed/);assert.match(card.hint,/X to lift/);assert.match(card.hint,/V to refit/);
 });

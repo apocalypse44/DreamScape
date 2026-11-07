@@ -193,6 +193,14 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
       if (Math.hypot(position.x - corner.x, position.z - corner.z) < .6) corner = points[forward ? Math.min(points.length - 1, from.i + 2) : Math.max(0, from.i - 1)];
       return corner;
     },
+    setTestStage(next) {
+      if (!['meet', 'road', 'scar', 'chest', 'complete'].includes(next)) throw new Error(`Invalid Clover test stage: ${next}`);
+      reset(); stage = next;
+      if (['scar', 'chest', 'complete'].includes(next)) {
+        generation = 3; guides = [...ROOT_HEADINGS]; checkpoint = { ...ROOT_LANDINGS[3] };
+      }
+      version++;
+    },
     reset,
   };
   return model;

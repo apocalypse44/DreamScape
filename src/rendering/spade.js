@@ -6,6 +6,7 @@ import { createFrameQueue } from '../models/streaming.js';
 import { buildSpadeStory } from './spadeStory.js';
 import { buildCastleEcho } from './castleEcho.js';
 import { buildSpadeCampaign } from './spadeCampaign.js';
+import { loadModelAsset } from './models.js';
 
 // Large forms are procedural and available immediately. Ten curated modules stream
 // on approach, then render in batches (one draw per source mesh, not per building).
@@ -167,7 +168,9 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
     ctx.strokeStyle = '#aebbd4'; ctx.strokeRect(8, 8, 752, 112);
     ctx.font = '28px Georgia'; ctx.textAlign = 'center'; ctx.fillStyle = '#e1e6f3'; ctx.fillText(text, 384, 76, 724);
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(width, width / 6), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
+    // Two front-facing copies back to back, so the text reads correctly from both sides (never mirrored).
+    const sign = new THREE.Group(), face = new THREE.MeshBasicMaterial({ map: texture });
+    for (const turn of [0, Math.PI]) { const side = new THREE.Mesh(new THREE.PlaneGeometry(width, width / 6), face); side.rotation.y = turn; sign.add(side); }
     const at = spadePosition(u, v); sign.position.set(at.x, y, at.z); sign.rotation.y = rotation; root.add(sign);
   }
   label('SPADE KINGDOM · THE SWARM REMEMBERS', -1.6, 13.9, 0, 16);
@@ -188,7 +191,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
     mesh.receiveShadow = true; root.add(mesh);
     if (key === 'cone:roof' || key === 'cone:snow') standInRoofs.push(mesh);
   }
-  const emblem = createSpadeEmblem(); emblem.position.set(-342.2, 21, 0); emblem.rotation.y = Math.PI / 2; root.add(emblem);
+  const emblem = createSpadeEmblem(); emblem.position.set(-342.2, 21.6, 0); emblem.rotation.y = Math.PI / 2; root.add(emblem);
   // One local fill light, no extra shadow map; enough to read the hall at night.
   // Cold violet, flickering like torchlight (see update) for the castle's gloom.
   const hallLight = new THREE.PointLight(0x8a6bff, 1.6, 60, 1.5);
@@ -212,7 +215,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
       while (entries.length) {
         const [name, placements] = entries.shift();
         try {
-          const gltf = await new Promise((resolve, reject) => new THREE.GLTFLoader().load(`assets/spade/${name}.glb`, resolve, undefined, reject));
+          const gltf = await loadModelAsset(`assets/spade/${name}.glb`);
           const source = gltf.scene; source.updateMatrixWorld(true);
           const bounds = new THREE.Box3().setFromObject(source), size = bounds.getSize(new THREE.Vector3());
           const normal = new THREE.Matrix4().makeScale(1 / Math.max(size.x, 0.001), 1 / Math.max(size.y, 0.001), 1 / Math.max(size.z, 0.001));
@@ -251,6 +254,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
       preparation.run();
       const climate = spadeClimateAt(player.position.x, player.position.z);
       const inHall = player.position.x < -467 && player.position.x > -521 && Math.abs(player.position.z) < 15;
+      emblem.rotation.y += dt * .35; emblem.position.y = 21.6 + Math.sin(performance.now() / 1000) * .15; // the crest turns like Clover's
       echo.update(dt,player,state);
       castle.update(dt,player,state,inHall);
       story.update(dt,player,state,notify);
@@ -279,30 +283,20 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
   };
 }
 
-// Vector geometry inspired by the supplied spade crest: pale scrolls, layered
-// pointed outline, three inner lobes, and engraved rays. No image download.
+// The gate's keystone crest, in the Clover gate's style: a bevelled, glowing violet spade over a darker
+// obsidian plate, inside a silver ring. Solid all round, so it reads from both sides as it turns.
 function createSpadeEmblem() {
-  const group = new THREE.Group();
-  const outline = spadeOutline();
-  const ink = new THREE.MeshBasicMaterial({ color: 0x10172b }), blue = new THREE.MeshBasicMaterial({ color: 0x52688b }), pale = new THREE.MeshBasicMaterial({ color: 0xcbd6e5 });
-  const geometry = new THREE.ShapeGeometry(outline, 24);
-  for (const [s, z, material] of [[1.12, 0, pale], [1.03, 0.025, ink], [0.93, 0.05, blue], [0.79, 0.075, ink]]) {
-    const mesh = new THREE.Mesh(geometry, material); mesh.scale.setScalar(s); mesh.position.z = z; group.add(mesh);
+  const group = new THREE.Group(), outline = spadeOutline();
+  const solid = (depth, bevel) => new THREE.ExtrudeGeometry(outline, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 18 }).center();
+  const plate = new THREE.MeshStandardMaterial({ color: 0x141026, roughness: .5, metalness: .4, emissive: 0x1c1238, emissiveIntensity: .6 });
+  const glow = new THREE.MeshStandardMaterial({ color: 0xb48cff, roughness: .35, metalness: .2, emissive: 0x7a45ff, emissiveIntensity: 1.1 });
+  const silver = new THREE.MeshStandardMaterial({ color: 0xd8dcef, roughness: .3, metalness: .7, emissive: 0x4a3d78, emissiveIntensity: .5 });
+  const back = new THREE.Mesh(solid(.35, .12), plate); back.scale.setScalar(1.12); group.add(back);
+  const front = new THREE.Mesh(solid(.7, .16), glow); front.scale.setScalar(.92); group.add(front);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(5.3, .26, 10, 48), silver); group.add(ring);
+  for (let i = 0; i < 8; i++) { // small studs around the ring
+    const a = i / 8 * Math.PI * 2, stud = new THREE.Mesh(new THREE.OctahedronGeometry(.32), glow);
+    stud.position.set(Math.cos(a) * 5.3, Math.sin(a) * 5.3, 0); group.add(stud);
   }
-  for (const side of [-1, 1]) for (let row = 0; row < 4; row++) {
-    const curve = new THREE.CubicBezierCurve3(new THREE.Vector3(side * 2.8, -2.3 + row * 1.6, 0),
-      new THREE.Vector3(side * 6, -1.8 + row * 1.6, 0), new THREE.Vector3(side * 3.8, row * 1.6 + 1, 0), new THREE.Vector3(side * 3.5, row * 1.6 - 0.1, 0));
-    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 14, 0.11, 4, false), pale));
-  }
-  for (let i = 0; i < 3; i++) {
-    const lobe = new THREE.Mesh(new THREE.CircleGeometry(0.65, 24), blue);
-    lobe.position.set(i === 0 ? 0 : i === 1 ? -0.85 : 0.85, i === 0 ? 0.65 : -0.35, 0.1); group.add(lobe);
-    const centre = new THREE.Mesh(new THREE.CircleGeometry(0.24, 16), ink); centre.position.copy(lobe.position); centre.position.z += 0.02; group.add(centre);
-  }
-  const rayPositions = [];
-  for (let i = 0; i < 13; i++) { const a = 0.2 + i * (Math.PI - 0.4) / 12;
-    rayPositions.push(Math.cos(a), Math.sin(a), 0.13, Math.cos(a) * 2.55, Math.sin(a) * 2.55, 0.13); }
-  const rays = new THREE.BufferGeometry(); rays.setAttribute('position', new THREE.Float32BufferAttribute(rayPositions, 3));
-  group.add(new THREE.LineSegments(rays, new THREE.LineBasicMaterial({ color: 0x8396b6 })));
   return group;
 }
