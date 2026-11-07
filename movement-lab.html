@@ -6,7 +6,7 @@
 <header><span class="eyebrow">DREAMSCAPE · CHARACTER STUDY 02</span><h1>The sigil-blade wanderer.</h1><p>Explore, leap, and test your blade on the training yard. The red-headed sentinel strikes back.</p></header>
 <aside id="labPanel"><span class="eyebrow">TRAVELLER PLAYGROUND</span><h2>Find your rhythm.</h2>
 <p id="labStatus" role="status">Preparing the traveller…</p>
-<div class="buttons"><button id="explore" disabled>Explore the course</button><button id="portrait" disabled>View character</button><button id="reset">Back to the clearing</button><button id="gaps">Try the ledges</button></div>
+<div class="buttons"><button id="explore" disabled>Explore the course</button><button id="portrait" disabled>View character</button><button id="reset">Back to the clearing</button><button id="gaps">Try the ledges</button><button id="sky">Try the sky crossing</button></div>
 <label><input id="livingGround" type="checkbox"> Let the ground breathe</label>
 <section id="galleryPanel" aria-label="Character gallery"><button id="galleryOpen" disabled>Character gallery</button>
 <div class="galleryRow"><button id="galleryPrev" aria-label="Previous character">&lsaquo;</button><select id="galleryPick" aria-label="Character"></select><button id="galleryNext" aria-label="Next character">&rsaquo;</button></div>
@@ -14,7 +14,7 @@
 <dl><div><dt>Motion</dt><dd id="pose">Loading</dd></div><div><dt>Speed</dt><dd id="speed">0.0</dd></div><div><dt>Frame rate</dt><dd id="frames">—</dd></div><div><dt>Strikes landed</dt><dd id="hits">0</dd></div></dl>
 <p class="quiet">The traveller is ready when the buttons light up. Escape frees the mouse. This playground is separate from your quest progress.</p>
 <a href="index.html?seed=1234&amp;unlock=all">Try the traveller in DreamScape →</a></aside>
-<footer><span><kbd>W A S D</kbd> MOVE</span><span><kbd>SHIFT</kbd> RUN</span><span><kbd>SPACE</kbd> HOLD TO JUMP HIGHER</span><span><kbd>C</kbd> CROUCH</span><span><kbd>LMB</kbd> SLASH ×3</span><span><kbd>RMB</kbd> BLOCK</span><span><kbd>F</kbd> ROLL</span><span><kbd>X</kbd> SHEATHE</span><span><kbd>E</kbd> CAST</span><span><kbd>R</kbd> RESET</span></footer>
+<footer><span><kbd>W A S D</kbd> MOVE</span><span><kbd>SHIFT</kbd> RUN</span><span><kbd>SPACE</kbd> HOLD TO JUMP HIGHER</span><span><kbd>C</kbd> CROUCH</span><span><kbd>LMB</kbd> SLASH ×3</span><span><kbd>RMB</kbd> BLOCK</span><span><kbd>F</kbd> ROLL</span><span><kbd>X</kbd> SHEATHE</span><span><kbd>E</kbd> CAST</span><span><kbd>Q</kbd> HOLD TO SWING · SPACE LETS GO HIGH</span><span><kbd>R</kbd> RESET</span></footer>
 <div id="labToast" role="status" aria-live="polite"></div><div id="labHint">Click Explore to begin · Mouse to look · Escape to pause</div></main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script src="vendor/GLTFLoader.js"></script>
 <script type="module" src="src/views/movementLab.js"></script></body></html>

@@ -21,6 +21,58 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
   const arms = [], up = new THREE.Vector3(0, 1, 0), side = new THREE.Vector3(), aim = new THREE.Vector3(), lastCast = new THREE.Vector3();
   const shoulder = new THREE.Vector3(), elbow = new THREE.Vector3(), wrist = new THREE.Vector3(), knuckle = new THREE.Vector3(), turn = new THREE.Quaternion();
   let castWeight = 0, castTime = 0, chest = null;
+  // Tide Hook rope: the left hand throws the line (the sword stays in the right), the right arm trails,
+  // the body hangs along the rope, and letting go spins one somersault.
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, 1, 5).translate(0, .5, 0), new THREE.MeshBasicMaterial({ color: 0xc8fbff, toneMapped: false }));
+  rope.visible = false; rope.frustumCulled = false; scene.add(rope);
+  const ropeEnd = new THREE.Vector3(), ropeAnchor = new THREE.Vector3(), back = new THREE.Vector3(), palm = new THREE.Vector3(), knuckleDir = new THREE.Vector3(), axis = new THREE.Vector3();
+  let ropeWeight = 0, shoulderRest = null; // the hook shoulder in the body's rest frame, measured at load
+  const waist = new THREE.Vector3(0, 1.1, 0), hang = new THREE.Quaternion(), hangGoal = new THREE.Quaternion(), pitch = new THREE.Quaternion(), roll = new THREE.Quaternion(), from = new THREE.Vector3();
+  const X = new THREE.Vector3(1, 0, 0), Z = new THREE.Vector3(0, 0, 1); let bank = 0;
+  function poseArm(arm, goal, weight) {
+    arm.upper.getWorldPosition(shoulder); arm.fore.getWorldPosition(elbow); aimBone(arm.upper, shoulder, elbow, goal, weight);
+    arm.fore.getWorldPosition(elbow); arm.hand.getWorldPosition(wrist); aimBone(arm.fore, elbow, wrist, goal, weight);
+    arm.hand.getWorldPosition(wrist); arm.finger.getWorldPosition(knuckle); aimBone(arm.hand, wrist, knuckle, goal, weight); // straight wrist
+  }
+  // Palm side of the hand bone, measured on the rig: local +X on the left hand, -X on the right.
+  const palmOf = arm => palm.set(arm.sign, 0, 0).applyQuaternion(arm.hand.getWorldQuaternion(world));
+  // A closed fist around the line: every finger joint curls toward the palm (the thumb keeps its clip pose).
+  const CURL = [1.35, 1.5, 1.1];
+  function fist(arm, weight) {
+    for (const [finger, bones] of Object.entries(arm.fingers)) {
+      if (finger === 'thumb') continue;
+      bones.forEach(({ bone, bind }, i) => {
+        bone.quaternion.slerp(bind, weight); bone.updateMatrixWorld(true);
+        bone.getWorldPosition(wrist); bone.children[0].getWorldPosition(knuckle);
+        axis.crossVectors(knuckleDir.subVectors(knuckle, wrist).normalize(), palmOf(arm)).normalize();
+        rotate(bone, turn.setFromAxisAngle(axis, CURL[i] * weight));
+      });
+    }
+  }
+  function palmPoint(arm, target) { // palm centre, a little proud of the skin
+    arm.hand.getWorldPosition(target); arm.finger.getWorldPosition(knuckle);
+    return target.lerp(knuckle, .55).addScaledVector(palmOf(arm), .035);
+  }
+  function swingArms(dt, hook) {
+    ropeWeight += ((hook?.anchor ? 1 : 0) - ropeWeight) * (1 - Math.exp(-14 * dt));
+    if (hook?.anchor) ropeAnchor.set(hook.anchor.x, hook.anchor.y, hook.anchor.z);
+    const thrower = arms.find(a => a.sign > 0), trailer = arms.find(a => a.sign < 0);
+    if (ropeWeight > .01 && thrower) {
+      root.updateMatrixWorld(true); thrower.upper.getWorldPosition(shoulder);
+      poseArm(thrower, aim.copy(ropeAnchor).sub(shoulder).normalize(), ropeWeight);
+      fist(thrower, ropeWeight);
+      if (trailer) { // the free arm trails low and behind, like a swing's counterweight
+        side.set(Math.cos(heading), 0, -Math.sin(heading)); back.set(-Math.sin(heading), 0, -Math.cos(heading));
+        poseArm(trailer, aim.copy(back).multiplyScalar(.7).addScaledVector(side, -.6).addScaledVector(up, -.35).normalize(), ropeWeight);
+      }
+    }
+    rope.visible = Boolean(hook?.anchor && thrower);
+    if (!rope.visible) return;
+    palmPoint(thrower, wrist);
+    ropeEnd.lerpVectors(wrist, ropeAnchor, hook.reach);
+    aim.subVectors(ropeEnd, wrist); const length = aim.length();
+    rope.position.copy(wrist); rope.scale.set(1, Math.max(.001, length), 1); rope.quaternion.setFromUnitVectors(up, aim.divideScalar(length || 1));
+  }
   function aimBone(bone, from, to, goal, weight) { turn.setFromUnitVectors(to.sub(from).normalize(), goal); rotate(bone, turn.slerp(rotation.identity(), 1 - weight)); }
   function castArms(dt, castAt, gesture) {
     castTime += dt;
@@ -89,9 +141,11 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       const thigh = model.getObjectByName(`thigh_${side}`), calf = model.getObjectByName(`calf_${side}`), ankle = model.getObjectByName(`foot_${side}`);
       if (thigh && calf && ankle) { ankle.getWorldPosition(foot); legs.push({ thigh, calf, ankle, sole: foot.y - root.position.y }); }
       const upper = model.getObjectByName(`upperarm_${side}`), fore = model.getObjectByName(`lowerarm_${side}`), hand = model.getObjectByName(`hand_${side}`), finger = model.getObjectByName(`middle_01_${side}`);
-      if (upper && fore && hand && finger) arms.push({ upper, fore, hand, finger, sign: side === 'l' ? 1 : -1 });
+      const fingers = Object.fromEntries(['index', 'middle', 'ring', 'pinky', 'thumb'].map(f => [f, [1, 2, 3].map(j => model.getObjectByName(`${f}_0${j}_${side}`)).filter(Boolean).map(bone => ({ bone, bind: bone.quaternion.clone() }))]));
+      if (upper && fore && hand && finger) arms.push({ upper, fore, hand, finger, fingers, sign: side === 'l' ? 1 : -1 });
     }
     chest = model.getObjectByName('spine_03');
+    const hookArm = arms.find(a => a.sign > 0); if (hookArm) shoulderRest = root.worldToLocal(hookArm.upper.getWorldPosition(new THREE.Vector3()));
   }).catch(error => { failed = true; console.warn('Traveller could not load.', error); });
   function rotate(bone, q) {
     bone.parent.getWorldQuaternion(parent); bone.getWorldQuaternion(world).premultiply(q);
@@ -150,12 +204,14 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
     /** Show an expression for a while (cutscenes, dialogue): 'joy', 'sad', 'surprised', ... */
     setExpression(name, seconds = 2) { faceOverride = name; faceOverrideTime = seconds; },
     swordTip(target, offset = .86) { if (!sword) return null; return sword.localToWorld(target.set(0, offset, 0)); },
-    reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = 0; capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
-    update(dt, cameraDistance = 3.8, castAt = null, combat = null) {
+    reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = bank = 0; hang.identity(); capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
+    /** hook: { anchor:{x,y,z}|null, reach 0..1, phase, flip 0..1 } from models/grapple.js. */
+    update(dt, cameraDistance = 3.8, castAt = null, combat = null, hook = null) {
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
       const pose = motion.update(dt, { speed, grounded: player.grounded, verticalSpeed: player.velocity.y, crouching: state.crouching, casting: castAt ? state.swarmGesture || 'attract' : false, inFlight: player.inFlight, armed: Boolean(combat?.drawn) });
       const acting = Boolean(combat?.clip && actions.has(combat.clip));
-      name = acting ? combat.clip : pose.name;
+      const swinging = hook?.phase === 'swing', flipping = hook?.phase === 'fly' && hook.flip < 1;
+      name = acting ? combat.clip : swinging ? 'swinging' : flipping ? 'flipping' : pose.name;
       const nextLabel = failed ? 'Traveller unavailable' : `TPP · Traveller · ${name}`;
       if (status && nextLabel !== label) { status.textContent = nextLabel; label = nextLabel; }
       root.visible = Boolean(mixer) && !state.memory && cameraDistance > .65;
@@ -166,10 +222,21 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       heading += difference * (1 - Math.exp(-(acting ? 26 : 12) * dt)); root.rotation.y = heading;
       const turnRate = dt > 0 ? Math.atan2(Math.sin(heading - capeState.lastHeading), Math.cos(heading - capeState.lastHeading)) / dt : 0; capeState.lastHeading = heading;
       const targetTilt = player.grounded && !acting ? THREE.MathUtils.clamp(pose.acceleration * .005, -.06, .10) : 0;
-      tilt += (targetTilt - tilt) * (1 - Math.exp(-8 * dt)); lean.rotation.x = tilt;
-      lean.rotation.z += ((acting ? 0 : THREE.MathUtils.clamp(-difference * .09, -.12, .12)) - lean.rotation.z) * (1 - Math.exp(-10 * dt));
+      tilt += (targetTilt - tilt) * (1 - Math.exp(-8 * dt));
+      // Hang from the fist: turn the whole body about the waist so waist, hook shoulder and anchor line up,
+      // so the body follows the hand through the arc instead of the arm reaching behind the head.
+      hangGoal.identity();
+      if (swinging && shoulderRest) {
+        root.updateMatrixWorld(true); from.set(hook.anchor.x, hook.anchor.y, hook.anchor.z); root.worldToLocal(from).sub(waist).normalize();
+        hangGoal.setFromUnitVectors(direction.copy(shoulderRest).sub(waist).normalize(), from);
+      }
+      hang.slerp(hangGoal, 1 - Math.exp(-10 * dt));
+      const spin = flipping ? Math.PI * 2 * (1 - (1 - hook.flip) ** 3) : 0; // one forward somersault, eased out
+      bank += ((acting ? 0 : THREE.MathUtils.clamp(-difference * .09, -.12, .12)) - bank) * (1 - Math.exp(-10 * dt)); // lean into turns
+      lean.quaternion.copy(hang).multiply(roll.setFromAxisAngle(Z, bank)).multiply(pitch.setFromAxisAngle(X, tilt + spin));
+      lean.position.copy(waist).sub(direction.copy(waist).applyQuaternion(lean.quaternion)); // pivot at the waist, not the feet
       holdSword(Boolean(combat?.drawn));
-      if (!mixer || !root.visible) { trail.clear(); return; }
+      if (!mixer || !root.visible) { trail.clear(); rope.visible = false; return; }
       if ((faceOverrideTime -= dt) <= 0) faceOverride = null;
       const speaking = Boolean(state.cinematic && /^(YOU|TRAVELL?ER)$/i.test(state.cinematicSpeaker || ''));
       expression = pickExpression({ reactive: reactiveFace, override: faceOverride || (speaking ? state.cinematicFace : null), combat: combat?.clip, casting: Boolean(castAt), grounded: player.grounded,
@@ -195,6 +262,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       swingCape(dt, forward, lateral, turnRate);
       placeFeet(dt, !acting || combat.clip === 'block' || combat.clip === 'combatIdle');
       castArms(dt, acting ? null : castAt, state.swarmGesture || 'attract');
+      swingArms(dt, hook);
       if (combat?.trail && sword) { root.updateMatrixWorld(true); trail.push(sword); } else trail.fade(dt);
     },
   };

@@ -7,6 +7,7 @@ import { createTravelerCombat } from '../models/travelerCombat.js';
 import { createTrainingYard } from './trainingYard.js';
 import { createCharacterGallery } from './characterGallery.js';
 import { EXPRESSIONS } from '../models/faceExpression.js';
+import { createGrapple } from '../models/grapple.js';
 
 const canvas=document.querySelector('#labCanvas'),status=document.querySelector('#labStatus'),toastBox=document.querySelector('#labToast');
 let toastTimer=0;function toast(text){if(!toastBox)return;toastBox.textContent=text;toastBox.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastBox.classList.remove('show'),700);}
@@ -22,8 +23,10 @@ async function start(){
   const {state,keys,pointerButtons,player}=createGameState();state.pitch=-.12;
   const surfaces=[],colliders=[],obstacles=new T.Group();scene.add(obstacles);
   let groundTime=0,living=false,groundDirty=false,inspect=true,portraitYaw=Math.PI+.5,portraitDistance=4.2,portraitHeight=.05,portraitAim=.8;
+  const inChasm=(x,z)=>x< -9&&x> -48&&z>22&&z<42; // the sky crossing: only the Tide Hook gets you over
   function ground(x,z){
     if(x>13&&x<24&&z< -12&&z> -43)return -5;
+    if(inChasm(x,z))return -12;
     const hill=Math.max(0,1-Math.hypot((x-12)/8,(z-3)/9));
     const breathe=living?Math.max(0,1-Math.hypot((x+12)/6,(z-8)/6))*.55*Math.sin(groundTime*.8):0;
     return hill*hill*1.6+breathe;
@@ -65,20 +68,29 @@ async function start(){
   function sign(text,x,z){
     const c=document.createElement('canvas');c.width=512;c.height=96;const g=c.getContext('2d');g.fillStyle='#f5efda';g.fillRect(0,0,512,96);g.fillStyle='#3f6454';g.font='24px Georgia';g.textAlign='center';g.fillText(text,256,57);
     const tex=new T.CanvasTexture(c);tex.encoding=T.sRGBEncoding;
-    const mesh=new T.Mesh(new T.PlaneGeometry(3.8,.7),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide}));mesh.position.set(x,ground(x,z)+1.7,z);scene.add(mesh);
+    const mesh=new T.Mesh(new T.PlaneGeometry(3.8,.7),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide}));mesh.position.set(x,ground(x,z)+1.7,z);scene.add(mesh);return mesh;
   }
+  // Sky crossing: floating islands over the chasm, crystal anchors overhead. Hold Q at one to swing.
+  const crossing=[block(-27,30,6,6,4,1),block(-43,34,7,7,6,2.5)];
+  const anchorPoints=[{x:-16,y:12,z:32},{x:-24,y:14,z:27},{x:-33,y:16,z:36},{x:-40,y:19,z:30}];
+  const crystalMat=new T.MeshStandardMaterial({color:0x7fe3ee,emissive:0x2bb8c9,emissiveIntensity:.6,roughness:.3,flatShading:true});
+  const anchorMeshes=anchorPoints.map(a=>{const m=new T.Mesh(new T.OctahedronGeometry(.45,0),crystalMat.clone());m.scale.y=1.6;m.position.set(a.x,a.y,a.z);scene.add(m);return m;});
+  let crossingCheckpoint={x:-7,z:32,top:0};
+  sign('THE SKY CROSSING  ·  HOLD Q',-6,28).rotation.y=Math.PI/2;
   sign('THE STEPS',-3,-17);sign('THE LONG SLOPE',-12,-26);sign('THREE LITTLE LEAPS',18,-11);sign('LIVING GROUND',-12,12);
   const surfaceAt=createSurfaceAt(surfaces,ground),stepper=createFixedStepper();
   let combat=null,combatState=null,hitstop=0,shake=0;const pressed={attack:false,dodge:false,sheathe:false};
   const yard=createTrainingYard({scene,ground,colliders,onImpact:(heavy)=>{hitstop=heavy?.11:.065;shake=Math.max(shake,heavy?.16:.08);}});
   const movement=createPlayerController({state,keys,player,chunks:new Map(),terrainHeight:ground,staticColliders:colliders,platforms:surfaces,
-    locomotion:{walkSpeed:4.2,sprintSpeed:7.8,crouchSpeed:2,smooth:true,variableJump:true,drive:()=>combatState?.drive},
-    courseRecovery:p=>p.position.x>13&&p.position.x<24&&p.position.z< -12&&p.position.y<.5?{x:18,z:-16,top:1.8}:null});
+    locomotion:{walkSpeed:4.2,sprintSpeed:7.8,crouchSpeed:2,smooth:true,variableJump:true,drive:()=>combatState?.drive||grapple.drive},
+    courseRecovery:p=>p.position.x>13&&p.position.x<24&&p.position.z< -12&&p.position.y<.5?{x:18,z:-16,top:1.8}
+      :inChasm(p.position.x,p.position.z)&&p.position.y< -2?(grapple.reset(),crossingCheckpoint):null});
+  const grapple=createGrapple({anchors:anchorPoints});
   const previous=new T.Vector3(),renderPosition=new T.Vector3(),renderPlayer=Object.create(player);renderPlayer.position=renderPosition;
   const view=createCameraController({camera,state,player:renderPlayer,chunks:new Map(),terrainHeight:ground,staticObstacles:[obstacles]});
   const avatar=createTravelerCharacter({scene,state,player:renderPlayer,surfaceAt,status,walkSpeed:4.2});
   function reset(target={x:0,z:0,top:0}){
-    keys.clear();pointerButtons.clear();combat?.reset();combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
+    keys.clear();pointerButtons.clear();combat?.reset();grapple.reset();crossingCheckpoint={x:-7,z:32,top:0};combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
   }
   reset();
   const explore=document.querySelector('#explore'),portrait=document.querySelector('#portrait');
@@ -87,6 +99,7 @@ async function start(){
   addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});
   explore.onclick=()=>{inspect=false;galleryTarget=null;canvas.requestPointerLock();};portrait.onclick=()=>{document.exitPointerLock();inspect=true;galleryTarget=null;portraitDistance=4.2;portraitYaw=avatar.root.rotation.y+.5;release();};
   document.querySelector('#reset').onclick=()=>reset();document.querySelector('#gaps').onclick=()=>{reset({x:18,z:-16,top:1.8});inspect=false;};
+  document.querySelector('#sky').onclick=()=>{reset({x:-7,z:32,top:0});state.yaw=Math.PI/2;inspect=false;canvas.requestPointerLock();};
   document.querySelector('#livingGround').onchange=e=>{living=e.target.checked;groundDirty=true;};
   canvas.onclick=()=>{if(!inspect&&avatar.loaded&&!state.locked)canvas.requestPointerLock();};
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -103,7 +116,7 @@ async function start(){
       moveX:state.locked?(-sin*f+cos*sd)/len:0,moveZ:state.locked?(-cos*f-sin*sd)/len:0,sprinting:keys.has('ShiftLeft')||keys.has('ShiftRight')};
     pressed.attack=pressed.dodge=pressed.sheathe=false;return input;
   }
-  window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,get combat(){return combat;},get combatState(){return combatState;},
+  window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,grapple,anchorPoints,get combat(){return combat;},get combatState(){return combatState;},
     inspect:()=>{inspect=true;document.exitPointerLock();},explore:()=>{inspect=false;},portrait:(yaw,distance=4.2,height=.05,aim=.8)=>{inspect=true;portraitYaw=yaw;portraitDistance=distance;portraitHeight=height;portraitAim=aim;}};
   let last=performance.now(),frameCount=0,frameTime=0,groundRefresh=0;
   function frame(now){
@@ -111,8 +124,11 @@ async function start(){
     const simDt=hitstop>0?0:dt;hitstop=Math.max(0,hitstop-dt);
     const alpha=stepper.advance(simDt,step=>{
       previous.copy(player.position);groundTime+=step;
-      if(combat){combatState=combat.update(step,combatInput(),{grounded:player.grounded,speed:Math.hypot(player.velocity.x,player.velocity.z),yaw:state.yaw,heading:avatar.heading,position:player.position,targets:yard.targets});}
-      movement.update(step);
+      const input=combatInput();
+      const hook=grapple.update(step,{hold:state.locked&&keys.has('KeyQ'),jump:player.jumpBuffer>0,moveX:input.moveX,moveZ:input.moveZ,look:{x:-Math.sin(state.yaw),z:-Math.cos(state.yaw)}},player,surfaceAt);
+      if(combat){combatState=combat.update(step,input,{grounded:player.grounded,speed:Math.hypot(player.velocity.x,player.velocity.z),yaw:state.yaw,heading:avatar.heading,position:player.position,targets:yard.targets});}
+      if(!hook.owns)movement.update(step);
+      if(player.grounded&&crossing.some(c=>Math.abs(player.position.x-c.x)<c.width/2&&Math.abs(player.position.z-c.z)<c.depth/2))crossingCheckpoint=crossing.find(c=>Math.abs(player.position.x-c.x)<c.width/2&&Math.abs(player.position.z-c.z)<c.depth/2);
       if(combat)yard.step(step,{player,combat,combatState,toast});
     });
     renderPosition.lerpVectors(previous,player.position,alpha);
@@ -122,7 +138,8 @@ async function start(){
     if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;shake=Math.max(0,shake-dt*.9);}
     yard.render(dt);
     const castAt=keys.has('KeyE')?new T.Vector3(player.position.x,player.position.y,player.position.z-8):null;
-    avatar.update(simDt,inspect?4.2:camera.position.distanceTo(renderPosition),castAt,combatState);
+    avatar.update(simDt,inspect?4.2:camera.position.distanceTo(renderPosition),castAt,combatState,{anchor:grapple.anchor,reach:grapple.reach,phase:grapple.phase,flip:grapple.flip});
+    anchorMeshes.forEach((m,i)=>{const lit=anchorPoints[i]===grapple.target,hooked=anchorPoints[i]===grapple.anchor;m.rotation.y+=dt*(lit?3:.6);m.material.emissiveIntensity+=((hooked?2.2:lit?1.4+.4*Math.sin(now*.012):.5)-m.material.emissiveIntensity)*Math.min(1,dt*10);});
     groundRefresh+=dt;
     if(groundRefresh>.1&&(living||groundDirty)){groundRefresh=0;groundDirty=false;for(let i=0;i<groundPositions.count;i++){const x=groundPositions.getX(i),z=groundPositions.getZ(i);if(Math.hypot(x+12,z-8)<7)groundPositions.setY(i,ground(x,z));}groundPositions.needsUpdate=true;groundGeometry.computeVertexNormals();}
     renderer.render(scene,camera);frameCount++;frameTime+=dt;
