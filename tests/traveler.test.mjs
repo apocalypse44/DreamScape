@@ -101,3 +101,13 @@ test('swarm gestures clear when released: no clip keeps weight after Q or F (cas
   for(const [clip,w] of Object.entries(free.weights))assert.equal(w,clip==='idle'?1:0,`${clip} after releasing ${casting}`);
  }
 });
+
+test('air slashes start while jumping or swinging, never steer the body, chain, and end on landing', () => {
+ const { combat, ctx, run } = duel(); ctx.grounded = false;
+ let s = run(1 / 60, { attack: true }); assert.equal(s.move, 'airSlash'); assert.equal(s.clip, 'slash1'); assert.equal(s.air, true);
+ assert.equal(s.drive, null, 'gravity and the grapple keep moving you');
+ let hit = false, trail = false; run(.25, {}, x => { hit ||= Boolean(x.hit); trail ||= x.trail; }); assert.ok(hit && trail);
+ s = run(1 / 60, { attack: true }); run(.05); assert.equal(combat.move, 'airSlash2'); assert.equal(combat.snapshot().clip, 'slash2');
+ ctx.grounded = true; run(.4); assert.equal(combat.move, null, 'landing returns to the ground moveset');
+ const ground = duel(); assert.equal(ground.run(1 / 60, { attack: true }).move, 'slash1', 'on the ground the normal combo starts');
+});

@@ -13,8 +13,12 @@ export const COMBAT_MOVES = {
   block: { duration: 1.23, speed: 1, hold: .3, release: .55 },
   hit: { duration: .33, speed: 1 },
   knockback: { duration: .83, speed: 1, rootMotion: true, motionScale: .55 },
+  // Air slashes (jumping or swinging on the Tide Hook): the ground slash clips played faster, with their hit
+  // window and trail, but no drive, so gravity and the grapple keep moving the body (as in Swordigo).
+  airSlash: { clip: 'slash1', duration: .43, speed: 1.6, hit: [.12, .32], reach: 2.4, arc: 2.2, next: 'airSlash2', chainAt: .26, trail: true, air: true },
+  airSlash2: { clip: 'slash2', duration: .53, speed: 1.6, hit: [.14, .36], reach: 2.4, arc: 2.2, next: 'airSlash', chainAt: .34, trail: true, air: true },
 };
-const ATTACKS = new Set(['slash1', 'slash2', 'slash3', 'dash']);
+const ATTACKS = new Set(['slash1', 'slash2', 'slash3', 'dash', 'airSlash', 'airSlash2']);
 const BUFFER = .32;
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
@@ -70,15 +74,17 @@ export function createTravelerCombat({ rootMotion = {}, scale = 1, sheatheAfter 
         }
         const done = time >= spec.duration;
         const cancel = spec.cancelAt != null && time >= spec.cancelAt;
-        if (ATTACKS.has(move) && spec.next && attackBuffer > 0 && time >= spec.chainAt) start(spec.next, ctx, input), attackBuffer = 0;
+        if (ATTACKS.has(move) && spec.next && attackBuffer > 0 && time >= spec.chainAt && !(spec.air && ctx.grounded)) start(spec.next, ctx, input), attackBuffer = 0;
         else if (spec.next && !ATTACKS.has(move) && attackBuffer > 0 && time <= spec.chainUntil && ctx.grounded) start(spec.next, ctx, input), attackBuffer = 0;
         else if (dodgeBuffer > 0 && ctx.grounded && (cancel || (ATTACKS.has(move) && time > (spec.hit?.[1] ?? 0)) || move === 'block')) start('roll', ctx, input), dodgeBuffer = 0;
         else if (move === 'roll' && cancel && attackBuffer > 0) start('slash1', ctx, input), attackBuffer = 0;
         else if (done && ATTACKS.has(move) && spec.end) start(spec.end, ctx, input);
         else if (done || (cancel && moving)) finish();
-        else if (!ctx.grounded && move !== 'roll' && move !== 'knockback') finish();
+        else if (spec.air && ctx.grounded && time > spec.hit[1]) finish(); // landed: back to the ground moveset
+        else if (!ctx.grounded && !spec.air && move !== 'roll' && move !== 'knockback') finish();
       }
-      if (!move && ctx.grounded) {
+      if (!move && !ctx.grounded && attackBuffer > 0) start('airSlash', ctx, input), attackBuffer = 0;
+      else if (!move && ctx.grounded) {
         if (dodgeBuffer > 0) start('roll', ctx, input), dodgeBuffer = 0;
         else if (attackBuffer > 0) start(input.sprinting && (ctx.speed || 0) > 5 ? 'dash' : 'slash1', ctx, input), attackBuffer = 0;
         else if (input.block) start('block', ctx, input);
@@ -90,7 +96,7 @@ export function createTravelerCombat({ rootMotion = {}, scale = 1, sheatheAfter 
     snapshot() {
       const spec = move && COMBAT_MOVES[move];
       let velocity = null, moveScale = 1;
-      if (spec) {
+      if (spec && !spec.air) {
         moveScale = 0;
         const dir = { x: Math.sin(facing), z: Math.cos(facing) };
         if (move === 'roll') {
@@ -103,8 +109,8 @@ export function createTravelerCombat({ rootMotion = {}, scale = 1, sheatheAfter 
       }
       const active = spec?.hit && time >= spec.hit[0] && time <= spec.hit[1];
       return {
-        move, clip: move, time: spec ? Math.min(time, spec.duration - 1e-3) : 0, facing, drawn,
-        drive: spec ? { velocity, moveScale, blockJump: true } : null,
+        move, clip: spec?.clip ?? move, time: spec ? Math.min(time, spec.duration - 1e-3) : 0, facing, drawn, air: Boolean(spec?.air),
+        drive: spec && !spec.air ? { velocity, moveScale, blockJump: true } : null,
         hit: active ? { id: swing, reach: spec.reach, arc: spec.arc, heavy: Boolean(spec.heavy), facing } : null,
         trail: Boolean(spec?.trail && spec.hit && time >= spec.hit[0] - .08 && time <= spec.hit[1] + .06),
         blocking: move === 'block' && !releasing && time >= .1,

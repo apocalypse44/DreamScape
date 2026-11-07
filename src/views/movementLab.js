@@ -8,6 +8,7 @@ import { createTrainingYard } from './trainingYard.js';
 import { createCharacterGallery } from './characterGallery.js';
 import { EXPRESSIONS } from '../models/faceExpression.js';
 import { createGrapple } from '../models/grapple.js';
+import { createCitadelArena, createArenaHud, citadelGround } from './citadelArena.js';
 
 const canvas=document.querySelector('#labCanvas'),status=document.querySelector('#labStatus'),toastBox=document.querySelector('#labToast');
 let toastTimer=0;function toast(text){if(!toastBox)return;toastBox.textContent=text;toastBox.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastBox.classList.remove('show'),700);}
@@ -25,6 +26,7 @@ async function start(){
   let groundTime=0,living=false,groundDirty=false,inspect=true,portraitYaw=Math.PI+.5,portraitDistance=4.2,portraitHeight=.05,portraitAim=.8;
   const inChasm=(x,z)=>x< -9&&x> -48&&z>22&&z<42; // the sky crossing: only the Tide Hook gets you over
   function ground(x,z){
+    const far=citadelGround(x,z);if(far!==null)return far; // the Prism Citadel mesa, out past the clearing
     if(x>13&&x<24&&z< -12&&z> -43)return -5;
     if(inChasm(x,z))return -12;
     const hill=Math.max(0,1-Math.hypot((x-12)/8,(z-3)/9));
@@ -79,18 +81,36 @@ async function start(){
   sign('THE SKY CROSSING  ·  HOLD Q',-6,28).rotation.y=Math.PI/2;
   sign('THE STEPS',-3,-17);sign('THE LONG SLOPE',-12,-26);sign('THREE LITTLE LEAPS',18,-11);sign('LIVING GROUND',-12,12);
   const surfaceAt=createSurfaceAt(surfaces,ground),stepper=createFixedStepper();
-  let combat=null,combatState=null,hitstop=0,shake=0;const pressed={attack:false,dodge:false,sheathe:false};
+  let combat=null,combatState=null,hitstop=0,shake=0;const pressed={attack:false,dodge:false,sheathe:false,chaos:false};
   const yard=createTrainingYard({scene,ground,colliders,onImpact:(heavy)=>{hitstop=heavy?.11:.065;shake=Math.max(shake,heavy?.16:.08);}});
   const movement=createPlayerController({state,keys,player,chunks:new Map(),terrainHeight:ground,staticColliders:colliders,platforms:surfaces,
     locomotion:{walkSpeed:4.2,sprintSpeed:7.8,crouchSpeed:2,smooth:true,variableJump:true,drive:()=>combatState?.drive||grapple.drive},
     courseRecovery:p=>p.position.x>13&&p.position.x<24&&p.position.z< -12&&p.position.y<.5?{x:18,z:-16,top:1.8}
-      :inChasm(p.position.x,p.position.z)&&p.position.y< -2?(grapple.reset(),crossingCheckpoint):null});
+      :inChasm(p.position.x,p.position.z)&&p.position.y< -2?(grapple.reset(),crossingCheckpoint)
+      :p.position.z< -52&&p.position.y< -6?(grapple.reset(),arena.entry):null});
   const grapple=createGrapple({anchors:anchorPoints});
+  // Sile the Harvester at the Prism Citadel (combat.md): its own arena, cutscenes and HUD.
+  const arenaHud=createArenaHud();arenaHud.toast=text=>toast(text);
+  const arena=createCitadelArena({scene,obstacles,colliders,anchors:anchorPoints,hud:arenaHud});
+  // Air strike: a short lunge to Sile, the slash clip played in mid-air, then a bounce back off her.
+  let airStrike=null;const AIR={dash:.14,total:.5};
+  function startAirStrike(at){
+    const from=player.position.clone(),dir=new T.Vector3(at.x-from.x,0,at.z-from.z);if(dir.lengthSq()<1e-4)dir.set(0,0,-1);dir.normalize();
+    const to=new T.Vector3(at.x-dir.x*1.4,at.y+.35,at.z-dir.z*1.4);
+    airStrike={t:0,from,to,dir,facing:Math.atan2(dir.x,dir.z),bounced:false};grapple.reset();
+  }
+  function stepAirStrike(step){ // true while the lunge owns the body
+    if(!airStrike)return false;airStrike.t+=step;const a=airStrike;
+    if(a.t<AIR.dash){const k=a.t/AIR.dash,e=1-(1-k)*(1-k);player.position.lerpVectors(a.from,a.to,e);player.velocity.set(0,0,0);player.grounded=false;return true;}
+    if(!a.bounced){a.bounced=true;player.position.copy(a.to);player.velocity.set(-a.dir.x*4.5,7.5,-a.dir.z*4.5);}
+    if(a.t>=AIR.total||player.grounded)airStrike=null;
+    return false;
+  }
   const previous=new T.Vector3(),renderPosition=new T.Vector3(),renderPlayer=Object.create(player);renderPlayer.position=renderPosition;
   const view=createCameraController({camera,state,player:renderPlayer,chunks:new Map(),terrainHeight:ground,staticObstacles:[obstacles]});
   const avatar=createTravelerCharacter({scene,state,player:renderPlayer,surfaceAt,status,walkSpeed:4.2});
   function reset(target={x:0,z:0,top:0}){
-    keys.clear();pointerButtons.clear();combat?.reset();grapple.reset();crossingCheckpoint={x:-7,z:32,top:0};combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
+    keys.clear();pointerButtons.clear();combat?.reset();grapple.reset();arena?.exit();airStrike=null;crossingCheckpoint={x:-7,z:32,top:0};combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
   }
   reset();
   const explore=document.querySelector('#explore'),portrait=document.querySelector('#portrait');
@@ -99,6 +119,7 @@ async function start(){
   addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});
   explore.onclick=()=>{inspect=false;galleryTarget=null;canvas.requestPointerLock();};portrait.onclick=()=>{document.exitPointerLock();inspect=true;galleryTarget=null;portraitDistance=4.2;portraitYaw=avatar.root.rotation.y+.5;release();};
   document.querySelector('#reset').onclick=()=>reset();document.querySelector('#gaps').onclick=()=>{reset({x:18,z:-16,top:1.8});inspect=false;};
+  document.querySelector('#citadel').onclick=()=>{reset(arena.entry);state.yaw=0;inspect=false;arena.enter();canvas.requestPointerLock();};
   document.querySelector('#sky').onclick=()=>{reset({x:-7,z:32,top:0});state.yaw=Math.PI/2;inspect=false;canvas.requestPointerLock();};
   document.querySelector('#livingGround').onchange=e=>{living=e.target.checked;groundDirty=true;};
   canvas.onclick=()=>{if(!inspect&&avatar.loaded&&!state.locked)canvas.requestPointerLock();};
@@ -106,7 +127,7 @@ async function start(){
   canvas.addEventListener('mousedown',e=>{if(!state.locked)return;pointerButtons.add(e.button);if(e.button===0)pressed.attack=true;});
   addEventListener('mouseup',e=>pointerButtons.delete(e.button));
   document.addEventListener('mousemove',e=>{if(state.locked){state.yaw-=e.movementX*.0022;state.pitch=T.MathUtils.clamp(state.pitch-e.movementY*.002,-.85,.6);}else if(inspect&&e.buttons===1)portraitYaw-=e.movementX*.008;});
-  addEventListener('keydown',e=>{if(!state.locked)return;keys.add(e.code);if(e.code==='Space'&&!e.repeat)player.jumpBuffer=.15;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='KeyF'&&!e.repeat)pressed.dodge=true;if(e.code==='KeyX'&&!e.repeat)pressed.sheathe=true;if(e.code==='KeyJ'&&!e.repeat)pressed.attack=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
+  addEventListener('keydown',e=>{if(!state.locked)return;keys.add(e.code);if(e.code==='Space'&&!e.repeat)player.jumpBuffer=.15;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='KeyF'&&!e.repeat)pressed.dodge=true;if(e.code==='KeyX'&&!e.repeat)pressed.sheathe=true;if(e.code==='KeyJ'&&!e.repeat)pressed.attack=true;if(e.code==='KeyG'&&!e.repeat)pressed.chaos=true;if(e.code==='Enter'&&!e.repeat)arena.skip();if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
   addEventListener('keyup',e=>keys.delete(e.code));
   const resize=()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();};addEventListener('resize',resize);resize();
   function combatInput(){
@@ -116,7 +137,7 @@ async function start(){
       moveX:state.locked?(-sin*f+cos*sd)/len:0,moveZ:state.locked?(-cos*f-sin*sd)/len:0,sprinting:keys.has('ShiftLeft')||keys.has('ShiftRight')};
     pressed.attack=pressed.dodge=pressed.sheathe=false;return input;
   }
-  window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,grapple,anchorPoints,get combat(){return combat;},get combatState(){return combatState;},
+  window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,grapple,anchorPoints,arena,get airStrike(){return airStrike;},get combat(){return combat;},get combatState(){return combatState;},
     inspect:()=>{inspect=true;document.exitPointerLock();},explore:()=>{inspect=false;},portrait:(yaw,distance=4.2,height=.05,aim=.8)=>{inspect=true;portraitYaw=yaw;portraitDistance=distance;portraitHeight=height;portraitAim=aim;}};
   let last=performance.now(),frameCount=0,frameTime=0,groundRefresh=0;
   function frame(now){
@@ -125,20 +146,30 @@ async function start(){
     const alpha=stepper.advance(simDt,step=>{
       previous.copy(player.position);groundTime+=step;
       const input=combatInput();
-      const hook=grapple.update(step,{hold:state.locked&&keys.has('KeyQ'),jump:player.jumpBuffer>0,moveX:input.moveX,moveZ:input.moveZ,look:{x:-Math.sin(state.yaw),z:-Math.cos(state.yaw)}},player,surfaceAt);
-      if(combat){combatState=combat.update(step,input,{grounded:player.grounded,speed:Math.hypot(player.velocity.x,player.velocity.z),yaw:state.yaw,heading:avatar.heading,position:player.position,targets:yard.targets});}
+      const arenaIo={player:player.position,feet:player.position.y-2.05,grounded:player.grounded,chaosPress:pressed.chaos,attackPress:input.attack,
+        invulnerable:Boolean(combatState?.invulnerable),swordHit:combatState?.hit||null,hurt:(from,o)=>combat?combat.hurt(from,player.position,o):'hit',
+        push:from=>{const dx=player.position.x-from.x,dz=player.position.z-from.z,d=Math.hypot(dx,dz)||1;player.position.x+=dx/d*1.1;player.position.z+=dz/d*1.1;},
+        onDown:()=>{movement.teleport({...arena.entry,yaw:0});grapple.reset();combat?.reset();},onImpact:heavy=>{hitstop=heavy?.09:.05;},onAirStrike:at=>{startAirStrike(at);hitstop=.13;}};
+      pressed.chaos=false;
+      if(arena.cinematic){player.velocity.x=player.velocity.z=0;combatState=null;arena.step(step,arenaIo);return;} // cutscene: the traveller waits
+      const lunging=stepAirStrike(step);
+      const hook=lunging?{owns:true}:grapple.update(step,{hold:state.locked&&keys.has('KeyQ')&&!airStrike,jump:player.jumpBuffer>0,moveX:input.moveX,moveZ:input.moveZ,look:{x:-Math.sin(state.yaw),z:-Math.cos(state.yaw)}},player,surfaceAt);
+      if(combat){combatState=combat.update(step,input,{grounded:player.grounded,speed:Math.hypot(player.velocity.x,player.velocity.z),yaw:state.yaw,heading:avatar.heading,position:player.position,targets:arena.active?arena.targets:yard.targets});}
       if(!hook.owns)movement.update(step);
       if(player.grounded&&crossing.some(c=>Math.abs(player.position.x-c.x)<c.width/2&&Math.abs(player.position.z-c.z)<c.depth/2))crossingCheckpoint=crossing.find(c=>Math.abs(player.position.x-c.x)<c.width/2&&Math.abs(player.position.z-c.z)<c.depth/2);
       if(combat)yard.step(step,{player,combat,combatState,toast});
+      if(arena.active&&state.locked){arenaIo.swordHit=combatState?.hit||null;arenaIo.invulnerable=Boolean(combatState?.invulnerable);arena.step(step,arenaIo);}
     });
     renderPosition.lerpVectors(previous,player.position,alpha);
     if(inspect){const at=galleryTarget||renderPosition;portraitYaw+=dt*.07;camera.position.set(at.x+Math.sin(portraitYaw)*portraitDistance,at.y+portraitHeight,at.z+Math.cos(portraitYaw)*portraitDistance);camera.lookAt(at.x,at.y-portraitAim,at.z);}
-    else view.update(dt);
+    else if(!arena.shot(camera,dt,renderPlayer)){view.update(dt);arena.applyShake(camera,dt);}
     gallery.update(dt);
     if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;shake=Math.max(0,shake-dt*.9);}
-    yard.render(dt);
+    yard.render(dt);arena.render(dt,now,{camera,grapple,player:renderPlayer});
     const castAt=keys.has('KeyE')?new T.Vector3(player.position.x,player.position.y,player.position.z-8):null;
-    avatar.update(simDt,inspect?4.2:camera.position.distanceTo(renderPosition),castAt,combatState,{anchor:grapple.anchor,reach:grapple.reach,phase:grapple.phase,flip:grapple.flip});
+    // During an air strike the avatar plays the real slash clip (with its trail) at the lunge's pace.
+    const shown=airStrike?{clip:'slash1',time:Math.min(.42,.08+airStrike.t*.95),facing:airStrike.facing,drawn:true,trail:airStrike.t<.38}:combatState;
+    avatar.update(simDt,inspect?4.2:camera.position.distanceTo(renderPosition),castAt,shown,{anchor:grapple.anchor,reach:grapple.reach,phase:grapple.phase,flip:grapple.flip});
     anchorMeshes.forEach((m,i)=>{const lit=anchorPoints[i]===grapple.target,hooked=anchorPoints[i]===grapple.anchor;m.rotation.y+=dt*(lit?3:.6);m.material.emissiveIntensity+=((hooked?2.2:lit?1.4+.4*Math.sin(now*.012):.5)-m.material.emissiveIntensity)*Math.min(1,dt*10);});
     groundRefresh+=dt;
     if(groundRefresh>.1&&(living||groundDirty)){groundRefresh=0;groundDirty=false;for(let i=0;i<groundPositions.count;i++){const x=groundPositions.getX(i),z=groundPositions.getZ(i);if(Math.hypot(x+12,z-8)<7)groundPositions.setY(i,ground(x,z));}groundPositions.needsUpdate=true;groundGeometry.computeVertexNormals();}

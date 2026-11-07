@@ -48,11 +48,13 @@ test('holding Q fires the line, then the body swings as a pendulum that never st
 test('letting go keeps the momentum and flies far, with a somersault; Space lets go higher', () => {
   const fly = jump => {
     const { g, player, step } = rig(undefined, () => -20);
-    for (let i = 0; i < 60; i++) step({ hold: true, moveZ: -1 });
+    for (let i = 0; i < 42; i++) step({ hold: true, moveZ: -1 }); // 0.7 s: the zip has lifted you, the arc is still carrying you forward
     step({ hold: jump, jump }); assert.equal(g.phase, 'fly');
     const vy = player.velocity.y;
     for (let i = 0; i < 40; i++) step({});
-    return { vy, z: player.position.z, flip: g.flip };
+    const flip = g.flip;
+    for (let i = 0; i < 400 && !(player.velocity.y < 0 && player.position.y < 2.05); i++) step({}); // until back at start height
+    return { vy, z: player.position.z, flip };
   };
   const plain = fly(false), high = fly(true);
   assert.ok(plain.z < -15, `flew ${plain.z}`); assert.equal(plain.flip, 1);
@@ -73,4 +75,11 @@ test('releasing before the line lands cancels the hook; re-firing mid-air keeps 
   step({ hold: false }); const speed = Math.hypot(player.velocity.x, player.velocity.z);
   step({}); step({ hold: true }); assert.equal(g.phase, 'fire'); assert.equal(g.anchor.z, -24, 'the next anchor, not the one just left');
   assert.ok(Math.abs(g.drive.velocity.z) > speed * .9);
+});
+
+test('while hanging from the rope the player counts as airborne, from the attach step on', () => {
+  const { g, player, step } = rig();
+  let attached = false;
+  for (let i = 0; i < 40; i++) { step({ hold: true, moveZ: -1 }); if (g.phase === 'swing') { attached = true; assert.equal(player.grounded, false, `step ${i}`); } }
+  assert.ok(attached);
 });

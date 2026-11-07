@@ -8,10 +8,11 @@ export const GRAPPLE = {
   gravity: 25,                // matches the player controller
   reel: 2.4, minLength: 3.5,  // the line shortens while swinging so arcs clear the ground
   pump: 10,                   // stick acceleration while hanging (m/s²)
-  tug: 13, airTug: 4,         // yank toward the anchor on attach: off the ground it lifts the body into the arc
-  maxSpeed: 30,
-  releaseUp: 4.5, jumpUp: 8.5, releaseBoost: 1.1,
-  airDrag: .25, airControl: 7,
+  tug: 16, airTug: 4,         // yank toward the anchor on attach: off the ground it lifts the body into the arc
+  zip: .55, zipReel: 21, zipTo: .5, // then reel in hard for a moment (to half the line) so long lines lift you, not drag you
+  maxSpeed: 24,
+  releaseUp: 4.5, jumpUp: 8.5, releaseBoost: .85, releaseMax: 9, releaseRise: 5, // let-go caps: a hop to the next ledge, not a launch
+  airDrag: .8, airControl: 7,
 };
 
 const flatDot = (ax, az, bx, bz) => { const a = Math.hypot(ax, az), b = Math.hypot(bx, bz); return a && b ? (ax * bx + az * bz) / (a * b) : 1; };
@@ -32,11 +33,12 @@ export function pickAnchor(anchors, eye, look, { range = GRAPPLE.range, minDot =
 }
 
 export function createGrapple({ anchors = [], eyeHeight = 2.05 } = {}) {
-  let phase = 'idle', anchor = null, target = null, length = 0, time = 0, held = false, flip = 0, carry = false;
+  let phase = 'idle', anchor = null, target = null, length = 0, time = 0, held = false, flip = 0, carry = false, zipLeft = 0, zipTo = 0;
   const vel = { x: 0, y: 0, z: 0 };
   function release(player, jump) {
     vel.x *= GRAPPLE.releaseBoost; vel.z *= GRAPPLE.releaseBoost;
-    vel.y = Math.max(vel.y, 0) * GRAPPLE.releaseBoost + (jump ? GRAPPLE.jumpUp : GRAPPLE.releaseUp);
+    const flat = Math.hypot(vel.x, vel.z); if (flat > GRAPPLE.releaseMax) { vel.x *= GRAPPLE.releaseMax / flat; vel.z *= GRAPPLE.releaseMax / flat; }
+    vel.y = Math.min(Math.max(vel.y, 0) * GRAPPLE.releaseBoost, GRAPPLE.releaseRise) + (jump ? GRAPPLE.jumpUp : GRAPPLE.releaseUp);
     player.velocity.x = vel.x; player.velocity.y = vel.y; player.velocity.z = vel.z;
     phase = 'fly'; flip = 0; anchor = null;
   }
@@ -74,7 +76,8 @@ export function createGrapple({ anchors = [], eyeHeight = 2.05 } = {}) {
           length = Math.max(GRAPPLE.minLength, Math.hypot(p.x - anchor.x, p.y - anchor.y, p.z - anchor.z));
           const tug = (player.grounded ? GRAPPLE.tug : GRAPPLE.airTug) / length;
           vel.x = player.velocity.x + (anchor.x - p.x) * tug; vel.y = Math.max(0, player.velocity.y) + (anchor.y - p.y) * tug; vel.z = player.velocity.z + (anchor.z - p.z) * tug;
-          length *= player.grounded ? .85 : 1; player.grounded = false;
+          zipLeft = GRAPPLE.zip; zipTo = Math.max(GRAPPLE.minLength, length * GRAPPLE.zipTo); player.grounded = false;
+          return { owns: true }; // the rope has the body from this step on: the controller must not snap it back to the floor
         }
         return { owns: false };
       }
@@ -84,23 +87,27 @@ export function createGrapple({ anchors = [], eyeHeight = 2.05 } = {}) {
       vel.y -= GRAPPLE.gravity * dt;
       vel.x += (input.moveX || 0) * GRAPPLE.pump * dt; vel.z += (input.moveZ || 0) * GRAPPLE.pump * dt;
       p.x += vel.x * dt; p.y += vel.y * dt; p.z += vel.z * dt;
-      length = Math.max(GRAPPLE.minLength, length - GRAPPLE.reel * dt);
+      const zipping = zipLeft > 0; zipLeft -= dt;
+      length = zipping ? Math.max(zipTo, length - GRAPPLE.zipReel * dt) : Math.max(GRAPPLE.minLength, length - GRAPPLE.reel * dt);
       const dx = p.x - anchor.x, dy = p.y - anchor.y, dz = p.z - anchor.z, d = Math.hypot(dx, dy, dz);
       if (d > length) { // taut: back onto the sphere, drop the outward speed
         const nx = dx / d, ny = dy / d, nz = dz / d;
         p.x = anchor.x + nx * length; p.y = anchor.y + ny * length; p.z = anchor.z + nz * length;
         const out = vel.x * nx + vel.y * ny + vel.z * nz;
         if (out > 0) { vel.x -= nx * out; vel.y -= ny * out; vel.z -= nz * out; }
+        const pull = zipping ? GRAPPLE.zipReel * .9 + (vel.x * nx + vel.y * ny + vel.z * nz) : 0; // reel-in carries you with it
+        if (pull > 0) { vel.x -= nx * pull; vel.y -= ny * pull; vel.z -= nz * pull; }
       }
       const speed = Math.hypot(vel.x, vel.y, vel.z);
       if (speed > GRAPPLE.maxSpeed) { const s = GRAPPLE.maxSpeed / speed; vel.x *= s; vel.y *= s; vel.z *= s; }
       player.velocity.x = vel.x; player.velocity.y = vel.y; player.velocity.z = vel.z;
       const floor = floorAt(p.x, p.z, p.y - eyeHeight + .6) + eyeHeight;
-      if (p.y < floor) { p.y = floor; land(player); }
+      if (p.y < floor) { p.y = floor; if (zipping) vel.y = Math.max(0, vel.y); else land(player); }
+      if (phase === 'swing') player.grounded = false; // hanging is airborne (air slashes, air strikes, the avatar)
       return { owns: true };
     },
     /** Horizontal momentum after letting go; the controller applies gravity and collision. */
     get drive() { return phase === 'fly' || (phase === 'fire' && carry) ? { velocity: { x: vel.x, z: vel.z }, blockJump: true } : null; },
-    reset() { phase = 'idle'; anchor = target = null; held = false; flip = 0; vel.x = vel.y = vel.z = 0; },
+    reset() { phase = 'idle'; anchor = target = null; held = false; flip = 0; zipLeft = 0; vel.x = vel.y = vel.z = 0; },
   };
 }

@@ -35,3 +35,5 @@ Desktop.ini
 *.zip
 *.7z
 *.rar
+
+.claude/settings.local.json

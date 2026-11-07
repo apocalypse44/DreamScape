@@ -1,5 +1,28 @@
 // Procedural sky: the celestial bodies share world-space directions with the lights.
 import { CONFIG } from '../models/chaosLookConfig.js';
+
+// The Hollow Gate vortex, shared with the Citadel portal (views/citadelArena.js). p is the stereographic
+// position around the vortex axis (0.26 at the rim). open (0..1) widens the black eye: 1 is the sky's eye.
+// Returns the glowing arms and rim (rgb) and how much the eye swallows (a).
+export const RIFT_VORTEX_GLSL = /* glsl */`
+  float rvHash(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
+  float rvNoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(rvHash(vec3(i, 0.0)), rvHash(vec3(i + vec2(1,0), 0.0)), f.x), mix(rvHash(vec3(i + vec2(0,1), 0.0)), rvHash(vec3(i + vec2(1,1), 0.0)), f.x), f.y);
+  }
+  vec4 riftVortex(vec2 p, float phase, float open) {
+    float r = length(p) / 0.26;                                        // 1 at the rim, ~29° from the centre
+    float swirl = atan(p.y, p.x) + 2.6 * log(r + 0.04) - phase;
+    float arms = 0.5 + 0.5 * sin(3.0 * swirl + rvNoise(p * 9.0 + phase * 0.3) * 2.5);
+    float disk = 1.0 - smoothstep(0.55, 1.0, r);
+    float o = max(open, 0.001);
+    float eye = (1.0 - smoothstep(0.08 * o, 0.22 * o + 0.001, r)) * step(0.002, open);
+    float ringOffset = (r - 0.24 * max(o, 0.25)) / 0.07;
+    float ring = exp(-ringOffset * ringOffset);                        // not pow(): undefined for a negative base
+    vec3 armColor = mix(vec3(0.8, 0.07, 0.04), vec3(0.42, 0.07, 0.6), smoothstep(0.25, 0.9, r)); // red in, violet out
+    return vec4(armColor * arms * arms * disk * 1.6 + vec3(1.0, 0.32, 0.12) * ring * 1.3, eye);
+  }
+`;
 const vertexShader = /* glsl */`
   varying vec3 vDir;
   void main() {
@@ -16,6 +39,7 @@ const fragmentShader = /* glsl */`
   uniform float uVortex, uVortexPhase;
   uniform vec3 uVortexDir;
   varying vec3 vDir;
+  ${RIFT_VORTEX_GLSL}
   float hash(vec3 p) {
     p = fract(p * 0.1031);
     p += dot(p, p.yzx + 33.33);
@@ -101,18 +125,10 @@ const fragmentShader = /* glsl */`
     if (uVortex > 0.001 && vortexDot > 0.0) {
       vec3 side = normalize(cross(uVortexDir, abs(uVortexDir.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0)));
       vec2 p = vec2(dot(d, side), dot(d, cross(uVortexDir, side))) / (1.0 + vortexDot);
-      float r = length(p) / 0.26;                                        // 1 at the rim, ~29° from the centre
-      float swirl = atan(p.y, p.x) + 2.6 * log(r + 0.04) - uVortexPhase;
-      float arms = 0.5 + 0.5 * sin(3.0 * swirl + noise(p * 9.0 + uVortexPhase * 0.3) * 2.5);
-      float disk = 1.0 - smoothstep(0.55, 1.0, r);
-      float eye = 1.0 - smoothstep(0.08, 0.22, r);
-      float ringOffset = (r - 0.24) / 0.07;
-      float ring = exp(-ringOffset * ringOffset);                        // not pow(): undefined for a negative base
-      vec3 armColor = mix(vec3(0.8, 0.07, 0.04), vec3(0.42, 0.07, 0.6), smoothstep(0.25, 0.9, r)); // red in, violet out
-      vec3 vortex = armColor * arms * arms * disk * 1.6 + vec3(1.0, 0.32, 0.12) * ring * 1.3;
+      vec4 vortex = riftVortex(p, uVortexPhase, 1.0);
       float show = uVortex * aboveHorizon;
-      col = mix(col, vec3(0.012, 0.0, 0.006), eye * show);               // the eye swallows the light
-      col += vortex * show;
+      col = mix(col, vec3(0.012, 0.0, 0.006), vortex.a * show);          // the eye swallows the light
+      col += vortex.rgb * show;
     }
     col += mix(vec3(0.35, 0.42, 0.6), uEvilFlash, uEvil) * uFlash;
     float horizonFog = 1.0 - smoothstep(0.0, 0.14, altitude);
