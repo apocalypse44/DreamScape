@@ -20,9 +20,7 @@ ASSETS = [
     'music',
     'particles',
     'Stylized Nature MegaKit[Standard]/glTF',
-    'Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb',
-    'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb',
-    'universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Female Mannequin/Unreal-Godot/Mannequin_F.glb',
+    # NPC bodies and clips ship as src/assets/people (tools/peopleBuilder.js); the UAL packs are dev-only.
     # Diamond kingdom (DIAMOND_KINGDOM_TERRAIN.md): particle sprites and the shack roofs' corrugated steel.
     *[f'kenney_particle-pack/PNG (Transparent)/{n}.png' for n in ['smoke_04', 'circle_05', 'star_06', 'magic_02', 'spark_04']],
     'kenney_particle-pack/License.txt',

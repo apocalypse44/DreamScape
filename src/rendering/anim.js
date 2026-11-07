@@ -1,39 +1,5 @@
 // Animation and movement helpers shared by the dog's moods and the lore NPCs.
 
-// Resolve a { role: [patterns] } table to { role: clip }; the first pattern that matches wins.
-export function resolveClips(clips, table) {
-  const out = {};
-  for (const [role, patterns] of Object.entries(table)) {
-    out[role] = null;
-    for (const p of patterns) {
-      out[role] = clips.find((clip) => p.test(clip.name)) ?? null;
-      if (out[role]) break;
-    }
-  }
-  return out;
-}
-
-// Crossfading player: play(clip) fades from the current clip to the new one.
-export function makeActionPlayer(mixer) {
-  const actions = new Map();
-  let current = null;
-  return {
-    play(clip) {
-      if (!clip) return;
-      if (!actions.has(clip)) actions.set(clip, mixer.clipAction(clip));
-      const next = actions.get(clip);
-      if (next === current) return;
-      next.reset().fadeIn(0.25).play();
-      current?.fadeOut(0.25);
-      current = next;
-    },
-    stop() {
-      actions.forEach((a) => a.stop());
-      current = null;
-    },
-  };
-}
-
 // Clone a rigged (skinned) model so each copy has its own skeleton.
 // A plain .clone() shares the skeleton and breaks animation. Same algorithm
 // as three's SkeletonUtils.clone, included here so no extra vendor file is needed.

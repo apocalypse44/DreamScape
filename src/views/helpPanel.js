@@ -10,7 +10,7 @@ const withKeys = text => escape(text).replace(KEY, '<kbd>$1</kbd>');
 const CONTROLS = [
   ['W A S D', 'Move'], ['Shift', 'Run (stirs chaos)'], ['Space', 'Jump'],
   ['E', 'Call the wisps · talk · use'], ['Q', 'Push the wisps away (stirs chaos)'], ['F', 'Call the wisps back'],
-  ['M', 'Map and journal'], ['G', 'Show or hide the route'], ['V', 'Switch camera'], ['I', 'Hide side panels'],
+  ['M', 'Map and journal'], ['G', 'Show or hide the route'], ['I', 'Hide side panels'],
 ];
 
 export function createHelpPanel({ quest, spade, clover, diamond, state }) {

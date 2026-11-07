@@ -200,10 +200,30 @@ export function createKingdomGates({ scene, world, onReady }) {
     lintel.position.y = 4.9;
     const sign = plaque([k.name], { width: 5, ink: k.ink, ground: k.ground, edge: `#${k.colour.toString(16).padStart(6, '0')}`, height: 0.8 });
     sign.position.y = 4.25;
-    const emblem = new THREE.Mesh(extrude(k.shapes(), 0.25), glow);
-    emblem.position.y = 6.3;
-    gate.add(lintel, sign, emblem);
-    animated.push({ object: emblem, spin: 0.6, bob: 0.12 });
+    gate.add(lintel, sign);
+    if (k.name === 'DIAMOND KINGDOM') {
+      // A crystal arch over the obelisks with a gold rim, crowned by a brilliant-cut gem in a gold ring
+      // and four small gems circling it in a halo.
+      const crystal = new THREE.MeshStandardMaterial({ color: 0xf3e2b0, roughness: .25, metalness: .2, emissive: 0x8a6420, emissiveIntensity: .45, flatShading: true });
+      const gold = new THREE.MeshStandardMaterial({ color: 0xe8b84a, roughness: .35, metalness: .7, emissive: 0x6a4a10, emissiveIntensity: .6 });
+      const arch = new THREE.Mesh(new THREE.TorusGeometry(half, .38, 6, 28, Math.PI), crystal); arch.position.y = 5.05;
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(half - .42, .09, 6, 28, Math.PI), gold); rim.position.y = 5.05;
+      gate.add(arch, rim);
+      const cut = new THREE.LatheGeometry([[0, -1.25], [.95, 0], [.8, .28], [.48, .45], [0, .45]].map(([r, y]) => new THREE.Vector2(r, y)), 8);
+      const keystone = new THREE.Group(), gem = new THREE.Mesh(cut, new THREE.MeshStandardMaterial({ color: 0xffb72e, emissive: 0xa86a08, emissiveIntensity: .8, roughness: .2, metalness: .35, flatShading: true }));
+      keystone.add(gem, new THREE.Mesh(new THREE.TorusGeometry(1.75, .12, 8, 40), gold));
+      const orbit = new THREE.Group();
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2, small = new THREE.Mesh(new THREE.OctahedronGeometry(.22), crystal); small.position.set(Math.cos(a) * 2.25, 0, Math.sin(a) * 2.25); orbit.add(small); } // a halo around the gem
+      keystone.add(orbit);
+      keystone.position.y = 5.05 + half + 1.9; keystone.name = 'Diamond keystone'; // the ring rests on the arch, like the Clover keystone
+      gate.add(keystone);
+      animated.push({ object: keystone, spin: 0.35, bob: 0.15 }, { object: orbit, spin: -0.8 });
+    } else {
+      const emblem = new THREE.Mesh(extrude(k.shapes(), 0.25), glow);
+      emblem.position.y = 6.3;
+      gate.add(emblem);
+      animated.push({ object: emblem, spin: 0.6, bob: 0.12 });
+    }
     for (const object of gate.children) object.castShadow = true;
     const at = trailPoint(world.noise, k.road, world.kingdomStart - 6);
     place(gate, k.name, at.x, at.z, half, 0.75);

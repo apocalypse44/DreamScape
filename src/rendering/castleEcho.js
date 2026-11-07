@@ -1,4 +1,5 @@
 import { createCastleEcho, ECHO_FRAGMENTS, ECHO_ENTRY } from '../models/castleEcho.js';
+import { createHologram } from './hologram.js';
 
 export function buildCastleEcho({root,obstacles,notify}) {
   const model=createCastleEcho(),group=new THREE.Group();
@@ -50,39 +51,19 @@ export function buildCastleEcho({root,obstacles,notify}) {
   linkTransforms.forEach((matrix,i)=>links.setMatrixAt(i,matrix));links.frustumCulled=false;group.add(links);
   const last=ECHO_FRAGMENTS.at(-1),vision=new THREE.Group();
   vision.position.set(last.x+.65,last.top,last.z+.55);group.add(vision);
-  // Veyr's projection, drawn after Dante Zogratis of Black Clover's Dark Triad: tall, long dark hair swept
-  // back past the shoulders, an open long coat with a high flared collar over a bare chest. It faces -z,
-  // as the original apparition did. Coat pieces are open cylinders with the gap at the front (-z).
-  const ghost=(color,opacity)=>new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,side:THREE.DoubleSide});
-  const coat=ghost(0x3d2e66,.7),skin=ghost(0xe2d3f5,.55),hair=ghost(0x1a1230,.82),pants=ghost(0x2a2045,.65);
-  const tones=[[coat,.7],[skin,.55],[hair,.82],[pants,.65]];
-  const open=(top,bottom,height,y,material)=>{const m=mesh(new THREE.CylinderGeometry(top,bottom,height,14,1,true,Math.PI*1.2,Math.PI*1.6),material,vision,0,y,0);return m;};
-  for(const side of [-1,1]){
-    mesh(new THREE.CylinderGeometry(.1,.08,1.0,8),pants,vision,side*.12,.5,0);                    // legs
-    const sleeve=mesh(new THREE.CylinderGeometry(.075,.095,.82,8),coat,vision,side*.36,1.42,0);   // sleeves
-    sleeve.rotation.z=side*.18;
-    mesh(new THREE.SphereGeometry(.07,10,8),skin,vision,side*.43,1.0,-.02);                       // hands
-    mesh(new THREE.SphereGeometry(.12,10,8),coat,vision,side*.29,1.8,0);                          // shoulders
-    mesh(new THREE.SphereGeometry(.022,8,6),glow,vision,side*.045,2.07,-.115);                    // eyes
-  }
-  open(.3,.48,1.05,.78,coat);                                                                     // coat tails
-  mesh(new THREE.CylinderGeometry(.19,.16,.62,12),skin,vision,0,1.5,0);                           // bare chest
-  open(.27,.25,.66,1.5,coat);                                                                     // coat body
-  open(.36,.2,.42,2.0,coat);                                                                      // flared collar
-  mesh(new THREE.CylinderGeometry(.06,.07,.14,8),skin,vision,0,1.9,0);                            // neck
-  mesh(new THREE.SphereGeometry(.13,14,12),skin,vision,0,2.05,-.01);                              // head
-  mesh(new THREE.SphereGeometry(.142,14,10,0,Math.PI*2,0,Math.PI*.55),hair,vision,0,2.07,.012);  // hair, swept back
-  const mane=mesh(new THREE.CylinderGeometry(.15,.21,.82,10),hair,vision,0,1.68,.13);             // long hair down the back
-  mane.scale.z=.45;
+  // Veyr's projection over the last fragment, facing -z as the original apparition did, and the
+  // erased witness kneeling beside him (head bowed, not another enemy): character holograms.
+  const veyr=createHologram({name:'veyr',clip:'Spell_Simple_Idle_Loop',scale:1.15,color:0x9d6bff,eyes:true});
+  veyr.root.rotation.y=Math.PI;vision.add(veyr.root);
+  const witness=createHologram({name:'villager',clip:'Fixing_Kneeling',color:0xbfb4e8});
+  witness.root.position.set(-1.1,0,-.45);witness.root.rotation.y=Math.PI*.75;vision.add(witness.root);
+  const holograms=[veyr,witness];
+  const skin=new THREE.MeshBasicMaterial({color:0xe2d3f5,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide}); // erased portrait faces
   const chains=[];
   for(const z of [-8,0,8]){
     const points=[new THREE.Vector3(last.x+.65,last.top+1.3,last.z+.55),new THREE.Vector3(-511,30.3,z/2),new THREE.Vector3(-518,31.2,z)];
     const chain=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),lineMat);group.add(chain);chains.push(chain);
   }
-  // A faint hooded witness kneels beside the projection, head bowed, rather than another enemy.
-  mesh(new THREE.ConeGeometry(.3,.75,10),phantom,vision,-1.1,.38,-.45);
-  mesh(new THREE.SphereGeometry(.13,12,10),skin,vision,-1.1,.8,-.38);
-  mesh(new THREE.SphereGeometry(.16,12,8,0,Math.PI*2,0,Math.PI*.6),phantom,vision,-1.1,.83,-.42);
   // The existing scraped portrait frames regain their erased silhouettes.
   for(const u of [134,147,160]){
     const portrait=new THREE.Group();portrait.position.set(-344-u,19.15,14.45);group.add(portrait);
@@ -108,10 +89,11 @@ export function buildCastleEcho({root,obstacles,notify}) {
       group.visible=model.active;
       if(!model.active)return;
       time+=dt;glow.opacity=.65+Math.sin(time*1.7)*.1;
+      for(const h of holograms)h.update(dt);
       // Only the apparition flickers; all physical landings stay fixed.
       const flicker=(state.chaos>.4?.7:1)+Math.sin(time*4)*.05;
       phantom.opacity=.72*flicker;
-      for(const [material,base] of tones)material.opacity=base*flicker;
+      skin.opacity=.55*flicker;
       chains.forEach((c,i)=>c.visible=state.chaos>.4||model.recovered||i===0);
     },
     reset(){model.reset();group.visible=false;time=0;},

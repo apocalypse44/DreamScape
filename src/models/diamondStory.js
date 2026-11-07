@@ -152,7 +152,7 @@ const CAST = {
     [0, 93.8, 51.4, 'Fixing_Kneeling'], [26.6, 93.8, 51.4, 'Walk_Loop'], [28, 91, 53.6, 'Spell_Simple_Shoot'], [30.4, 91, 53.6, 'Idle_Loop']] },
   scribe: { body: 'F', tint: 0x4d4a44, face: [89.8, 54.8], keys: [
     [0, 90.8, 56.2, 'Idle_Loop'], [20.6, 90.8, 56.2, 'Fixing_Kneeling'], [25, 90.8, 56.2, 'Walk_Loop'], [26.4, 88.6, 57.6, 'Idle_Loop']] },
-  orin: { body: 'M', tint: 0x6a5f4a, robe: 0x3f4656, face: [85.5, 55], keys: [
+  orin: { person: 'orin', tint: 0x6a5f4a, face: [85.5, 55], keys: [
     [0, 87.6, 50.4, 'Idle_FoldArms_Loop'], [9, 87.6, 50.4, 'Idle_No_Loop'], [14, 87.6, 50.4, 'Idle_Loop'], [25.6, 87.6, 50.4, 'Walk_Loop'],
     [27, 89, 52.4, 'Spell_Simple_Idle_Loop'], [31, 89, 52.4, 'Idle_Loop']] },
 };

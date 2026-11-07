@@ -16,6 +16,39 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
   const direction = new THREE.Vector3(), bend = new THREE.Vector3(), projected = new THREE.Vector3(), desired = new THREE.Vector3();
   const rotation = new THREE.Quaternion(), parent = new THREE.Quaternion(), world = new THREE.Quaternion();
   const swing = new THREE.Quaternion(), euler = new THREE.Euler();
+  // Swarm gestures, posed over whatever the legs are doing: E opens both arms wide to gather the wisps,
+  // Q thrusts both palms at them in pulses, F raises both arms overhead and beckons them home.
+  const arms = [], up = new THREE.Vector3(0, 1, 0), side = new THREE.Vector3(), aim = new THREE.Vector3(), lastCast = new THREE.Vector3();
+  const shoulder = new THREE.Vector3(), elbow = new THREE.Vector3(), wrist = new THREE.Vector3(), knuckle = new THREE.Vector3(), turn = new THREE.Quaternion();
+  let castWeight = 0, castTime = 0, chest = null;
+  function aimBone(bone, from, to, goal, weight) { turn.setFromUnitVectors(to.sub(from).normalize(), goal); rotate(bone, turn.slerp(rotation.identity(), 1 - weight)); }
+  function castArms(dt, castAt, gesture) {
+    castTime += dt;
+    castWeight += ((castAt && arms.length ? 1 : 0) - castWeight) * (1 - Math.exp(-8 * dt));
+    if (castAt) lastCast.copy(castAt).sub(player.position); // relative, so lowering arms follow the player
+    if (castWeight < .01) return;
+    const pulse = gesture === 'push' ? Math.max(0, Math.sin(castTime * 9)) : 0;
+    if (chest) { // the chest leans into a shove, arches back to call them home
+      euler.set(gesture === 'push' ? .12 + .1 * pulse : gesture === 'recall' ? -.14 : -.05, 0, 0); swing.setFromEuler(euler);
+      chest.quaternion.multiply(rotation.identity().slerp(swing, castWeight));
+    }
+    root.updateMatrixWorld(true);
+    side.set(Math.cos(heading), 0, -Math.sin(heading)); // the traveller's left
+    for (const arm of arms) {
+      arm.upper.getWorldPosition(shoulder);
+      aim.copy(lastCast).add(player.position).sub(shoulder);
+      const off = Math.atan2(Math.sin(Math.atan2(aim.x, aim.z) - heading), Math.cos(Math.atan2(aim.x, aim.z) - heading));
+      const bearing = heading + THREE.MathUtils.clamp(off, -.95, .95), flat = Math.hypot(aim.x, aim.z); // never behind the body
+      aim.set(Math.sin(bearing) * flat, THREE.MathUtils.clamp(aim.y, -flat * .4, flat * .8), Math.cos(bearing) * flat).normalize();
+      if (gesture === 'attract') aim.addScaledVector(side, arm.sign * 1.1).addScaledVector(up, .35).normalize();
+      else if (gesture === 'push') { aim.y *= .3; aim.addScaledVector(side, arm.sign * (.12 - .1 * pulse)).normalize(); }
+      else aim.lerp(up, .75 + .2 * Math.sin(castTime * 6 + arm.sign)).addScaledVector(side, arm.sign * .25).normalize();
+      arm.fore.getWorldPosition(elbow); aimBone(arm.upper, shoulder, elbow, aim, castWeight);
+      arm.fore.getWorldPosition(elbow); arm.hand.getWorldPosition(wrist); aimBone(arm.fore, elbow, wrist, aim, castWeight);
+      arm.hand.getWorldPosition(wrist); arm.finger.getWorldPosition(knuckle);
+      aimBone(arm.hand, wrist, knuckle, aim.lerp(up, gesture === 'recall' ? .2 : .6).normalize(), castWeight); // palms out
+    }
+  }
   let mixer = null, model = null, sword = null, sockets = {}, failed = false, label = '', name = 'loading', heading = state.yaw + Math.PI, tilt = 0, ik = 0;
   let rootMotion = {}, modelScale = 1, clock = 0, drawn = false, face = null, faceOverride = null, faceOverrideTime = 0, expression = 'neutral';
   const capeState = { pitch: .1, pitchV: 0, roll: 0, rollV: 0, lastHeading: heading };
@@ -52,7 +85,10 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
     for (const side of ['l', 'r']) {
       const thigh = model.getObjectByName(`thigh_${side}`), calf = model.getObjectByName(`calf_${side}`), ankle = model.getObjectByName(`foot_${side}`);
       if (thigh && calf && ankle) { ankle.getWorldPosition(foot); legs.push({ thigh, calf, ankle, sole: foot.y - root.position.y }); }
+      const upper = model.getObjectByName(`upperarm_${side}`), fore = model.getObjectByName(`lowerarm_${side}`), hand = model.getObjectByName(`hand_${side}`), finger = model.getObjectByName(`middle_01_${side}`);
+      if (upper && fore && hand && finger) arms.push({ upper, fore, hand, finger, sign: side === 'l' ? 1 : -1 });
     }
+    chest = model.getObjectByName('spine_03');
   }).catch(error => { failed = true; console.warn('Traveller could not load.', error); });
   function rotate(bone, q) {
     bone.parent.getWorldQuaternion(parent); bone.getWorldQuaternion(world).premultiply(q);
@@ -114,12 +150,12 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
     reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = 0; capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
     update(dt, cameraDistance = 3.8, castAt = null, combat = null) {
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
-      const pose = motion.update(dt, { speed, grounded: player.grounded, verticalSpeed: player.velocity.y, crouching: state.crouching, casting: Boolean(castAt), inFlight: player.inFlight, armed: Boolean(combat?.drawn) });
+      const pose = motion.update(dt, { speed, grounded: player.grounded, verticalSpeed: player.velocity.y, crouching: state.crouching, casting: castAt ? state.swarmGesture || 'attract' : false, inFlight: player.inFlight, armed: Boolean(combat?.drawn) });
       const acting = Boolean(combat?.clip && actions.has(combat.clip));
       name = acting ? combat.clip : pose.name;
-      const nextLabel = failed ? 'Traveller unavailable' : `${state.perspective === 'first' ? 'FPP' : 'TPP'} · Traveller · ${name}`;
+      const nextLabel = failed ? 'Traveller unavailable' : `TPP · Traveller · ${name}`;
       if (status && nextLabel !== label) { status.textContent = nextLabel; label = nextLabel; }
-      root.visible = Boolean(mixer) && !state.memory && (state.perspective !== 'first' || state.cinematic || player.inFlight) && cameraDistance > .65;
+      root.visible = Boolean(mixer) && !state.memory && cameraDistance > .65;
       root.position.copy(player.position); root.position.y -= 2.05;
       const target = state.cinematic ? state.cinematicYaw ?? heading : acting ? combat.facing : speed > .15 ? Math.atan2(player.velocity.x, player.velocity.z) : heading;
       const difference = Math.atan2(Math.sin(target - heading), Math.cos(target - heading));
@@ -131,9 +167,10 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       holdSword(Boolean(combat?.drawn));
       if (!mixer || !root.visible) { trail.clear(); return; }
       if ((faceOverrideTime -= dt) <= 0) faceOverride = null;
-      expression = pickExpression({ reactive: reactiveFace, override: faceOverride, combat: combat?.clip, casting: Boolean(castAt), grounded: player.grounded,
+      const speaking = Boolean(state.cinematic && /^(YOU|TRAVELL?ER)$/i.test(state.cinematicSpeaker || ''));
+      expression = pickExpression({ reactive: reactiveFace, override: faceOverride || (speaking ? state.cinematicFace : null), combat: combat?.clip, casting: Boolean(castAt), grounded: player.grounded,
         verticalSpeed: player.velocity.y, speed, sprinting: speed > walkSpeed * 1.25, chaos: state.chaos, petting: (state.interactionLock || 0) > 0 });
-      face?.update(dt, expression, Boolean(state.cinematic && /^(YOU|TRAVELL?ER)$/i.test(state.cinematicSpeaker || '')));
+      face?.update(dt, expression, speaking);
       if (pose.takeoff) actions.get('jumpStart')?.reset().play();
       if (pose.landed && !acting) actions.get('land')?.reset().play();
       for (const [clip, action] of actions) {
@@ -153,6 +190,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       const lateral = player.velocity.x * Math.cos(heading) - player.velocity.z * Math.sin(heading);
       swingCape(dt, forward, lateral, turnRate);
       placeFeet(dt, !acting || combat.clip === 'block' || combat.clip === 'combatIdle');
+      castArms(dt, acting ? null : castAt, state.swarmGesture || 'attract');
       if (combat?.trail && sword) { root.updateMatrixWorld(true); trail.push(sword); } else trail.fade(dt);
     },
   };

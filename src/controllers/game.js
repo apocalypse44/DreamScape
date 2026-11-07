@@ -187,7 +187,7 @@ export function startGame(ui, { testStartId = null } = {}) {
       platforms.some(p => p.solid && p.bottom < ground + 1.8 && (p.top ?? Infinity) > ground + 0.3 &&
         (p.contains ? p.contains(x, z, 0.5) : Math.abs(x - p.x) < (p.width ?? 0) / 2 + 0.5 && Math.abs(z - p.z) < (p.depth ?? 0) / 2 + 0.5));
   };
-  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, blocked: npcBlocked, onReady: root => atmosphere?.prepare?.(root) });
+  const npcs = createNPCs({ scene, state, player, terrainHeight, hash, colliders: shrine.colliders, blocked: npcBlocked, onReady: root => atmosphere?.prepare?.(root), hour: () => atmosphere?.clock.hour ?? 12 });
   // NPC fetching/parsing uses fetch rather than the Three.js loading manager.
   startup.begin(performance.now());
   npcs.ready.finally(() => startup.end(performance.now()));
@@ -291,8 +291,10 @@ export function startGame(ui, { testStartId = null } = {}) {
     if (insideSwarmWorld && mode === "attract") state.chaos -= 0.12 * dt;
     if (insideSwarmWorld && (mode === "repel" || mode === "strike")) state.chaos += 0.2 * dt;
     swarm.setEnabled(insideSwarmWorld, player.position);
+    swarm.remembered = spade.campaign.lit; // one wisp remembers its name per lit memory lantern
     swarm.update(dt, player.position, camera, mode, state.chaos, strike);
     swarmCast = swarm.enabled && mode !== "roaming" ? swarm.target : null; // the character raises its arms at it
+    state.swarmGesture = swarmCast ? (mode === 'attract' ? 'attract' : mode === 'recall' ? 'recall' : 'push') : null;
     swarmPanelEl.classList.toggle("active", insideSwarmWorld);
     swarmStatusEl.textContent = mode.toUpperCase();
   }
@@ -310,7 +312,7 @@ export function startGame(ui, { testStartId = null } = {}) {
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters };
+  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters, npcs };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
   // Diamond's shots are laid out from its gate. The flyover and the power-up stream terrain along the camera.
   for (const [name, shot] of Object.entries(DIAMOND_SHOTS)) {

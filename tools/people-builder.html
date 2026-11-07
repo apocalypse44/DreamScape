@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DreamScape people builder</title>
+<base href="../">
+<style>body{font:15px system-ui;background:#1b1f2e;color:#ede5cc;padding:2rem}button{padding:.7rem;margin:.2rem;cursor:pointer}pre{white-space:pre-wrap;font-size:11px}</style>
+<h2>People builder</h2>
+<p>Builds src/assets/people/*.glb from the CC0 Quaternius rig with tools/peopleKit.js recipes. Dev-only; not deployed.</p>
+<div id="buttons"><button data-clips>Build people-clips.glb</button></div><pre id="status">Ready.</pre>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="vendor/GLTFExporter.js"></script>
+<script type="module">
+import { buildPeopleClips, buildPerson, RECIPES } from './tools/peopleBuilder.js';
+window.buildPeopleClips = buildPeopleClips; window.buildPerson = buildPerson; window.peopleRecipes = Object.keys(RECIPES);
+const status = document.querySelector('#status'), buttons = document.querySelector('#buttons');
+const save = (buffer, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buffer], { type: 'model/gltf-binary' })); a.download = name; a.click(); };
+const run = async (job, file) => { status.textContent = 'Building...'; try { const { buffer, stats } = await job(); save(buffer, file); status.textContent = JSON.stringify(stats, null, 2); } catch (e) { status.textContent = e.stack; throw e; } };
+buttons.querySelector('[data-clips]').onclick = () => run(buildPeopleClips, 'people-clips.glb');
+for (const name of Object.keys(RECIPES)) { const b = document.createElement('button'); b.textContent = `Build ${name}.glb`; b.onclick = () => run(() => buildPerson(name), `${name}.glb`); buttons.append(b); }
+// Close-up preview through the deployed runtime: window.previewPerson({ name, clip, time, yaw, expression, distance, aim }).
+import('./src/rendering/person.js').then(({ createPerson }) => {
+  const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 640; canvas.style.cssText = 'width:640px;height:640px;display:block'; document.body.append(canvas);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = true;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xdce7de);
+  scene.add(new THREE.HemisphereLight(0xe9f0df, 0x7f907b, .95)); const sun = new THREE.DirectionalLight(0xffebc8, 1.4); sun.position.set(-3, 6, 4); sun.castShadow = true; scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(4, 40), new THREE.MeshStandardMaterial({ color: 0x9fb48f })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const camera = new THREE.PerspectiveCamera(35, 1, .05, 50), people = {};
+  window.previewPerson = async ({ name = 'shrineKeeper', clip = 'Idle_Loop', time = .5, yaw = 0, expression = 'smile', distance = 3.6, aim = .95, height = 1.0 } = {}) => {
+    for (const p of Object.values(people)) p.root.visible = false;
+    const person = people[name] ||= createPerson({ name }); scene.add(person.root); await person.ready; person.root.visible = true;
+    for (const a of Object.values(person.actions)) a.stop(); person.current = null; person.play(clip, 0, false);
+    for (let i = 0; i < 40; i++) person.update(1 / 60, { expression });
+    if (person.actions[clip]) person.actions[clip].time = time; person.update(1e-4, { expression });
+    camera.position.set(Math.sin(yaw) * distance, height, Math.cos(yaw) * distance); camera.lookAt(0, aim, 0); renderer.render(scene, camera);
+  };
+  window.peopleReady = true;
+});
+</script>

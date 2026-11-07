@@ -3,8 +3,7 @@
 import { makeRng, subSeed } from '../models/rng.js';
 import { SHRINE } from '../models/quest.js';
 import { isInsideSpadeCastle } from '../models/spadeCastle.js';
-import { NPC_ASSETS, NPC_HEIGHT, HINTS, PET_DISTANCE, PET_TIME, PET_CHAOS_DROP, CHAOS_CALM } from '../models/encounterConfig.js';
-import { loadModel } from '../rendering/models.js';
+import { HINTS, PET_DISTANCE, PET_TIME, PET_CHAOS_DROP, CHAOS_CALM } from '../models/encounterConfig.js';
 import { unlockAudio } from '../rendering/fx.js';
 import { EmberSystem } from '../rendering/embers.js';
 import { DogBrain } from '../rendering/dog.js';
@@ -19,7 +18,6 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
   const dog = companion.dogHandle;
   const dogBrain = new DogBrain({ scene, dog, rng: makeRng(subSeed(world.seed, 101)), terrainHeight: world.terrainHeight, addChaos });
   let people = null;
-  let assets = null; // loaded once, reused on reset
   const promptPos = new THREE.Vector3();
 
   // The dog's moods only tell apart before, during (cursed + return) and after the curse.
@@ -29,22 +27,16 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
 
   function spawnPeople() {
     people?.dispose();
-    people = new People({ scene, assets, terrainHeight: world.terrainHeight, seed: world.seed, blocked });
+    people = new People({ scene, terrainHeight: world.terrainHeight, seed: world.seed, blocked, colliders: shrine.colliders });
     // Keeper just outside the shrine tower (east side), facing outward.
     let offset = 3.5;
     while (offset < 12 && blocked(SHRINE.x + offset, SHRINE.z)) offset += 0.5;
     const x = SHRINE.x + offset;
-    people.spawnKeeper(new THREE.Vector3(x, world.terrainHeight(x, SHRINE.z), SHRINE.z), () => quest.shrineText, Math.PI / 2);
+    people.spawnKeeper(new THREE.Vector3(x, world.terrainHeight(x, SHRINE.z), SHRINE.z), () => quest.shrineText, Math.PI / 2, { shrine: SHRINE });
     people.spawnWanderers(findCrossingHomes(makeRng(subSeed(world.seed, 202)), world.terrainHeight, Object.keys(HINTS), blocked), HINTS);
   }
 
-  // NPCs appear once their models load; a missing file falls back to procedural bodies.
-  const tryLoad = (url) => loadModel(url, NPC_HEIGHT).catch((error) => {
-    console.warn('Could not load NPC asset', url, error);
-    return null;
-  });
-  Promise.all([tryLoad(NPC_ASSETS.mannequin), tryLoad(NPC_ASSETS.ual1), tryLoad(NPC_ASSETS.ual2)])
-    .then(([mannequin, ual1, ual2]) => { assets = { mannequin, ual1, ual2 }; spawnPeople(); });
+  spawnPeople(); // people-kit characters stream in on their own
 
   function canPet() {
     if (stage() === 'cursed' || state.chaos >= CHAOS_CALM) return false;
@@ -69,7 +61,7 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
       embers.setWorldVisible(stage() === 'cursed');
       embers.update(dt, t, player.position, state.chaos);
       people?.update(dt, { playerPos: player.position, sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'), chaos: state.chaos, camera, renderer,
-        cinematic: state.cinematic, speaker: state.cinematicSpeaker });
+        cinematic: state.cinematic, speaker: state.cinematicSpeaker, face: state.cinematicFace, dogPos: dog.object.visible !== false ? dog.object.position : null });
       if (isInputActive() && canPet() && dogBrain.state !== 'pet') {
         promptPos.copy(dog.object.position);
         promptPos.y += 1.4;
@@ -107,7 +99,7 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
       hidePrompt();
       embers.setEmbers(quest.embers.map(({ x, y, z }) => new THREE.Vector3(x, y, z)));
       dogBrain.reset(makeRng(subSeed(world.seed, 101)));
-      if (assets) spawnPeople(); // before assets load, loading spawns them once
+      spawnPeople();
     },
   };
 }

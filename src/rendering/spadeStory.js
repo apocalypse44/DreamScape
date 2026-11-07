@@ -1,5 +1,10 @@
+import { createHologram } from './hologram.js';
 import { storyVolumes } from '../models/spadeStory.js';
 import { insideRefuge } from '../models/spadeCampaign.js';
+
+// Throne holograms, in the order of the throne labels (v = -8, 0, 8): Veyr violet and casting,
+// Sile crimson, Morcant gold with folded arms.
+const TRIAD_HOLOGRAMS=[['veyr','Spell_Simple_Idle_Loop',0x9d6bff],['sile','Idle_Loop',0xff4d6d],['morcant','Idle_FoldArms_Loop',0xf2c14e]];
 
 // ground(x, z): the terrain as drawn, for paths laid over slopes. road: the avenue's paving material.
 export function buildSpadeStory({root,add,block,label,height,ground,road}) {
@@ -57,6 +62,7 @@ export function buildSpadeStory({root,add,block,label,height,ground,road}) {
   // The Dark Triad's thrones (after Black Clover's Spade castle): black stone with spired backs, a
   // blood-crimson panel and a gold spade crest, under the observatory's 5.9 m ceiling. They face the
   // hall (+x). Name plaques sit on each dais front, readable on approach.
+  const rulers=[];
   for(const [i,v]of [-8,0,8].entries()){
     const floor=30.12,back=floor+3.6;
     block(173.6,v,3.4,3.4,.3,floor,'obsidian');                                   // dais
@@ -70,6 +76,9 @@ export function buildSpadeStory({root,add,block,label,height,ground,road}) {
       add('spade',173.1,floor+1.45,v+side*1.2,.32,.36,.08,'gold',Math.PI/2);      // finials
     }
     label(['VEYR · THE BINDER','SILE · THE HARVESTER','MORCANT · THE GATEKEEPER'][i],171.85,floor+.55,v,3.4);
+    // The ruler's hologram stands on the seat, over the binding crystal, facing the hall (+x).
+    const [name,clip,color]=TRIAD_HOLOGRAMS[i],ruler=createHologram({name,clip,color,scale:1.2,eyes:true});
+    ruler.root.position.set(-344-174,floor+.75,v);ruler.root.rotation.y=Math.PI/2;root.add(ruler.root);rulers.push(ruler);
   }
   const uniforms={uTime:{value:0}};
   const material=new THREE.ShaderMaterial({uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide,
@@ -86,6 +95,7 @@ export function buildSpadeStory({root,add,block,label,height,ground,road}) {
     insideRefuge,
     update(dt,player,state,notify){
       uniforms.uTime.value+=dt;
+      if(Math.abs(player.position.x+518)<40&&player.position.y>25)for(const r of rulers)r.update(dt); // only near the thrones
       if(!state.locked||state.chaos>.4)return;
       if(!seenGate&&player.position.x<-510&&player.position.x>-520&&Math.abs(player.position.z)<5&&player.position.y<22){seenGate=true;notify?.('THE HOLLOW GATE · Stolen currents feed the rift. Breaking the Triad’s defenses will require allies from three kingdoms.',7000);}
     },

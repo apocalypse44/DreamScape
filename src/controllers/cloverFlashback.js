@@ -30,7 +30,7 @@ export function severingStage(t) {
 // Blocking: [time, x, z, clip from this time on]. Every crossing is cleared just before it snaps.
 const SCAR = { x: -104, z: -455 };
 export const SEVERING_CAST = {
-  iven: { body: 'M', tint: 0x293c37, robe: 0xd9d4c4, face: SCAR, keys: [
+  iven: { person: 'ivenYoung', tint: 0x293c37, face: SCAR, keys: [
     [0, -66.5, -421.6, 'Fixing_Kneeling'], [9, -66.5, -421.6, 'Idle_Loop'], [17.2, -66.5, -421.6, 'Sprint_Loop'],
     [18.4, -62.5, -420.4, 'Sprint_Loop'], [22.2, -39, -420.4, 'Idle_Loop'], [31, -39, -420.4, 'Spell_Simple_Idle_Loop'],
     [35.5, -39, -420.4, 'Idle_Loop']] },

@@ -5,6 +5,8 @@ import { createCameraController } from '../controllers/camera.js';
 import { createTravelerCharacter } from '../rendering/travelerCharacter.js';
 import { createTravelerCombat } from '../models/travelerCombat.js';
 import { createTrainingYard } from './trainingYard.js';
+import { createCharacterGallery } from './characterGallery.js';
+import { EXPRESSIONS } from '../models/faceExpression.js';
 
 const canvas=document.querySelector('#labCanvas'),status=document.querySelector('#labStatus'),toastBox=document.querySelector('#labToast');
 let toastTimer=0;function toast(text){if(!toastBox)return;toastBox.textContent=text;toastBox.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastBox.classList.remove('show'),700);}
@@ -83,7 +85,7 @@ async function start(){
   function release(){keys.clear();pointerButtons.clear();player.velocity.x=player.velocity.z=0;player.jumpBuffer=0;}
   document.addEventListener('pointerlockchange',()=>{state.locked=document.pointerLockElement===canvas;document.body.classList.toggle('playing',state.locked);release();});
   addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});
-  explore.onclick=()=>{inspect=false;canvas.requestPointerLock();};portrait.onclick=()=>{document.exitPointerLock();inspect=true;portraitYaw=avatar.root.rotation.y+.5;release();};
+  explore.onclick=()=>{inspect=false;galleryTarget=null;canvas.requestPointerLock();};portrait.onclick=()=>{document.exitPointerLock();inspect=true;galleryTarget=null;portraitDistance=4.2;portraitYaw=avatar.root.rotation.y+.5;release();};
   document.querySelector('#reset').onclick=()=>reset();document.querySelector('#gaps').onclick=()=>{reset({x:18,z:-16,top:1.8});inspect=false;};
   document.querySelector('#livingGround').onchange=e=>{living=e.target.checked;groundDirty=true;};
   canvas.onclick=()=>{if(!inspect&&avatar.loaded&&!state.locked)canvas.requestPointerLock();};
@@ -91,7 +93,7 @@ async function start(){
   canvas.addEventListener('mousedown',e=>{if(!state.locked)return;pointerButtons.add(e.button);if(e.button===0)pressed.attack=true;});
   addEventListener('mouseup',e=>pointerButtons.delete(e.button));
   document.addEventListener('mousemove',e=>{if(state.locked){state.yaw-=e.movementX*.0022;state.pitch=T.MathUtils.clamp(state.pitch-e.movementY*.002,-.85,.6);}else if(inspect&&e.buttons===1)portraitYaw-=e.movementX*.008;});
-  addEventListener('keydown',e=>{if(!state.locked)return;keys.add(e.code);if(e.code==='Space'&&!e.repeat)player.jumpBuffer=.15;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='KeyF'&&!e.repeat)pressed.dodge=true;if(e.code==='KeyX'&&!e.repeat)pressed.sheathe=true;if(e.code==='KeyJ'&&!e.repeat)pressed.attack=true;if(e.code==='KeyV'&&!e.repeat)state.perspective=state.perspective==='first'?'third':'first';if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
+  addEventListener('keydown',e=>{if(!state.locked)return;keys.add(e.code);if(e.code==='Space'&&!e.repeat)player.jumpBuffer=.15;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='KeyF'&&!e.repeat)pressed.dodge=true;if(e.code==='KeyX'&&!e.repeat)pressed.sheathe=true;if(e.code==='KeyJ'&&!e.repeat)pressed.attack=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
   addEventListener('keyup',e=>keys.delete(e.code));
   const resize=()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();};addEventListener('resize',resize);resize();
   function combatInput(){
@@ -114,20 +116,41 @@ async function start(){
       if(combat)yard.step(step,{player,combat,combatState,toast});
     });
     renderPosition.lerpVectors(previous,player.position,alpha);
-    if(inspect){portraitYaw+=dt*.07;camera.position.set(renderPosition.x+Math.sin(portraitYaw)*portraitDistance,renderPosition.y+portraitHeight,renderPosition.z+Math.cos(portraitYaw)*portraitDistance);camera.lookAt(renderPosition.x,renderPosition.y-portraitAim,renderPosition.z);}
+    if(inspect){const at=galleryTarget||renderPosition;portraitYaw+=dt*.07;camera.position.set(at.x+Math.sin(portraitYaw)*portraitDistance,at.y+portraitHeight,at.z+Math.cos(portraitYaw)*portraitDistance);camera.lookAt(at.x,at.y-portraitAim,at.z);}
     else view.update(dt);
+    gallery.update(dt);
     if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;shake=Math.max(0,shake-dt*.9);}
     yard.render(dt);
     const castAt=keys.has('KeyE')?new T.Vector3(player.position.x,player.position.y,player.position.z-8):null;
-    avatar.update(simDt,inspect?4.2:state.perspective==='first'?0:camera.position.distanceTo(renderPosition),castAt,combatState);
+    avatar.update(simDt,inspect?4.2:camera.position.distanceTo(renderPosition),castAt,combatState);
     groundRefresh+=dt;
     if(groundRefresh>.1&&(living||groundDirty)){groundRefresh=0;groundDirty=false;for(let i=0;i<groundPositions.count;i++){const x=groundPositions.getX(i),z=groundPositions.getZ(i);if(Math.hypot(x+12,z-8)<7)groundPositions.setY(i,ground(x,z));}groundPositions.needsUpdate=true;groundGeometry.computeVertexNormals();}
     renderer.render(scene,camera);frameCount++;frameTime+=dt;
     if(frameTime>.4){document.querySelector('#pose').textContent=avatar.pose;document.querySelector('#speed').textContent=Math.hypot(player.velocity.x,player.velocity.z).toFixed(1);document.querySelector('#frames').textContent=String(Math.round(frameCount/frameTime));document.querySelector('#hits').textContent=String(yard.hits);frameCount=frameTime=0;}
   }
+  // Character gallery: every character in a row at the back of the clearing; orbit one at a time.
+  const gallery=createCharacterGallery({scene,ground});let galleryTarget=null,galleryIndex=1;
+  const pick=document.querySelector('#galleryPick'),clipPick=document.querySelector('#galleryClip'),facePick=document.querySelector('#galleryFace');
+  pick.innerHTML=gallery.items.map((item,i)=>`<option value="${i}">${item.label}</option>`).join('');
+  facePick.innerHTML=EXPRESSIONS.map(e=>`<option>${e}</option>`).join('');
+  function showCharacter(i){
+    galleryIndex=(i+gallery.items.length)%gallery.items.length;const item=gallery.items[galleryIndex];pick.value=String(galleryIndex);
+    gallery.build();document.exitPointerLock();inspect=true;release();
+    galleryTarget=item.id==='player'?null:gallery.focus(item);portraitDistance=item.distance||4.2;portraitYaw=.5;
+    const clips=item.id==='player'?[]:item.clips();clipPick.innerHTML=clips.length?clips.map(c=>`<option>${c}</option>`).join(''):'<option>(idle)</option>';
+    clipPick.disabled=!clips.length;facePick.disabled=item.id!=='player'&&!item.setExpression;
+  }
+  document.querySelector('#galleryOpen').onclick=()=>showCharacter(galleryIndex);
+  document.querySelector('#galleryPrev').onclick=()=>showCharacter(galleryIndex-1);
+  document.querySelector('#galleryNext').onclick=()=>showCharacter(galleryIndex+1);
+  pick.onchange=()=>showCharacter(Number(pick.value));
+  clipPick.onfocus=()=>{const item=gallery.items[galleryIndex],clips=item.clips?.()||[];if(clips.length&&clipPick.options.length!==clips.length)clipPick.innerHTML=clips.map(c=>`<option>${c}</option>`).join('');}; // clips arrive once loaded
+  clipPick.onchange=()=>gallery.items[galleryIndex].play?.(clipPick.value);
+  facePick.onchange=()=>{const item=gallery.items[galleryIndex];if(item.id==='player')avatar.setExpression(facePick.value,1e9);else item.setExpression?.(facePick.value);};
+  window.travelerLab.gallery={gallery,show:showCharacter};
   requestAnimationFrame(frame);await avatar.ready;
   if(!avatar.loaded)throw new Error('The traveller asset did not load.');
   combat=createTravelerCombat({rootMotion:avatar.rootMotion,scale:avatar.modelScale});
-  explore.disabled=portrait.disabled=false;status.textContent='Ready. Inspect the character, then explore the course.';
+  explore.disabled=portrait.disabled=false;document.querySelector('#galleryOpen').disabled=false;status.textContent='Ready. Inspect the character, then explore the course.';
 }
 start().catch(error=>{status.textContent=`Playground could not start: ${error.message}`;console.error(error);});

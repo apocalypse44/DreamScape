@@ -1,5 +1,42 @@
 /* Spade Kingdom boid swarm: separation + alignment + cohesion + player steering. */
-import { spadeOutline } from './spade.js';
+const WISP = new THREE.Color(0xc9a8ff), REMEMBERED = new THREE.Color(0xffcf6a), CHAOS = new THREE.Color(0xff6fae);
+
+// A wisp: one of Spade's stolen people. A soft flame with a bright core, a tail streaming behind and
+// two tiny dark eyes looking where it flies (+z). Vertex colours stay pale so each instance's
+// colour sets the hue: violet, gold once its name is remembered, crimson in chaos.
+function wispGeometry() {
+  const parts = [];
+  const add = (geometry, shade) => {
+    const g = geometry.toNonIndexed(), n = g.attributes.position.count;
+    g.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: n * 3 }, (_, i) => shade(g.attributes.position, Math.floor(i / 3))), 3));
+    parts.push(g);
+  };
+  const body = new THREE.LatheGeometry([[0, -.09], [.06, -.075], [.09, -.03], [.085, .02], [.06, .08], [.03, .15], [0, .25]].map(([r, y]) => new THREE.Vector2(r, y)), 12);
+  body.rotateX(-Math.PI / 2); // round head forward (+z), tail behind (-z)
+  add(body, (p, i) => .55 + .45 * Math.min(1, Math.max(0, (p.getZ(i) + .2) / .25))); // the tail fades
+  add(new THREE.SphereGeometry(.05, 10, 8).translate(0, 0, .02), () => 1.15);            // bright core
+  for (const x of [-.042, .042]) add(new THREE.SphereGeometry(.017, 8, 6).translate(x, .04, .068), () => .04); // eyes
+  const merged = new THREE.BufferGeometry(), position = [], color = [];
+  for (const g of parts) { position.push(...g.attributes.position.array); color.push(...g.attributes.color.array); g.dispose(); }
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+  merged.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+  return merged;
+}
+// The wisps as two instanced meshes (bodies and soft halos); `paint(i, color)` sets one wisp's hue.
+export function createWisps(count) {
+  const body = new THREE.InstancedMesh(wispGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), count);
+  const halo = new THREE.InstancedMesh(new THREE.SphereGeometry(.2, 10, 8), new THREE.MeshBasicMaterial({
+    transparent: true, opacity: .26, depthWrite: false, toneMapped: false }), count); // normal blending: no white-out on bright skies
+  for (const m of [body, halo]) { m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; }
+  const group = new THREE.Group(); group.add(body, halo);
+  return {
+    group, body, halo,
+    paint(i, color) { body.setColorAt(i, color); halo.setColorAt(i, color); body.instanceColor.needsUpdate = halo.instanceColor.needsUpdate = true; },
+    place(i, matrix) { body.setMatrixAt(i, matrix); halo.setMatrixAt(i, matrix); },
+    commit() { body.instanceMatrix.needsUpdate = halo.instanceMatrix.needsUpdate = true; },
+  };
+}
+
 export class DreamSwarm {
   constructor(scene, terrainHeight, count = 84) {
     this.scene = scene;
@@ -14,17 +51,13 @@ export class DreamSwarm {
     this.target = new THREE.Vector3();
     this.dummy = new THREE.Object3D();
 
-    // Each wisp is a small spade from the kingdom's crest: an upright fin, tip forward, stem trailing.
-    // Dark ink faces, glowing violet rim (extrude group 0 = faces, 1 = sides).
-    const geometry = new THREE.ExtrudeGeometry(spadeOutline(), { depth: 0.9, bevelEnabled: false, curveSegments: 6 });
-    geometry.translate(0, 0, -0.45).scale(0.075, 0.09, 0.075).rotateY(Math.PI / 2).rotateX(Math.PI / 2);
-    this.faces = new THREE.MeshPhongMaterial({ color: 0x1c1535, emissive: 0x3a2378, emissiveIntensity: 0.6, shininess: 60 });
-    this.rim = new THREE.MeshPhongMaterial({ color: 0xc4a7ff, emissive: 0x8a5cff, emissiveIntensity: 1.6 });
-    this.mesh = new THREE.InstancedMesh(geometry, [this.faces, this.rim], count);
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.frustumCulled = false;
+    // remembered: how many wisps have their name back (one per lit memory lantern); they glow gold.
+    this.remembered = 0;
+    this.wisps = createWisps(count);
+    this.mesh = this.wisps.group;
     this.mesh.visible = false;
     scene.add(this.mesh);
+    this.palette = '';
 
     this.marker = new THREE.Mesh(
       new THREE.SphereGeometry(0.42, 10, 8),
@@ -138,16 +171,20 @@ export class DreamSwarm {
         velocity.y = Math.abs(velocity.y) + 0.5;
       }
       this.dummy.position.copy(this.positions[i]);
+      this.dummy.position.y += Math.sin(performance.now() * .003 + i * 1.7) * .06; // a gentle bob
       this.dummy.lookAt(this.positions[i].clone().add(velocity));
-      // Flutter: roll each spade about its flight line, out of phase, so few are ever seen edge-on
-      // (a thin edge-on spade reads as a white "pencil").
-      this.dummy.rotateZ(Math.sin(performance.now() * 0.004 + i * 1.3) * 1.1);
-      this.dummy.scale.setScalar(0.8 + Math.min(0.45, velocity.length() * 0.035));
+      // Faster wisps stretch along their flight (a startled streak in chaos); remembered ones are larger.
+      const stretch = Math.min(.6, velocity.length() * .05), size = i < this.remembered ? 1.35 : 1;
+      this.dummy.scale.set(size * (1 - stretch * .3), size * (1 - stretch * .3), size * (1 + stretch));
       this.dummy.updateMatrix();
-      this.mesh.setMatrixAt(i, this.dummy.matrix);
+      this.wisps.place(i, this.dummy.matrix);
     }
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.rim.emissiveIntensity = 1.2 + chaos * 2.5;
-    this.faces.emissive.setHex(chaos > 0.4 ? 0x5a1c4a : 0x3a2378); // the ink smoulders crimson in chaos
+    this.wisps.commit();
+    // Colours change only when the remembered count or the calm/chaos state does.
+    const palette = `${this.remembered}|${chaos > 0.4}`;
+    if (palette !== this.palette) {
+      this.palette = palette;
+      for (let i = 0; i < this.count; i++) this.wisps.paint(i, i < this.remembered ? REMEMBERED : chaos > 0.4 ? CHAOS : WISP);
+    }
   }
 }

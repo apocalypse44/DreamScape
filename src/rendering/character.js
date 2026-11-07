@@ -171,7 +171,11 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
   }
 
   // Raise both arms toward `castAt` (world point) like a repulsor pose; eases out when castAt is null.
-  function castArms(dt, castAt) {
+  // gesture: 'attract' opens both arms wide to gather the wisps, 'push' thrusts both palms at them in pulses,
+  // 'recall' lifts both arms overhead and beckons them home.
+  let castTime = 0;
+  function castArms(dt, castAt, gesture = 'attract') {
+    castTime += dt;
     castWeight += ((castAt && arms.length ? 1 : 0) - castWeight) * (1 - Math.exp(-CAST_EASE * dt));
     // Kept relative to the player, so after release the lowering arms travel with them.
     if (castAt) lastCast.copy(castAt).sub(player.position);
@@ -186,13 +190,17 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       const flat = Math.hypot(aim.x, aim.z), off = Math.atan2(Math.sin(Math.atan2(aim.x, aim.z) - facing), Math.cos(Math.atan2(aim.x, aim.z) - facing));
       const bearing = facing + THREE.MathUtils.clamp(off, -CAST_REACH, CAST_REACH);
       aim.set(Math.sin(bearing) * flat, aim.y, Math.cos(bearing) * flat).normalize();
+      if (gesture === 'attract') aim.addScaledVector(side, arm.sign * 1.1).addScaledVector(up, .35).normalize(); // arms open wide, gathering
+      else if (gesture === 'push') aim.y = Math.max(aim.y, -.05) * .4; // level, straight out in front
+      else if (gesture === 'recall') aim.lerp(up, .75 + .2 * Math.sin(castTime * 6 + arm.sign)).normalize(); // up, beckoning
+      const weight = castWeight * (gesture === 'push' ? .75 + .25 * Math.sin(castTime * 9) : 1); // pulsing shoves
       arm.fore.getWorldPosition(elbow);
-      aimBone(arm.upper, shoulder, elbow, aim, castWeight);
+      aimBone(arm.upper, shoulder, elbow, aim, weight);
       arm.fore.getWorldPosition(elbow); arm.hand.getWorldPosition(wrist);
-      aimBone(arm.fore, elbow, wrist, aim, castWeight);
+      aimBone(arm.fore, elbow, wrist, aim, weight);
       // Palm out: tip the fingers from along the arm toward straight up.
       arm.hand.getWorldPosition(wrist); arm.finger.getWorldPosition(knuckle);
-      aimBone(arm.hand, wrist, knuckle, palmGoal.copy(aim).lerp(up, FINGERS_UP).normalize(), castWeight);
+      aimBone(arm.hand, wrist, knuckle, palmGoal.copy(aim).lerp(up, FINGERS_UP).normalize(), weight);
     }
   }
 
@@ -200,11 +208,11 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
     ready,
     // castAt: world point the player is directing the swarm at, or null.
     update(dt, cameraDistance, castAt = null) {
-      const mode = state.perspective === 'third' ? 'TPP' : 'FPP';
-      const label = `${mode} · V to switch · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
+      const mode = 'TPP';
+      const label = `${mode} · ${failed ? 'Character unavailable' : mixer ? 'Character: Erika' : 'Loading character...'}`;
       if (label !== lastStatus) { status.textContent = label; lastStatus = label; }
       // state.memory: a flashback is replaying the past, where the player was not.
-      root.visible = Boolean(mixer) && !state.memory && (state.cinematic || state.perspective === 'third' || player.inFlight) && cameraDistance > 0.8;
+      root.visible = Boolean(mixer) && !state.memory && cameraDistance > 0.8;
       root.position.copy(player.position);
       root.position.y -= 2.05;
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
@@ -245,7 +253,7 @@ export function createCharacter({ scene, state, player, surfaceAt }) {
       if (!root.visible) { hipDrop = ikWeight = castWeight = 0; return; }
       mixer.update(dt);
       placeFeet(dt);
-      castArms(dt, castAt);
+      castArms(dt, castAt, state.swarmGesture || 'attract');
     }
   };
 }

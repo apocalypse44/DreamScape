@@ -60,7 +60,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       keepPointerLock();
     }
     if (overlay.contains(document.activeElement)) document.activeElement.blur();
-    state.cinematicSpeaker = ''; state.cinematicMood = null;
+    state.cinematicSpeaker = ''; state.cinematicMood = null; state.cinematicFace = null;
     if (completed && story.kind === 'cure') onCureComplete?.();
   }
   // Where a shot puts the camera at progress k (0 → 1 through its drift).
@@ -155,6 +155,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
         line.textContent = story.line.text;
         line.classList.remove('in'); void line.offsetWidth; line.classList.add('in'); // each line fades up
         state.cinematicSpeaker = story.line.speaker ?? 'YOU';
+        state.cinematicFace = story.line.face ?? null; // expression for whoever speaks this line
         overlay.querySelector('.scene-speaker').textContent = state.cinematicSpeaker;
         lastLine = story.index;
       }

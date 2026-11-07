@@ -11,13 +11,8 @@ export function createCameraController({ camera, state, player, chunks, terrainH
     update(dt = 1 / 60) {
       camera.rotation.order = 'YXZ';
       camera.rotation.set(state.pitch, state.yaw, 0);
-      if (state.perspective === 'first') {
-        boomDistance = null;
-        camera.position.copy(player.position);
-        return 0;
-      }
       // Over-the-shoulder: the boom pivots right of the head, so the character sits left of
-      // centre and the crosshair (screen centre) points at the world ahead, not the player.
+      // centre and screen centre points at the world ahead, not the player.
       direction.set(1, 0, 0).applyEuler(camera.rotation);
       obstacles.length = 0;
       // A 64 m chunk cannot intersect the ~5 m boom from the other side

@@ -1,3 +1,4 @@
+import { headGeometry } from './peopleKit.js';
 // DreamScape "sigil-blade wanderer": an original fantasy outfit, face and sword
 // built reproducibly around the CC0 Quaternius rig. No image textures: the body
 // is one skinned, vertex-coloured mesh (opaque + glow groups), the sword is one
@@ -212,8 +213,7 @@ export async function buildTraveler() {
 
   // 5. Stylised head: big eyes, pointed ears, spiky swept hair with a wisp streak.
   put(new T.CylinderGeometry(.068, .074, .14, 12), 'skin', 'Head', [0, 1.55, 0]);
-  sphere('skin', 'Head', [0, 1.77, .01], [.205, .228, .192]);
-  sphere('skin', 'Head', [0, 1.705, .06], [.15, .11, .14]);
+  put(headGeometry(), 'skin', 'Head', [0, 1.77, .01], [.205, .228, .192]); // one skull, soft jaw: no chin patch
   for (const side of [-1, 1]) {
     put(new T.ConeGeometry(1, 1, 6), 'skin', 'Head', [side * .225, 1.79, -.015], [.042, .16, .026], [-.35, 0, -side * 1.15]);
     put(new T.ConeGeometry(1, 1, 6), 'blush', 'Head', [side * .228, 1.79, -.008], [.022, .11, .014], [-.35, 0, -side * 1.15]);
@@ -275,8 +275,8 @@ export async function buildTraveler() {
   // brows, mouth and blush into a small canvas texture on it and swaps expressions.
   {
     const centre = new T.Vector3(0, 1.75, .01), skinShapes = [
-      [[0, 1.77, .01], [.205, .228, .192]], [[0, 1.705, .06], [.15, .11, .14]],
-    ].map(([at, scale]) => { const m = new T.Mesh(new T.SphereGeometry(1, 32, 24)); m.position.set(...at); m.scale.set(...scale); m.updateMatrixWorld(true); return m; });
+      [[0, 1.77, .01], [.205, .228, .192]],
+    ].map(([at, scale]) => { const m = new T.Mesh(headGeometry()); m.position.set(...at); m.scale.set(...scale); m.updateMatrixWorld(true); return m; });
     // Front patch: phi spans the face width (+z is the front), theta from brow to chin.
     const patch = new T.SphereGeometry(1, 36, 28, Math.PI / 2 - .95, 1.9, Math.PI * .3, Math.PI * .42);
     const ray = new T.Raycaster(), dir = new T.Vector3(), pos = patch.attributes.position;

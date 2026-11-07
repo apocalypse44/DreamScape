@@ -21,7 +21,7 @@ const LOOKS = {
   sad: { eye: 'open', lid: .35, lift: .2, tilt: -.9, mouth: 'frown', blush: .2 },
 };
 
-function eye(g, cx, side, look, blink) {
+function eye(g, cx, side, look, blink, style) {
   const cy = EYE_Y, wide = look.eye === 'wide', rx = wide ? 46 : 43, ry = wide ? 60 : 55;
   g.lineCap = g.lineJoin = 'round'; g.strokeStyle = INK;
   if (look.eye === 'arc') { // ^^ happy closed
@@ -31,7 +31,7 @@ function eye(g, cx, side, look, blink) {
     const d = side < 0 ? 1 : -1; g.lineWidth = 8.5; g.beginPath();
     g.moveTo(cx - 26 * d, cy - 23); g.lineTo(cx + 23 * d, cy); g.lineTo(cx - 26 * d, cy + 23); g.stroke(); return;
   }
-  const lid = Math.max(look.lid ?? 0, blink);
+  const lid = Math.max(look.lid ?? 0, look.eye === 'wide' ? 0 : style.restLid, blink);
   if (lid > .88) { // closed: a soft downward curve
     g.lineWidth = 7.5; g.beginPath(); g.moveTo(cx - rx, cy + 6); g.quadraticCurveTo(cx, cy + 20, cx + rx, cy + 6); g.stroke(); return;
   }
@@ -41,9 +41,9 @@ function eye(g, cx, side, look, blink) {
   const yLeft = lidY + slant * (inner < 0 ? 16 : -8), yRight = lidY + slant * (inner > 0 ? 16 : -8);
   g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.clip();
   g.beginPath(); g.moveTo(cx - rx - 4, yLeft); g.lineTo(cx + rx + 4, yRight); g.lineTo(cx + rx + 4, cy + ry + 4); g.lineTo(cx - rx - 4, cy + ry + 4); g.closePath(); g.clip();
-  g.fillStyle = '#fbf7f2'; g.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+  g.fillStyle = style.sclera; g.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
   const irx = wide ? 22 : 30, iry = wide ? 29 : 42, gradient = g.createLinearGradient(0, cy - iry, 0, cy + iry);
-  gradient.addColorStop(0, '#2b2052'); gradient.addColorStop(.55, '#5a43a8'); gradient.addColorStop(1, '#a58cf0');
+  gradient.addColorStop(0, style.iris[0]); gradient.addColorStop(.55, style.iris[1]); gradient.addColorStop(1, style.iris[2]);
   g.fillStyle = gradient; g.beginPath(); g.ellipse(cx + side * 2, cy + 4, irx, iry, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#150e22'; g.beginPath(); g.ellipse(cx + side * 2, cy + 3, irx * .45, iry * .5, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#ffffff'; g.beginPath(); g.arc(cx - 11 + side * 2, cy - 16, wide ? 8 : 11, 0, Math.PI * 2); g.fill();
@@ -111,16 +111,20 @@ function blush(g, amount) {
   }
 }
 
-export function drawFace(g, expression = 'neutral', { blink = 0, open = 0 } = {}) {
+// style: { iris: [top, middle, bottom] colours, restLid: resting lid 0..1 } - each character's eyes.
+// sclera: eye-white colour (villains use a dark one); mood: the resting expression (person.js).
+export const DEFAULT_STYLE = { iris: ['#2b2052', '#5a43a8', '#a58cf0'], restLid: 0, sclera: '#fbf7f2' };
+export function drawFace(g, expression = 'neutral', { blink = 0, open = 0, style = DEFAULT_STYLE } = {}) {
   const look = LOOKS[expression] || LOOKS.neutral;
   g.clearRect(0, 0, W, H);
   blush(g, look.blush);
-  for (const side of [-1, 1]) { const cx = W / 2 + side * EYE_DX; brow(g, cx, side, look); eye(g, cx, side, look, blink); }
+  for (const side of [-1, 1]) { const cx = W / 2 + side * EYE_DX; brow(g, cx, side, look); eye(g, cx, side, look, blink, style); }
   mouth(g, look, open);
 }
 
-// mesh: the TravelerFace mesh; gradientMap: the toon ramp shared with the body.
-export function createTravelerFace(mesh, gradientMap) {
+// mesh: a face-shell mesh (TravelerFace / PersonFace); gradientMap: the toon ramp shared with the body.
+export function createTravelerFace(mesh, gradientMap, style = DEFAULT_STYLE) {
+  style = { ...DEFAULT_STYLE, ...style };
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d'), texture = new THREE.CanvasTexture(canvas);
   texture.encoding = THREE.sRGBEncoding; texture.anisotropy = 4;
@@ -135,7 +139,7 @@ export function createTravelerFace(mesh, gradientMap) {
       const blink = blinker.update(dt, expression), open = talkOpen(time, talking);
       const next = `${expression}|${Math.round(blink * 4)}|${Math.round(open * 4)}`;
       if (next === key) return; // nothing visible changed: no redraw, no upload
-      key = next; drawFace(g, expression, { blink: Math.round(blink * 4) / 4, open: Math.round(open * 4) / 4 }); texture.needsUpdate = true;
+      key = next; drawFace(g, expression, { blink: Math.round(blink * 4) / 4, open: Math.round(open * 4) / 4, style }); texture.needsUpdate = true;
     },
     dispose() { texture.dispose(); mesh.material.dispose(); },
   };

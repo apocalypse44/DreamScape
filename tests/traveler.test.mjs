@@ -93,3 +93,11 @@ test('controller follows a combat drive and suppresses jumping while acting',()=
  f.keys.add('KeyA');f.player.jumpBuffer=.15;movement.update(1/60);assert.equal(f.player.velocity.x,3);assert.equal(f.player.velocity.z,-1);assert.equal(f.player.jumpBuffer,0);
  drive=null;for(let i=0;i<60;i++)movement.update(1/60);assert.ok(f.player.velocity.x< -4);
 });
+test('swarm gestures clear when released: no clip keeps weight after Q or F (castShoot used to stick)',()=>{
+ const motion=createTravelerMotion();
+ for(const casting of ['push','recall','attract','push']){
+  const held=motion.update(1/60,{speed:0,grounded:true,casting});assert.equal(Object.values(held.weights).reduce((a,b)=>a+b,0),1);
+  const free=motion.update(1/60,{speed:0,grounded:true,casting:false});
+  for(const [clip,w] of Object.entries(free.weights))assert.equal(w,clip==='idle'?1:0,`${clip} after releasing ${casting}`);
+ }
+});

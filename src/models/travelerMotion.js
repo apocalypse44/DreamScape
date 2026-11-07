@@ -1,6 +1,6 @@
 // Visual state stays separate from collision/quest state. The same avatar can
 // therefore be used in the movement playground or the existing kingdoms.
-export const TRAVELER_CLIPS = ['idle','walk','jog','run','jumpStart','fall','land','crouchIdle','crouchWalk','cast','interact','combatIdle'];
+export const TRAVELER_CLIPS = ['idle','walk','jog','run','jumpStart','fall','land','crouchIdle','crouchWalk','cast','castShoot','interact','combatIdle']; // every clip a weight can name: all are zeroed each update
 export function createTravelerMotion() {
   let grounded = true, airTime = 0, landTime = 0, lastSpeed = 0;
   const weights = Object.fromEntries(TRAVELER_CLIPS.map(name => [name, 0]));
@@ -19,7 +19,8 @@ export function createTravelerMotion() {
       else if (!onGround) { name = verticalSpeed > 0 ? 'jumping' : 'falling'; weights[verticalSpeed > 0 && airTime < .14 ? 'jumpStart' : 'fall'] = 1; }
       else if (landTime > 0) { name = 'landing'; weights.land = 1; }
       else if (crouching) { name = speed > .15 ? 'crouching walk' : 'crouching'; weights[speed > .15 ? 'crouchWalk' : 'crouchIdle'] = 1; }
-      else if (casting && speed < .3) { name = 'casting'; weights.cast = 1; }
+      else if (casting && speed < .3) { // the arms are posed procedurally per gesture (travelerCharacter castArms)
+        name = casting === 'push' ? 'pushing' : casting === 'recall' ? 'recalling' : 'casting'; weights.idle = 1; }
       else if (speed < .15) { name = armed ? 'on guard' : 'idle'; weights[armed ? 'combatIdle' : 'idle'] = 1; }
       else if (speed < 2.2) { name = 'walking'; weights.walk = 1; }
       else if (speed < 5.4) {
