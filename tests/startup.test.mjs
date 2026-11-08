@@ -48,3 +48,13 @@ test('late and nested asset requests invalidate warmup, including failed downloa
   assert.equal(manager.itemStart, originalStart);
   assert.equal(manager.itemEnd, originalEnd);
 });
+
+test('slow rendered frames do not block game entry indefinitely', () => {
+  const gate = createStartupReadiness({ quietMs: 0, settleFrames: 3 });
+  const frame = now => gate.update({ now, prepared: true, frameMs: 240 });
+
+  assert.equal(frame(1), 'warmup');
+  assert.equal(frame(2), 'settling');
+  assert.equal(frame(3), 'settling');
+  assert.equal(frame(4), 'ready');
+});

@@ -42,7 +42,7 @@ Optional developer overlays expose these intermediate steps for assessment. Norm
 
 - **Spade:** `src/models/swarm.js` already has boids, attract, repel, and recall. `src/controllers/game.js` ties attraction to calming and repulsion to increasing chaos. Enemy targeting, coordinated attacks, ward damage, and boss encounters are proposed additions.
 - **Clover:** The Living Road is implemented: bounded L-system root growth connects the Archive to the Scar, then the terrace climb, summit gateway and Sky Garden ledges lead to Iven’s chest.
-- **Heart:** Existing red crystals provide the setting. Reuse `src/models/pathfinding.js`, already used by the hound and navigation, for a new water-spirit escort. Spirit steering, puzzle blockers, waypoint interactions, and siphon completion are proposed additions.
+- **Heart:** Implemented in `src/models/heartCampaign.js` and `src/rendering/heartCampaign.js`. It reuses `src/models/pathfinding.js` for the water-spirit escort, with three persistent crystal passages, visible explored cells and route, checkpoints, the siphon and Tide Sigil. The Tide Hook raises the Resonance Reef; grapple arcs connect safe landings and falls recover to the last landing.
 - **Diamond:** `src/models/world.js` has a small local tile-compatibility ruin pass, described as WFC-style in `COURSE_TECHNIQUES.md`. The quest proposes fuller constraint propagation and contradiction recovery; these should not be assumed to exist already.
 - **Ember Hound:** Existing A* companion routing and navigation introduce exploration. Heart makes A* the visible central quest mechanic; its earlier use by the hound remains intact. A kingdom's signature algorithm need not be exclusive to that kingdom.
 
@@ -150,6 +150,8 @@ The sigil distinguishes true anchors from the Triad's decoys. Its markings also 
 
 ## Chapter 3: Heart - The Stolen Current
 
+**Status: implemented.** Sera's chapter uses the water spirit, three A*-routed spring checkpoints, three chaos-revealed crystal passages, the siphon core, Tide Sigil and the Tide Hook's risen-reef traversal. Heart test starts are available with `?unlock=all`.
+
 Heart's red crystal banks conceal springs diverted into a buried siphon. River guardian **Sera** awakens a small water spirit that can release the stolen magic, but it must reach the siphon through a crystal maze. The player escorts it from the Listening Spring to the Resonance Reef.
 
 ### Algorithm: A* pathfinding and dynamic replanning
@@ -168,9 +170,9 @@ The broken device carries a Diamond maker's mark and a hidden plea: "We built th
 
 **Placement revision, 23 October 2026:** the original owner decision moved the Tide Hook from Spade to Clover’s Archive. The latest user-approved extension places Iven’s chest on **the floating Sky Garden’s highest Starlight ledge (68 m)**, reached by climbing Clover Terraces, using the summit teleporter and jumping the island’s existing ledges. This replaces both the Archive and intermediate summit-courtyard placements. It unlocks only after the Living Road is restored and the Stormleaf Scar awards the Root Sigil. The item, chest interaction and lead east to Sera are implemented. This preserves Spade -> Clover -> Heart.
 
-**Heart traversal remains proposed and belongs to the Heart developer.** With both `root-sigil` and `tide-hook`, the first chaos awakening in Heart can lift the Resonance Reef into the sky. A once-per-run earthquake/rise scene reveals authored crystal anchors. Short scripted grapple arcs connect safe island landings; falls recover at the last landing. The raised islands persist through calm/chaos changes. Sera's water spirit then uses A* on the stable reef surface to reach the siphon, as described in Chapter 3.
+**Heart traversal is implemented.** With both `root-sigil` and `tide-hook`, chaos in Heart raises the Resonance Reef and reveals crystal anchors. Press E at an anchor for a short scripted grapple arc to a safe landing; falls recover at the last safe landing. The reef remains raised through calm/chaos changes. Sera's water spirit then uses A* on the stable, gently sloped reef surface to reach the siphon, as described in Chapter 3.
 
-The existing Sky Garden flight and movement-platform systems are reusable references, not an implemented Heart grapple. Clover does not add the earthquake, reef ascent or escort. Its Satchel reward is the shared prerequisite for that work.
+The existing Sky Garden flight and movement-platform systems informed the Heart traversal. Clover's Satchel reward is the prerequisite for the Heart grapple and escort.
 
 ## Chapter 4: Diamond - The Unbroken Pattern
 

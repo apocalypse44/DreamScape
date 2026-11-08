@@ -1,6 +1,6 @@
 // Entry is allowed only after downloads, scene preparation, and actual rendered
 // frames have settled. A completed download alone does not mean a playable scene.
-export function createStartupReadiness({ quietMs = 500, settleFrames = 12, maxFrameMs = 100 } = {}) {
+export function createStartupReadiness({ quietMs = 500, settleFrames = 12, maxFrameMs = 500 } = {}) {
   let pending = 0, revision = 0, warmedRevision = -1;
   let lastWork = 0, stable = 0, ready = false;
   return {

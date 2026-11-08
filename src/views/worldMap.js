@@ -112,9 +112,15 @@ const ITEM_ICONS = {
 
 // The atlas, quest log and carried inventory each have an independent book page.
 // diamondLocations: Diamond's story places, built at runtime from its gate (diamondMapLocations).
-export function createWorldMap({ world, player, state, quest, spade, clover, diamond, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [] }) {
-  STORY_LOCATIONS.push(...diamondLocations);
-  LANDMARKS.push(...diamondLocations.map(p => ({ ...p, side: 1, color: '#ffd36b', callout: true })));
+export function createWorldMap({ world, player, state, quest, spade, clover, heart, diamond, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [] }) {
+  const heartLocations = heart ? [
+    { id: 'heart-sera', name: 'SERA · LISTENING SPRING', x: heart.layout.sera.x, z: heart.layout.sera.z, note: 'River guardian' },
+    { id: 'heart-reef', name: 'RESONANCE REEF', x: heart.layout.reef.x, z: heart.layout.reef.z, note: 'The stolen current' },
+    { id: 'heart-siphon', name: 'BURIED SIPHON', x: heart.layout.core.x, z: heart.layout.core.z, note: 'Tide Sigil' },
+  ] : [];
+  STORY_LOCATIONS.push(...diamondLocations, ...heartLocations);
+  LANDMARKS.push(...diamondLocations.map(p => ({ ...p, side: 1, color: '#ffd36b', callout: true })),
+    ...heartLocations.map(p => ({ ...p, side: -1, color: '#ff9aaa', callout: true })));
   const style = document.createElement('style');
   style.textContent = CSS;
   // Baseline atlas rules precede the responsive grimoire stylesheet.
@@ -186,7 +192,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, dia
     }));
   }
   function updateQuests(){
-    const tasks=grimoireQuests(quest,spade,clover,diamond),items=inventory?.items??[];
+    const tasks=grimoireQuests(quest,spade,clover,diamond,heart),items=inventory?.items??[];
     const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
     if(signature===questSignature)return;
     questSignature=signature;

@@ -8,7 +8,7 @@ const fixture=()=>({quest:{stage:'companion',embers:[{taken:false},{taken:false}
 const ARCHIVE=2,WITNESS=3,CROWN=4;
 test('grimoire hints follow the hound quest without marking an unfinished cure complete',()=>{
   const {quest,spade}=fixture();
-  let tasks=grimoireQuests(quest,spade);assert.equal(tasks.length,7);assert.equal(tasks.some(t=>t.done),false);
+  let tasks=grimoireQuests(quest,spade);assert.equal(tasks.length,8);assert.equal(tasks.some(t=>t.done),false);
   quest.stage='cursed';quest.houndCarrying=true;quest.embers[0].taken=true;
   const hound=grimoireQuests(quest,spade)[0];assert.equal(hound.done,false);assert.match(hound.hint,/calmly/);assert.match(hound.progress,/1\/3/);
   quest.stage='return';quest.embers.forEach(e=>e.taken=true);
@@ -57,8 +57,8 @@ test('active parkour hints and completion inscriptions remain useful without fut
   const {quest,spade}=fixture();spade.campaign.stage='complete';spade.echo.engaged=true;spade.echo.objective='Be still on the witness seal.';
   const tasks=grimoireQuests(quest,spade);
   assert.equal(tasks[WITNESS].hint,spade.echo.objective);
-  assert.equal(new Set(tasks.map(t=>t.stamp)).size,7);
-  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest','diamond-quarry','diamond-row'].includes(t.destination)));
+  assert.equal(new Set(tasks.map(t=>t.stamp)).size,8);
+  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest','heart-reef','diamond-quarry','diamond-row'].includes(t.destination)));
   assert.equal(grimoireQuests(quest,undefined)[CROWN].done,false);
   assert.equal(grimoireQuests(quest,undefined)[1].done,false);
 });
@@ -72,6 +72,22 @@ test('the existing Living Road entry directs the player from the Scar through th
   assert.equal(card().locked,false);assert.equal(card().done,false);assert.equal(card().destination,'clover-scar');
   clover.sigil=true;assert.equal(card().destination,'clover-sky-chest');assert.match(card().hint,/summit/);assert.equal(card().done,false);
   clover.hook=true;assert.equal(card().done,true);assert.match(card().hint,/Heart/);
+});
+
+test('Heart journal waits for Clover and follows the spirit escort to the Diamond lead',async()=>{
+  const {createHeartCampaign,heartLayout}=await import('../src/models/heartCampaign.js');
+  const {quest,spade}=fixture();
+  const heart=createHeartCampaign({layout:heartLayout({x:350,z:0}),ready:()=>false});
+  const card=()=>grimoireQuests(quest,spade,undefined,undefined,heart).find(t=>t.id==='stolen-current');
+  assert.equal(card().locked,true);assert.match(card().hint,/Tide Hook/);assert.equal(card().done,false);
+  heart.setTestStage('escort');
+  assert.equal(card().locked,true);
+  const readyHeart=createHeartCampaign({layout:heartLayout({x:350,z:0})});
+  readyHeart.setTestStage('escort');
+  const active=()=>grimoireQuests(quest,spade,undefined,undefined,readyHeart).find(t=>t.id==='stolen-current');
+  assert.equal(active().locked,false);assert.match(active().hint,/A\* route|switch/i);
+  readyHeart.setTestStage('complete');
+  assert.equal(active().done,true);assert.match(active().hint,/south/);
 });
 
 test('Diamond journal follows actual fragment, relay and sigil progress and resets',async()=>{
