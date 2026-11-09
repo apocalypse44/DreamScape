@@ -46,6 +46,15 @@ For a direct development demo, use `?seed=1234&unlock=all`, then press **2** for
 **L** near the puzzle shows the optional L-system study. See [the chapter notes](CLOVER_LIVING_ROAD.md)
 for the route, limits, integration and reset behavior. The grimoire has separate Atlas, Quests and Satchel pages.
 
+## Heart: The Stolen Current
+
+After earning Clover's Root Sigil and Tide Hook, travel east and find **Sera** near Heart's Listening Spring.
+Chaos raises the Resonance Reef; press **E** at a glowing crystal anchor to grapple between safe landings.
+Escort Sera's water spirit along its visible A* route. Chaos reveals and energizes the three crystal
+passage switches; calm down and press **E** at each spring checkpoint, then at the siphon core. The
+passages stay open, and a lost route makes the spirit wait rather than walk into a wall. Falls on the
+reef return you to your last safe landing. The Tide Sigil opens the Diamond chapter.
+
 ## Requirements
 
 - **Python 3.8 or newer**, for the local launcher. It uses the standard library only.

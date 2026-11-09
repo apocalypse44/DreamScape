@@ -8,11 +8,10 @@ export const ITEMS = {
     text: 'A grapple Heart’s guardians used to cross the crystal banks. It catches only on glowing crystal anchors.' },
   'root-sigil': { name: 'Root Sigil', kind: 'Sigil', icon: 'clover',
     text: 'The original branching pattern recovered at Clover’s Stormleaf Scar. It separates the Triad’s true bindings from Veyr’s decoys.' },
-  // --- Diamond chapter ---
-  // Placeholder so Diamond can be tested before Heart merges. When Heart's branch adds its own
-  // 'tide-sigil' entry, keep Heart's and delete this one.
+  // --- Heart chapter ---
   'tide-sigil': { name: 'Tide Sigil', kind: 'Sigil', icon: 'heart',
     text: 'The stolen current Sera’s water spirit released at the siphon core. It points south, to Diamond.' },
+  // --- Diamond chapter ---
   'prism-sigil': { name: 'Prism Sigil', kind: 'Sigil', icon: 'diamond',
     text: 'The Shatterglass Relay’s unbroken pattern, repaired with Orin’s freed workers. Its inversion circuit can expose the Triad’s armor.' },
   // --- end Diamond chapter ---

@@ -7,6 +7,7 @@ import { spadeGround, spadeArea, spadeStableArea } from './spade.js';
 import { nextChunkPrefetch } from './streaming.js';
 import { livingRoadGround, livingRoadArea } from './cloverCampaign.js';
 import { createDiamondKingdom, strataColor, PAVING, MARBLE, DIAMOND_BASE } from './diamond.js';
+import { heartLayout } from './heartCampaign.js';
 import { trailPoint } from '../rendering/props.js';
 const landmarkTerrain = (x, z, original) => livingRoadGround(x, z, spadeGround(x, z, cloverGround(x, z, skyLakeTerrain(x, z, plazaTerrain(x, z, ridgeTerrain(x, z, waterfallTerrain(x, z, original)))))));
 
@@ -71,6 +72,7 @@ export function createWorld({ scene, state, player, onChunk }) {
   // Diamond's authored kingdom (quarry, mesas, citadel, roads) is laid out from its gate on the south
   // trail: the same trailPoint the gate uses, so the relay, the pit and the gate always line up.
   const diamond = createDiamondKingdom(trailPoint(noise, 2, KINGDOM_START - 6));
+  const heart = heartLayout(trailPoint(noise, 1, KINGDOM_START - 6));
   const quarry = diamond.quarry;
   const ground = (x, z, h) => diamond.ground(x, z, landmarkTerrain(x, z, h));
 
@@ -141,7 +143,16 @@ export function createWorld({ scene, state, player, onChunk }) {
     const rough = base + shift * weight > 0 ? roughHeight(x, z) : 0;
     return ground(x, z, blendHeight(lowHeight(x, z), rough, base, weight, hill, shift));
   }
-  const terrainHeight = (x, z) => heightFor(x, z, terrainShift);
+  const approach = heart.sera;
+  let approachHeight = heightFor(approach.x, approach.z, terrainShift);
+  function authoredHeight(x, z, shift, centerHeight = approachHeight) {
+    const terrain = heightFor(x, z, shift);
+    const distance = Math.hypot(x - approach.x, z - approach.z);
+    const blend = 1 - THREE.MathUtils.smoothstep(distance, 14, 34);
+    if (blend <= 0) return terrain;
+    return THREE.MathUtils.lerp(terrain, centerHeight, blend);
+  }
+  const terrainHeight = (x, z) => authoredHeight(x, z, terrainShift);
   // The ground exactly as drawn: chunk meshes are a grid of flat triangles, so between vertices they sit
   // above or below the smooth terrainHeight (by up to ~0.3 m on sharp chaos ridges). Standing uses this
   // so feet meet the visible surface. Triangles split like PlaneGeometry: (a, b, d) and (b, c, d).
@@ -156,7 +167,10 @@ export function createWorld({ scene, state, player, onChunk }) {
     return hc + (hb - hc) * (1 - fx) + (hd - hc) * (1 - fz);
   }
   // Height the ground would settle at for a given score; used to put items on chaos-only peaks.
-  const heightAt = (x, z, chaos) => heightFor(x, z, shiftFor(chaos));
+  const heightAt = (x, z, chaos) => {
+    const shift = shiftFor(chaos);
+    return authoredHeight(x, z, shift, heightFor(approach.x, approach.z, shift));
+  };
 
   function chunkKey(cx, cz) {
     return `${cx},${cz}`;
@@ -196,7 +210,8 @@ export function createWorld({ scene, state, player, onChunk }) {
     points.forEach(({x,z}, i) => {
       const wx = cx * CHUNK_SIZE + x;
       const wz = cz * CHUNK_SIZE + z;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5) || diamond.decorFree(wx, wz, 2)) return;
+      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) ||
+        livingRoadArea(wx, wz, 5) || heart.ownsArea({ x: wx, z: wz }, 8) || diamond.decorFree(wx, wz, 2)) return;
       const kind = biomeAt(wx, wz).kind;
       if (kind === "hub" || kind === "trees" || kind === "wisps") return; // these kingdoms have authored dressing
       const y = terrainHeight(wx, wz);
@@ -402,6 +417,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     // ponytail: reshapes every loaded chunk in one frame; spread across frames if the stress test shows spikes.
     if (Math.abs(targetShift - terrainShift) < 0.004) return;
     terrainShift = targetShift;
+    approachHeight = heightFor(approach.x, approach.z, terrainShift);
     for (const chunk of chunks.values()) reshape(chunk);
     terrainVersion++;
   }
@@ -410,12 +426,13 @@ export function createWorld({ scene, state, player, onChunk }) {
     for (const [key, chunk] of chunks) removeChunk(key, chunk);
     formed = 0;
     targetShift = terrainShift = shiftFor(state.chaos);
+    approachHeight = heightFor(approach.x, approach.z, terrainShift);
     terrainVersion++;
   }
 
-  return { seed, kingdomStart: KINGDOM_START, quarry, diamond, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, kingdomStart: KINGDOM_START, quarry, heart, diamond, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
-    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6) || livingRoadArea(x, z, 5) || diamond.area(x, z),
+    isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6) || livingRoadArea(x, z, 5) || heart.ownsArea({ x, z }, 4) || diamond.area(x, z),
     get formed() { return formed; },
     get pendingChunks() { return pendingChunks; },
     get terrainVersion() { return terrainVersion; },
