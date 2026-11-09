@@ -21,6 +21,7 @@ export const VILLAGERS = [
   { name: 'Cartographer', role: 'cartographer', tint: 0x5a4a7a, home: [-34, 30], path: 'wander' }, // not 'Traveller': that is the player
   // Spade resistance guide, inside the Lantern Refuge (y: the refuge floor), carrying a wisp lantern.
   { name: 'Neris', person: 'neris', tint: 0x2e2448, home: [-368, -20], y: 1.65, idle: 'Idle_Lantern_Loop', lantern: 0xd9c8ff },
+  { name: 'Sera', role: 'guardian', tint: 0x8c354c, home: [355, 0], idle: 'Idle_FoldArms_Loop' },
   // Diamond artificer beside the Shatterglass Relay. The game moves `home` to the relay at startup;
   // this default matches a Diamond gate at (0, 344).
   { name: 'Orin', person: 'orin', tint: 0x6a5f4a, home: [11, 374], idle: 'Idle_FoldArms_Loop' },

@@ -13,7 +13,7 @@ const CONTROLS = [
   ['M', 'Map and journal'], ['G', 'Show or hide the route'], ['I', 'Hide side panels'],
 ];
 
-export function createHelpPanel({ quest, spade, clover, diamond, state }) {
+export function createHelpPanel({ quest, spade, clover, heart, diamond, state }) {
   const button = document.createElement('button');
   button.id = 'helpButton'; button.type = 'button';
   button.setAttribute('aria-label', 'What to do next (H)'); button.setAttribute('aria-expanded', 'false');
@@ -38,7 +38,7 @@ export function createHelpPanel({ quest, spade, clover, diamond, state }) {
   });
 
   function current() {
-    const tasks = grimoireQuests(quest, spade, clover, diamond);
+    const tasks = grimoireQuests(quest, spade, clover, diamond, heart);
     return tasks.find(t => !t.done && !t.locked) ?? tasks.at(-1);
   }
   function render(task) {

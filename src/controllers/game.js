@@ -58,6 +58,7 @@ import { buildDiamondSigns } from '../rendering/diamondSigns.js'; // Diamond kin
 import { createChainOrderFlashback } from './diamondFlashback.js'; // Diamond kingdom: "The Chain Order"
 import { diamondMapLocations, DIAMOND_SHOTS, shotKeys } from '../models/diamondStory.js'; // Diamond kingdom: Atlas places and shots
 import { buildCloverCampaign } from '../rendering/cloverCampaign.js';
+import { buildHeartCampaign } from '../rendering/heartCampaign.js';
 import { applyTestStart, getTestStart } from '../models/testStarts.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
@@ -104,6 +105,12 @@ export function startGame(ui, { testStartId = null } = {}) {
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   let doorScene = null, cloverScenes = null; // created below, with the camera controls
   const inventory = createInventory({ onAdd: (id, item) => toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500) });
+  const heart = buildHeartCampaign({ scene, world, keys, notify: toast,
+    ready: () => inventory.has('root-sigil') && inventory.has('tide-hook'),
+    onSigil: () => inventory.add('tide-sigil'),
+    onReady: root => atmosphere?.prepare?.(root) });
+  const sera = VILLAGERS.find(v => v.name === 'Sera');
+  if (sera) sera.home = [heart.model.layout.sera.x, heart.model.layout.sera.z];
   const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
     chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
     onChapterComplete: () => doorScene.queue(9), // the castle doors open; the sigil waits in the archive chest
@@ -116,7 +123,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     onReady: root => atmosphere?.prepare?.(root) });
   shrine.colliders.push(...livingRoad.colliders);
   // --- end Clover chapter ---
-  shrine.colliders.push(...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
+  shrine.colliders.push(...heart.colliders, ...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
   const towerPlaza = createTowerPlaza({ scene, ground: terrainHeight, spadeFree: () => ['report', 'complete'].includes(spade.campaign.stage),
     occupied: (x, z) => shrine.colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.radius + 1.5) });
   shrine.colliders.push(...towerPlaza.colliders);
@@ -142,7 +149,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   const diamondSigns = buildDiamondSigns({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight });
   shrine.colliders.push(...diamondQuarry.colliders, ...diamondKingdom.colliders, ...diamondRoyal.colliders, ...diamondDustward.colliders, ...diamondStockade.colliders, ...diamondRow.colliders, ...diamondSiege.colliders, ...diamondSigns.colliders, ...world.diamond.bridge.rails);
   // --- end Diamond chapter ---
-  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms, world.diamond.bridge.platform];
+  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...heart.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms, world.diamond.bridge.platform];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
   // Standing and feet use the ground as drawn (flat mesh triangles), not the smooth height between vertices.
   const surfaceAt = createSurfaceAt(platforms, world.surfaceHeight);
@@ -155,9 +162,9 @@ export function startGame(ui, { testStartId = null } = {}) {
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
-  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, diamond: diamond.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement,
+  const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, heart: heart.model, diamond: diamond.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement,
     diamondLocations: diamondMapLocations(world.diamond) });
-  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, diamond: diamond.model, state });
+  const help = createHelpPanel({ quest, spade, clover: livingRoad.model, heart: heart.model, diamond: diamond.model, state });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
@@ -193,12 +200,12 @@ export function startGame(ui, { testStartId = null } = {}) {
   npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight: world.surfaceHeight, staticColliders: shrine.colliders,
     platforms,
-    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active || doorScene.active || cloverScenes.active,
+    isMovementBlocked: () => skyIsland.journey.blocked || heart.model.traversing || houndScene.active || doorScene.active || cloverScenes.active,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     allowFallRecovery: player => !spade.isInsideCastle(player.position),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
       : livingRoad.model.ownsArea(player.position) ? livingRoad.recovery(player)
-      : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
+      : heart.model.recovery(player) || waterfall.courseRecovery(player) || clover.courseRecovery(player) });
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
@@ -230,16 +237,17 @@ export function startGame(ui, { testStartId = null } = {}) {
     clover.reset();
     skyIsland.reset();
     spade.reset();
+    heart.reset();
     diamond.reset(); // Diamond chapter
     livingRoad.reset(); // Clover chapter: R clears growth, discoveries and both earned items.
     if (testStart) {
-      const target = applyTestStart(testStart.id, { spade, clover: livingRoad.model, diamond: diamond.model, inventory });
+      const target = applyTestStart(testStart.id, { spade, clover: livingRoad.model, heart: heart.model, diamond: diamond.model, inventory });
       movement.teleport({ ...target, top: target.top ?? world.surfaceHeight(target.x, target.z) });
       companion.reset();
     }
     character.reset?.();
     updateChunks();
-    diamondArrived = Boolean(testStart && testStart.chapter >= 4);
+    diamondArrived = Boolean(testStart && testStart.chapter >= 5);
     diamondStage = diamond.model.stage;
   }
   // Stress test: [ and ] change how many chunks are loaded and reshaped each frame.
@@ -255,6 +263,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   atmosphere.prepare?.(clover.root);
   atmosphere.prepare?.(skyIsland.root);
   atmosphere.prepare?.(spade.root);
+  atmosphere.prepare?.(heart.root);
   atmosphere.prepare?.(diamond.root); // Diamond chapter
   atmosphere.prepare?.(diamondQuarry.root);
   atmosphere.prepare?.(diamondKingdom.root);
@@ -269,7 +278,8 @@ export function startGame(ui, { testStartId = null } = {}) {
   const character = createTravelerCharacter({ scene, state, player, surfaceAt }); // the sigil-blade wanderer (src/assets/traveler.glb)
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
-    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
+    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) &&
+      !world.heart.ownsArea(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
     // NPCs keep out of landmarks and anything the player collides with (shrine tower, trees, rocks).
     blocked: (x, z) => world.isLandmarkArea(x, z) ||
       [shrine.colliders, ...Array.from(chunks.values(), chunk => chunk.userData.colliders)]
@@ -347,7 +357,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   // so islands and arches don't float over the void. At radius 2+ they stay visible from afar as
   // destinations, as designed. Footprints (XZ boxes) are measured when the radius changes.
   const landmarks = [waterfall.root, wayfinding.root, ridge.root, plaza.root, clover.root, clover.lake,
-    skyIsland.root, skyIsland.water, heavenly.root, heavenly.jet, ...gates.root.children].filter(Boolean);
+    skyIsland.root, skyIsland.water, heavenly.root, heavenly.jet, heart.root, ...gates.root.children].filter(Boolean);
   const footprints = new Map();
   let cullRadius = null;
   function cullLandmarks() {
@@ -404,8 +414,11 @@ export function startGame(ui, { testStartId = null } = {}) {
     const streamFocus = cloverScenes.focus ?? player.position;
     updateChunks(streamFocus);
     world.updateTerrain(playDt);
+    const heartFrame = heart.update(dt, player, state, biomeAt(player.position.x, player.position.z).kind === 'crystals');
+    if (heartFrame.target) movement.teleport(heartFrame.target);
+    else if (heartFrame.flight) player.position.set(heartFrame.flight.x, heartFrame.flight.top + 2.05, heartFrame.flight.z);
     if (!houndScene.active) skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
-    if (!skyIsland.journey.blocked && !houndScene.active) movement.update(startup.ready ? dt : 0);
+    if (!skyIsland.journey.blocked && !heart.model.traversing && !houndScene.active) movement.update(startup.ready ? dt : 0);
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
     if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
@@ -459,6 +472,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     // After the cure: the Spade chapter's objective, then the castle's next step once the sigil is earned.
     const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete, chestNext = spade.campaign.sigil && !inventory.has('lantern-sigil');
     updateQuestHUD(ui, quest, quest.stage !== 'cured' ? quest.goal
+      : heart.model.available && !heart.model.complete ? heart.model.goal // Heart chapter, once the Clover tools are carried
       : diamond.model.available ? diamond.model.goal // Diamond chapter, once the Tide Sigil is held
       : livingRoad.model.available ? livingRoad.model.goal // Clover chapter, after the Spade discoveries
       : chestNext ? 'SPADE CASTLE · OPEN THE CHEST IN THE ARCHIVE UPSTAIRS · TAKE THE LANTERN SIGIL'

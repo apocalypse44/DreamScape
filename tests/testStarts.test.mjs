@@ -16,6 +16,7 @@ const { createSpadeCampaign } = await load('../src/models/spadeCampaign.js');
 const { createCastleDiscovery } = await load('../src/models/spadeCastle.js');
 const { createCastleEcho } = await load('../src/models/castleEcho.js');
 const { createCloverCampaign } = await load('../src/models/cloverCampaign.js');
+const { createHeartCampaign, heartLayout } = await load('../src/models/heartCampaign.js');
 const { createDiamondCampaign } = await load('../src/models/diamondCampaign.js');
 const { createInventory } = await load('../src/models/inventory.js');
 const { createQuest } = await load('../src/models/quest.js');
@@ -28,8 +29,9 @@ function fixture(id) {
   const echo = createCastleEcho(), discovery = createCastleDiscovery({ hasEcho: () => echo.recovered });
   const spade = { echo, castle: { discovery }, campaign: createSpadeCampaign({ ready: () => quest.stage === 'cured', crownKnown: () => discovery.complete }) };
   const clover = createCloverCampaign({ ready: () => inventory.has('lantern-sigil') && discovery.complete });
+  const heart = createHeartCampaign({ layout: heartLayout({ x: 350, z: 0 }), ready: () => inventory.has('root-sigil') && inventory.has('tide-hook') });
   const diamond = createDiamondCampaign({ ready: () => inventory.has('tide-sigil') });
-  return { quest, inventory, spade, clover, diamond, events };
+  return { quest, inventory, spade, clover, heart, diamond, events };
 }
 
 for (const start of TEST_STARTS) test(`${start.id}: completes prerequisites and leaves the chosen quest playable`, () => {
@@ -43,17 +45,23 @@ for (const start of TEST_STARTS) test(`${start.id}: completes prerequisites and 
   assert.equal(f.inventory.has('lantern-sigil'), start.chapter >= 2);
   assert.equal(f.inventory.has('root-sigil'), start.chapter >= 4 || start.id === 'sky-hook');
   assert.equal(f.inventory.has('tide-hook'), start.chapter >= 4);
-  assert.equal(f.inventory.has('tide-sigil'), start.chapter >= 4);
+  assert.equal(f.inventory.has('tide-sigil'), start.chapter >= 5);
   assert.equal(f.inventory.has('prism-sigil'), false);
-  assert.equal(f.diamond.available, start.chapter >= 4);
+  assert.equal(f.diamond.available, start.chapter >= 5);
   assert.equal(f.diamond.sigil, false);
   if (start.spade) assert.equal(f.spade.campaign.stage, start.spade);
   if (start.clover) { assert.equal(f.clover.stage, start.clover); assert.equal(f.clover.hook, false); }
+  if (start.heart) assert.equal(f.heart.stage, start.heart === 'core' ? 'escort' : start.heart);
   if (start.diamond) assert.equal(f.diamond.stage, start.diamond);
   assert.deepEqual(f.events, [], 'preset rewards do not trigger normal acquisition callbacks');
 });
 
-test('Diamond starts can progress without playing Spade, Clover or Heart', () => {
+test('Heart starts include the Clover prerequisites; Diamond starts include the Tide Sigil', () => {
+  const heart = fixture('heart'), approach = applyTestStart('heart', fixture('heart'));
+  assert.equal(heart.heart.available, true);
+  assert.equal(heart.inventory.has('tide-sigil'), false);
+  assert.ok(Math.hypot(approach.x - heart.heart.layout.sera.x, approach.z - heart.heart.layout.sera.z) > 2);
+  assert.ok(Math.hypot(approach.x - heart.heart.layout.sera.x, approach.z - heart.heart.layout.sera.z) < 5);
   const meet = fixture('diamond'); applyTestStart('diamond', meet);
   assert.ok(meet.diamond.update(0, meet.diamond.layout.orin, .06));
   assert.equal(meet.diamond.stage, 'collect');
