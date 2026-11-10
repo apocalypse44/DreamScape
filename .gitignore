@@ -1,6 +1,9 @@
 # Downloaded assets stay local; keep their setup instructions.
 /assets/*
 docs/
+*.md
+!README.md
+!*_CREDITS.md
 
 # Python caches and local environments
 __pycache__/
