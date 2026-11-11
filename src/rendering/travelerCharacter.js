@@ -8,7 +8,8 @@ import { createTravelerFace } from './travelerFace.js';
 // drawn matches the simulated hit frames. No reference game's assets or code are used.
 const ONE_SHOTS = ['jumpStart', 'land', 'interact', 'castShoot'];
 // walkSpeed: this place's normal walking speed (kingdoms 9 m/s, movement lab 4.2), to tell a sprint apart.
-export function createTravelerCharacter({ scene, state, player, surfaceAt, status = document.querySelector('#characterStatus'), walkSpeed = 9, reactiveFace = false }) {
+// terrainAt(x, z): the natural ground only (no platforms). Slides happen on natural slopes, never on stairs or ramps.
+export function createTravelerCharacter({ scene, state, player, surfaceAt, terrainAt = null, status = document.querySelector('#characterStatus'), walkSpeed = 9, reactiveFace = false }) {
   const root = new THREE.Group(); root.name = 'DreamScape traveller'; scene.add(root);
   const lean = new THREE.Group(); root.add(lean);
   const motion = createTravelerMotion(), actions = new Map(), legs = [], cape = [];
@@ -105,6 +106,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
     }
   }
   let mixer = null, model = null, sword = null, sockets = {}, failed = false, label = '', name = 'loading', heading = state.yaw + Math.PI, tilt = 0, ik = 0;
+  let slideLean = 0, descent = 0, lastFeet = player.position.y; // the slide pose and the feet's measured descent
   let rootMotion = {}, modelScale = 1, clock = 0, drawn = false, face = null, faceOverride = null, faceOverrideTime = 0, expression = 'neutral';
   const capeState = { pitch: .1, pitchV: 0, roll: 0, rollV: 0, lastHeading: heading };
   const trail = createTrail(scene);
@@ -204,11 +206,15 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
     /** Show an expression for a while (cutscenes, dialogue): 'joy', 'sad', 'surprised', ... */
     setExpression(name, seconds = 2) { faceOverride = name; faceOverrideTime = seconds; },
     swordTip(target, offset = .86) { if (!sword) return null; return sword.localToWorld(target.set(0, offset, 0)); },
-    reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = bank = 0; hang.identity(); capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
+    reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = bank = slideLean = descent = 0; lastFeet = player.position.y; hang.identity(); capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
     /** hook: { anchor:{x,y,z}|null, reach 0..1, phase, flip 0..1 } from models/grapple.js. */
     update(dt, cameraDistance = 3.8, castAt = null, combat = null, hook = null) {
       const speed = Math.hypot(player.velocity.x, player.velocity.z);
-      const pose = motion.update(dt, { speed, grounded: player.grounded, verticalSpeed: player.velocity.y, crouching: state.crouching, casting: castAt ? state.swarmGesture || 'attract' : false, inFlight: player.inFlight, armed: Boolean(combat?.drawn) });
+      // How fast the feet are going down (ground snapping moves y directly, so velocity.y misses it): slopes, stairs.
+      if (dt > 0) { const drop = Math.max(0, (lastFeet - player.position.y) / dt); descent += (Math.min(drop, 30) - descent) * (1 - Math.exp(-12 * dt)); }
+      lastFeet = player.position.y;
+      const onTerrain = !terrainAt || Math.abs(player.position.y - 2.05 - terrainAt(player.position.x, player.position.z)) < 0.5;
+      const pose = motion.update(dt, { speed, grounded: player.grounded, verticalSpeed: player.velocity.y, crouching: state.crouching, casting: castAt ? state.swarmGesture || 'attract' : false, inFlight: player.inFlight, armed: Boolean(combat?.drawn), descent: onTerrain ? descent : 0 });
       const acting = Boolean(combat?.clip && actions.has(combat.clip));
       const swinging = hook?.phase === 'swing', flipping = hook?.phase === 'fly' && hook.flip < 1;
       name = acting ? combat.clip : swinging ? 'swinging' : flipping ? 'flipping' : pose.name;
@@ -223,6 +229,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       const turnRate = dt > 0 ? Math.atan2(Math.sin(heading - capeState.lastHeading), Math.cos(heading - capeState.lastHeading)) / dt : 0; capeState.lastHeading = heading;
       const targetTilt = player.grounded && !acting ? THREE.MathUtils.clamp(pose.acceleration * .005, -.06, .10) : 0;
       tilt += (targetTilt - tilt) * (1 - Math.exp(-8 * dt));
+      slideLean += ((pose.sliding && !acting ? -.34 : 0) - slideLean) * (1 - Math.exp(-7 * dt)); // sliding: lean back, weight on the heels
       // Hang from the fist: turn the whole body about the waist so waist, hook shoulder and anchor line up,
       // so the body follows the hand through the arc instead of the arm reaching behind the head.
       hangGoal.identity();
@@ -233,7 +240,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, statu
       hang.slerp(hangGoal, 1 - Math.exp(-10 * dt));
       const spin = flipping ? Math.PI * 2 * (1 - (1 - hook.flip) ** 3) : 0; // one forward somersault, eased out
       bank += ((acting ? 0 : THREE.MathUtils.clamp(-difference * .09, -.12, .12)) - bank) * (1 - Math.exp(-10 * dt)); // lean into turns
-      lean.quaternion.copy(hang).multiply(roll.setFromAxisAngle(Z, bank)).multiply(pitch.setFromAxisAngle(X, tilt + spin));
+      lean.quaternion.copy(hang).multiply(roll.setFromAxisAngle(Z, bank)).multiply(pitch.setFromAxisAngle(X, tilt + spin + slideLean));
       lean.position.copy(waist).sub(direction.copy(waist).applyQuaternion(lean.quaternion)); // pivot at the waist, not the feet
       holdSword(Boolean(combat?.drawn));
       if (!mixer || !root.visible) { trail.clear(); rope.visible = false; return; }

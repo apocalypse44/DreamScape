@@ -15,3 +15,11 @@ export function diamondClimateAt(x, z) {
   const t = Math.max(0, Math.min(1, (distance + 90) / 110));
   return t * t * (3 - 2 * t);
 }
+// Heart's humid golden-hour air ("the Drained Tide"), blended the same way across its eastern border.
+export function heartClimateAt(x, z) {
+  const circle = Math.hypot(x, z) - 350;
+  const eastSector = (x - Math.abs(z)) / Math.SQRT2;
+  const distance = Math.min(circle, eastSector);
+  const t = Math.max(0, Math.min(1, (distance + 90) / 110));
+  return t * t * (3 - 2 * t);
+}

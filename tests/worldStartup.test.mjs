@@ -18,6 +18,12 @@ test('world startup returns live material profiles after legacy scenery removal'
   globalThis.THREE = {
     CylinderGeometry: Geometry, ConeGeometry: Geometry,
     MeshLambertMaterial: Material, MeshPhongMaterial: Material,
+    // The terrain math the world uses during startup (same definitions as three.js).
+    MathUtils: {
+      clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v)),
+      lerp: (a, b, t) => (1 - t) * a + t * b,
+      smoothstep: (x, lo, hi) => x <= lo ? 0 : x >= hi ? 1 : ((x - lo) / (hi - lo)) ** 2 * (3 - 2 * (x - lo) / (hi - lo)),
+    },
   };
   globalThis.location = { search: '?seed=1234' };
   globalThis.history = { replaceState() {} };

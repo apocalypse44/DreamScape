@@ -80,8 +80,10 @@ export function createChaosWeather(scene, opts = {}) {
   // Both layers animate on the GPU and use normal alpha blending.
   const sand = makeLayer({ count: opts.sand ?? 18000, color: 0xd8b77e, size: 0.075, fall: 0.25, wind: 0, additive: false, box: 48, height: 22, sand: true });
   const sandFar = makeLayer({ count: opts.sandFar ?? 10000, color: 0xb99a69, size: 0.11, fall: 0.15, wind: 0, additive: false, box: 100, height: 40, sand: true });
-  scene.add(embers, ash, sand, sandFar);
-  const layers = [embers, ash, sand, sandFar];
+  // Heart: warm rose rain instead of embers (the sand flag keeps drops small and streaked).
+  const rain = makeLayer({ count: opts.rain ?? 7000, color: 0xffb8c8, size: 0.09, fall: 16, wind: 1.5, additive: false, box: 50, height: 30, sand: true });
+  scene.add(embers, ash, sand, sandFar, rain);
+  const layers = [embers, ash, sand, sandFar, rain];
   for (const layer of layers) layer.visible = false;
 
   let time = 0, nextFlash = 3, flashT = -1;
@@ -99,9 +101,9 @@ export function createChaosWeather(scene, opts = {}) {
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
   return {
-    embers, ash, sand, sandFar,
+    embers, ash, sand, sandFar, rain,
     /** @returns lightning flash 0..1 */
-    update(dt, score, center, { desert = 0, indoors = 0 } = {}) {
+    update(dt, score, center, { desert = 0, heart = 0, indoors = 0 } = {}) {
       time += dt;
       for (const layer of layers) {
         const u = layer.material.uniforms;
@@ -109,8 +111,9 @@ export function createChaosWeather(scene, opts = {}) {
         u.uCenter.value.copy(center);
       }
       const outside = 1 - Math.min(1, Math.max(0, indoors));
-      embers.material.uniforms.uOpacity.value = 0.9 * smooth(0.45, 0.9, score) * (1 - desert) * outside;
-      ash.material.uniforms.uOpacity.value = 0.55 * smooth(0.55, 1.0, score) * (1 - desert) * outside;
+      embers.material.uniforms.uOpacity.value = 0.9 * smooth(0.45, 0.9, score) * (1 - desert) * (1 - heart) * outside;
+      ash.material.uniforms.uOpacity.value = 0.55 * smooth(0.55, 1.0, score) * (1 - desert) * (1 - heart) * outside;
+      rain.material.uniforms.uOpacity.value = 0.6 * smooth(0.3, 0.8, score) * heart * outside;
       const strength = smooth(0.25, 0.85, score);
       const gust = 0.82 + 0.18 * Math.sin(time * 0.75 + Math.sin(time * 0.23));
       sand.material.uniforms.uOpacity.value = desert * outside * (0.09 + strength * 0.63) * gust;
@@ -123,7 +126,7 @@ export function createChaosWeather(scene, opts = {}) {
       }
       for (const layer of layers) layer.visible = layer.material.uniforms.uOpacity.value > 0.001;
 
-      if (score < 0.8) { nextFlash = Math.max(nextFlash, time + 1); }
+      if (score < 0.8 - heart * 0.3) { nextFlash = Math.max(nextFlash, time + 1); } // Heart's storms strike sooner
       else if (flashT < 0 && time >= nextFlash) { flashT = 0; nextFlash = time + 4 + Math.random() * 6; }
       let flash = 0;
       if (flashT >= 0) {

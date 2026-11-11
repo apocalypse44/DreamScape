@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 const load = file => import(`data:text/javascript;base64,${Buffer.from(readFileSync(new URL(file, import.meta.url),'utf8')).toString('base64')}`);
-const { spadeClimateAt, diamondClimateAt } = await load('../src/models/climate.js');
+const { spadeClimateAt, diamondClimateAt, heartClimateAt } = await load('../src/models/climate.js');
 const { sampleDaylight } = await load('../src/models/daylight.js');
 
 test('Spade darkness builds before its gate and reaches permanent night inside', () => {
@@ -47,4 +47,12 @@ test('Diamond’s dusty air builds before its gate, fills the kingdom and stays 
   let previous = 0;
   for (let z = 260; z <= 400; z += .1) { const w = diamondClimateAt(0, z); assert.ok(w >= previous - 1e-10 && w - previous < .002); previous = w; }
   for (const [x, z] of [[0, 0], [400, 0], [-400, 0], [0, -400]]) assert.equal(diamondClimateAt(x, z), 0);
+});
+
+test('Heart golden-hour air builds before its gate, fills the east and stays out of the other kingdoms', () => {
+  assert.equal(heartClimateAt(260, 0), 0);
+  assert.equal(heartClimateAt(370, 0), 1);
+  for (const [x, z] of [[0, 0], [-400, 0], [0, 400], [0, -400]]) assert.equal(heartClimateAt(x, z), 0);
+  let previous = 0;
+  for (let x = 260; x <= 400; x += .1) { const w = heartClimateAt(x, 0); assert.ok(w >= previous - 1e-10 && w - previous < .002); previous = w; }
 });

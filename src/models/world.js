@@ -74,7 +74,13 @@ export function createWorld({ scene, state, player, onChunk }) {
   const diamond = createDiamondKingdom(trailPoint(noise, 2, KINGDOM_START - 6));
   const heart = heartLayout(trailPoint(noise, 1, KINGDOM_START - 6));
   const quarry = diamond.quarry;
-  const ground = (x, z, h) => diamond.ground(x, z, landmarkTerrain(x, z, h));
+  // Heart's crater opens in the earthquake (heartCampaign's quake); until then the ground is whole.
+  let heartCrater = false;
+  const ground = (x, z, h) => {
+    // Heart: Tidewell's flat streets, canal and the palace grounds are always there.
+    const g = heart.townGround(x, z, diamond.ground(x, z, landmarkTerrain(x, z, h)));
+    return heartCrater ? heart.craterGround(x, z, g, FLAT_Y) : g;
+  };
 
   function biomeAt(x, z) {
     if (Math.hypot(x, z) < KINGDOM_START) return BIOMES.hub;
@@ -145,12 +151,15 @@ export function createWorld({ scene, state, player, onChunk }) {
   }
   const approach = heart.sera;
   let approachHeight = heightFor(approach.x, approach.z, terrainShift);
+  // Level ground around Sera's approach: within 34 m the terrain blends to the approach's height.
+  // Chunk meshes apply the same blend (createChunk/reshape), so the drawn ground matches what you stand on.
+  const APPROACH_REACH = 34;
+  function approachBlend(x, z, terrain, centerHeight = approachHeight) {
+    const blend = 1 - THREE.MathUtils.smoothstep(Math.hypot(x - approach.x, z - approach.z), 14, APPROACH_REACH);
+    return blend <= 0 ? terrain : THREE.MathUtils.lerp(terrain, centerHeight, blend);
+  }
   function authoredHeight(x, z, shift, centerHeight = approachHeight) {
-    const terrain = heightFor(x, z, shift);
-    const distance = Math.hypot(x - approach.x, z - approach.z);
-    const blend = 1 - THREE.MathUtils.smoothstep(distance, 14, 34);
-    if (blend <= 0) return terrain;
-    return THREE.MathUtils.lerp(terrain, centerHeight, blend);
+    return approachBlend(x, z, heightFor(x, z, shift), centerHeight);
   }
   const terrainHeight = (x, z) => authoredHeight(x, z, terrainShift);
   // The ground exactly as drawn: chunk meshes are a grid of flat triangles, so between vertices they sit
@@ -178,14 +187,11 @@ export function createWorld({ scene, state, player, onChunk }) {
 
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.38, 3.2, 5);
   const crownGeo = new THREE.ConeGeometry(1.5, 4.5, 6);
-  const crystalGeo = new THREE.ConeGeometry(0.65, 4.8, 5);
   const trunkMat = new THREE.MeshLambertMaterial({ color: 0x243526 });
   const leafMat = new THREE.MeshLambertMaterial({ color: 0x7fb06a });
-  const crystalMat = new THREE.MeshPhongMaterial({ color: 0xff5a42, emissive: 0x5d0b06, shininess: 85 });
   const stoneMat = new THREE.MeshLambertMaterial({ color:0xb89a68 });
   const shardGeo = new THREE.CylinderGeometry(0, 0.55, 1, 6);
   const shardMat = new THREE.MeshPhongMaterial({ color: 0xcfe9ff, emissive: 0x2a4f70, shininess: 90, flatShading: true });
-  const ruinMat = new THREE.MeshLambertMaterial({ color:0x67746a });
 
   // Basic Poisson-disk dart throwing: accepted points always keep a minimum distance.
   function poissonPoints(cx, cz, minimumDistance, target) {
@@ -213,7 +219,7 @@ export function createWorld({ scene, state, player, onChunk }) {
       if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) ||
         livingRoadArea(wx, wz, 5) || heart.ownsArea({ x: wx, z: wz }, 8) || diamond.decorFree(wx, wz, 2)) return;
       const kind = biomeAt(wx, wz).kind;
-      if (kind === "hub" || kind === "trees" || kind === "wisps") return; // these kingdoms have authored dressing
+      if (kind === "hub" || kind === "trees" || kind === "wisps" || kind === "crystals") return; // these kingdoms have authored dressing (Heart: Tidewell)
       const y = terrainHeight(wx, wz);
       const object = new THREE.Group();
       if (biome.kind === "trees" || biome.kind === "hub") {
@@ -225,19 +231,6 @@ export function createWorld({ scene, state, player, onChunk }) {
         object.add(trunk, crown);
         object.scale.setScalar(0.55 + hash(i, cx + cz) * 0.8);
         addCollider(group, wx, wz, 0.75 * object.scale.x);
-      } else if (biome.kind === "crystals") {
-        const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-        crystal.position.y = 2.1;
-        crystal.rotation.z = hash(i, cx) * -0.5 + 0.25;
-        crystal.castShadow = true;
-        object.add(crystal);
-        if (hash(i, cz) > 0.55) {
-          const side = crystal.clone();
-          side.scale.setScalar(0.55);
-          side.position.set(1, 1, -0.3);
-          object.add(side);
-        }
-        addCollider(group, wx, wz, 0.9);
       } else {
         // Diamond: leaning six-sided crystal clusters, the seams the kingdom mines.
         for (let s = 0; s < 3; s++) {
@@ -264,39 +257,6 @@ export function createWorld({ scene, state, player, onChunk }) {
     });
   }
 
-  // Tiny WFC-style pass: each cell collapses to a tile allowed by left/up neighbors.
-  function createWfcRuins(group, cx, cz, biome) {
-    if (biome.kind === "hub" || biome.kind === "wisps") return;
-    const rules = { empty:["empty","pillar","arch"], pillar:["empty","pillar"], arch:["empty","pillar"] };
-    const cells = [];
-    for (let z = 0; z < 3; z++) for (let x = 0; x < 3; x++) {
-      const left = x ? cells[z*3+x-1] : "empty";
-      const up = z ? cells[(z-1)*3+x] : "empty";
-      const allowed = rules[left].filter(tile => rules[up].includes(tile));
-      let tile = allowed[Math.floor(hash(cx*13+x,cz*17+z)*allowed.length)];
-      if (hash(cx*29+x,cz*37+z) < (biome.kind === "pillars" ? 0.43 : 0.72)) tile = "empty";
-      cells.push(tile);
-      if (tile === "empty") continue;
-      const lx = -18 + x*18, lz = -18 + z*18;
-      const wx = cx*CHUNK_SIZE+lx, wz = cz*CHUNK_SIZE+lz;
-      // Mixed border chunks must not place a neighbouring kingdom's ruin in Spade.
-      if (biomeAt(wx, wz).kind === "wisps") continue;
-      if (cloverArea(wx, wz, 5) || skyLakeArea(wx, wz) || spadeArea(wx, wz, 6) || livingRoadArea(wx, wz, 5) || diamond.area(wx, wz)) continue; // ruins stay outside the authored kingdom
-      const y = terrainHeight(wx,wz);
-      const ruin = new THREE.Group();
-      const postGeo = new THREE.BoxGeometry(1.2,5,1.2);
-      const post = new THREE.Mesh(postGeo,ruinMat); post.position.y=2.5; ruin.add(post);
-      if(tile === "arch") {
-        const other=post.clone();other.position.x=4;ruin.add(other);
-        const lintel=new THREE.Mesh(new THREE.BoxGeometry(5.2,1,1.2),ruinMat);lintel.position.set(2,5,0);ruin.add(lintel);
-      }
-      const baseY = y;
-      ruin.position.set(lx,baseY,lz);ruin.rotation.y=hash(cx+x,cz+z)*Math.PI;group.add(ruin);
-      group.userData.animated.push({object:ruin,baseY,baseRotation:ruin.rotation.y,phase:hash(cx+x*3,cz+z*7)*6.28,type:"ruin"});
-      addCollider(group,wx,wz,tile === "arch" ? 1.1 : 0.8);
-    }
-  }
-
   function createChunk(cx, cz) {
     const biome = biomeAt(cx * CHUNK_SIZE, cz * CHUNK_SIZE);
     const score = THREE.MathUtils.clamp(biome.roughness + state.chaos * 0.15, 0.03, 0.98);
@@ -318,12 +278,17 @@ export function createWorld({ scene, state, player, onChunk }) {
       parts[i * 5 + 2] = calmBase(wx, wz);
       parts[i * 5 + 3] = chaosWeight(wx, wz);
       parts[i * 5 + 4] = hillMask(wx, wz);
-      positions.setY(i, ground(wx, wz, blendHeight(...parts.subarray(i * 5, i * 5 + 5))));
+      positions.setY(i, approachBlend(wx, wz, ground(wx, wz, blendHeight(...parts.subarray(i * 5, i * 5 + 5)))));
     }
     // Only vertices on hills inside the chaos ring can move (landmarks just blend the base height),
     // so reshape() touches those alone and skips chunks that cannot change at all.
     const dynamic = [];
-    for (let i = 0; i < positions.count; i++) if (parts[i * 5 + 4] > 0 && parts[i * 5 + 3] > 0) dynamic.push(i);
+    for (let i = 0; i < positions.count; i++) {
+      const wx = cx * CHUNK_SIZE + positions.getX(i), wz = cz * CHUNK_SIZE + positions.getZ(i);
+      // Near Sera's approach the level height itself follows chaos, so those vertices move too.
+      const nearApproach = Math.hypot(wx - approach.x, wz - approach.z) < APPROACH_REACH;
+      if ((parts[i * 5 + 4] > 0 && parts[i * 5 + 3] > 0) || nearApproach) dynamic.push(i);
+    }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
     // Per-vertex ground colour so kingdom borders follow the real 350 m circle, not chunk squares.
@@ -354,7 +319,6 @@ export function createWorld({ scene, state, player, onChunk }) {
     group.add(mesh);
     group.userData = { score, material, cx, cz, biome, parts, dynamic: Uint32Array.from(dynamic), colliders:[], animated:[] };
     createDecor(group, cx, cz, biome);
-    createWfcRuins(group, cx, cz, biome);
     onChunk(group);
     scene.add(group);
     chunks.set(chunkKey(cx, cz), group);
@@ -401,7 +365,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     for (const i of dynamic) {
       const k = i * 5;
       const wx = chunk.position.x + positions.getX(i), wz = chunk.position.z + positions.getZ(i);
-      positions.setY(i, ground(wx, wz, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4])));
+      positions.setY(i, approachBlend(wx, wz, ground(wx, wz, blendHeight(parts[k], parts[k + 1], parts[k + 2], parts[k + 3], parts[k + 4]))));
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -422,6 +386,18 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
+  // Open or close Heart's crater. Loaded chunks over it are dropped and stream back in with the new ground
+  // (one per frame); the quake's dust burst hides the swap.
+  function setHeartCrater(open) {
+    if (open === heartCrater) return;
+    heartCrater = open;
+    const reach = heart.craterReach + CHUNK_SIZE * 0.75;
+    for (const [key, chunk] of chunks) {
+      if (Math.hypot(chunk.position.x - heart.reef.x, chunk.position.z - heart.reef.z) < reach) removeChunk(key, chunk);
+    }
+    terrainVersion++;
+  }
+
   function reset() {
     for (const [key, chunk] of chunks) removeChunk(key, chunk);
     formed = 0;
@@ -430,7 +406,7 @@ export function createWorld({ scene, state, player, onChunk }) {
     terrainVersion++;
   }
 
-  return { seed, kingdomStart: KINGDOM_START, quarry, heart, diamond, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset,
+  return { seed, kingdomStart: KINGDOM_START, quarry, heart, diamond, chunks, hash, noise, biomeAt, terrainHeight, surfaceHeight, heightAt, updateChunks, updateTerrain, reset, setHeartCrater,
     isPathArea: (x, z) => plazaPathArea(x, z) || cloverApproach(x, z),
     isLandmarkArea: (x, z) => waterfallArea(x, z, 8) || ridgeArea(x, z, 4) || cloverArea(x, z, 5) || skyLakeArea(x, z) || spadeArea(x, z, 6) || livingRoadArea(x, z, 5) || heart.ownsArea({ x, z }, 4) || diamond.area(x, z),
     get formed() { return formed; },
@@ -453,10 +429,8 @@ export function createWorld({ scene, state, player, onChunk }) {
     materialProfiles: [
       [trunkMat, { roughness: 0.95, metalness: 0 }],
       [leafMat, { roughness: 0.8, metalness: 0 }],
-      [crystalMat, { roughness: 0.18, metalness: 0.35 }],
       [stoneMat, { roughness: 0.85, metalness: 0 }],
-      [shardMat, { roughness: 0.15, metalness: 0.1 }],
-      [ruinMat, { roughness: 0.9, metalness: 0 }]
+      [shardMat, { roughness: 0.15, metalness: 0.1 }]
     ]
   };
 }

@@ -57,7 +57,7 @@ for (const start of TEST_STARTS) test(`${start.id}: completes prerequisites and 
 });
 
 test('Heart starts include the Clover prerequisites; Diamond starts include the Tide Sigil', () => {
-  const heart = fixture('heart'), approach = applyTestStart('heart', fixture('heart'));
+  const heart = fixture('heart'), approach = applyTestStart('heart', heart);
   assert.equal(heart.heart.available, true);
   assert.equal(heart.inventory.has('tide-sigil'), false);
   assert.ok(Math.hypot(approach.x - heart.heart.layout.sera.x, approach.z - heart.heart.layout.sera.z) > 2);

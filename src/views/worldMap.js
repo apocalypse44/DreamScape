@@ -114,6 +114,7 @@ const ITEM_ICONS = {
 // diamondLocations: Diamond's story places, built at runtime from its gate (diamondMapLocations).
 export function createWorldMap({ world, player, state, quest, spade, clover, heart, diamond, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [] }) {
   const heartLocations = heart ? [
+    ...(heart.scout ? [{ id: 'heart-nim', name: 'NIM · SERA’S SCOUT', x: heart.scout.x, z: heart.scout.z, note: 'Heart refugee by the Clover gate' }] : []),
     { id: 'heart-sera', name: 'SERA · LISTENING SPRING', x: heart.layout.sera.x, z: heart.layout.sera.z, note: 'River guardian' },
     { id: 'heart-reef', name: 'RESONANCE REEF', x: heart.layout.reef.x, z: heart.layout.reef.z, note: 'The stolen current' },
     { id: 'heart-siphon', name: 'BURIED SIPHON', x: heart.layout.core.x, z: heart.layout.core.z, note: 'Tide Sigil' },

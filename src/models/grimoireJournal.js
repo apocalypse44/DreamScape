@@ -11,7 +11,7 @@ export function grimoireQuests(quest, spade, clover, diamond, heart) {
   const diamondStage=diamond?.stage??'meet';
   const diamondLocked=diamondStage==='meet'&&!diamond?.available;
   const heartStage=heart?.stage??'meet';
-  const heartLocked=heartStage==='meet'&&!heart?.available;
+  const heartLocked=!heart?.available; // no Root Sigil + Tide Hook, no Heart chapter, whatever its stage says
   const fitted=diamond?.fitted??0;
   return [
     {id:'hound',chapter:'I · THE CROSSING',title:'The Ember Hound',done:stage==='cured',locked:false,
@@ -58,22 +58,23 @@ export function grimoireQuests(quest, spade, clover, diamond, heart) {
         :clover.hook?'Root Sigil and Tide Hook earned':clover.sigil?'Root Sigil earned · Sky Garden chest unlocked'
         :`${clover.generation}/3 root crossings restored`,
       hint:!clover?.available?'Finish Neris’s quest and the castle in Spade first. Then find Iven, west of Clover’s top terrace.'
-        :clover.hook?'Clover is done. Take the Tide Hook east to Heart and find Sera.'
+        :clover.hook?'Clover is done. Talk to Nim, Sera’s scout, by the Clover gate while calm. Then take the Tide Hook east to Heart and find Sera.'
         :clover.sigil?'Go back over the bridges and climb Clover Terraces to the summit. Press E at the glowing gateway to go to the Sky Garden. Follow the Starlight Ledges signs to the highest ledge. Calm down and press E to open Iven’s chest.'
         :clover.generation===3?'Cross the new bridges to the Stormleaf Scar. Calm down and press E to read it.'
         :'Talk to Iven at the Archive. At each stop, press E while calm to turn the guide toward the gold leaf. Then stir chaos and press E to grow the bridge. The path goes west, north, west.',
       stamp:'LIVING ROAD RESTORED',destination:clover?.sigil&&!clover?.hook?'clover-sky-chest':clover?.generation===3&&!clover?.sigil?'clover-scar':'clover-archive'},
     {id:'stolen-current',chapter:'IV · THE HEART KINGDOM',title:'The Stolen Current',done:heartStage==='complete',locked:heartLocked,
       progress:heartLocked?'Requires the Root Sigil and Tide Hook'
-        :{meet:'Sera waits beside the Listening Spring',escort:`${heart?.checkpoints??0}/3 springs restored`,
+        :{meet:heart?.scout&&!heart?.awakened?'Nim waits by the Clover gate':'Sera waits beside the Listening Spring',escort:`${heart?.checkpoints??0}/3 springs restored`,
           report:'The siphon is clear · return to Sera',complete:'Tide Sigil earned'}[heartStage],
       hint:heartLocked?'Find Iven in Clover, restore the Living Road, and take the Tide Hook from the Sky Garden chest. Then travel east to Heart.'
-        :{meet:'In Heart, stir chaos to raise the Resonance Reef. Find the shore anchor and press E to grapple onto safe ground, then speak to Sera while calm.',
+        :{meet:heart?.scout&&!heart?.awakened?'Talk to Nim, Sera’s scout, by the Clover gate while calm. Nim will show you what is happening in Heart.'
+          :'In Heart, walk calmly to Sera at the Listening Spring and press E. After you talk to her, hold Q at the floating crystals to swing up the risen islands.',
           escort:heart?.checkpoints===3?'Follow the spirit’s A* route to the siphon core. Calm down and press E there to release the current.'
-            :'The water spirit replans around crystal passages. Stir chaos near a hidden switch and press E to open it. Follow the glowing route; at each spring, calm down and press E to continue.',
+            :'The water spirit can only walk the islands and bridges. Stir chaos near a hidden switch and press E to raise its crystal bridge; the spirit replans its A* route (hold B for Current Sight to see its search). At each spring, calm down and press E to continue.',
           report:'Carry the Tide Sigil back to Sera in calm. The broken siphon bears a Diamond maker’s mark.',
           complete:'Heart’s current is restored. Travel south to the Diamond Kingdom and find Orin beside the Shatterglass Relay.'}[heartStage],
-      stamp:'CURRENT RESTORED',destination:heartStage==='complete'?'diamond-quarry':'heart-reef'},
+      stamp:'CURRENT RESTORED',destination:heartStage==='complete'?'diamond-quarry':heartStage==='meet'?(heart?.scout&&!heart?.awakened?'heart-nim':'heart-sera'):'heart-reef'},
     {id:'unbroken-pattern',chapter:'V · THE DIAMOND KINGDOM',title:'The Unbroken Pattern',done:diamondStage==='complete',locked:diamondLocked,
       progress:diamondLocked?'Requires the Tide Sigil from Heart'
         :{meet:'Orin waits beside the Shatterglass Relay',collect:`${diamond?.collected??0}/4 conduit fragments collected`,

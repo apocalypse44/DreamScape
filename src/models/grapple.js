@@ -1,7 +1,8 @@
 // Rope swing for the Tide Hook. Pure simulation on the player's eye position:
 // hook an authored anchor, hang from it as a pendulum (the rope only pulls, so it
 // goes slack above the anchor), steer with the stick, let go to fly on momentum.
-// ponytail: anchors only, no surface hooking and no side collision while swinging; add sweeps if swings clip islands.
+// ponytail: anchors only, no surface hooking. Side collision is a point test (solid), not a sweep: fine at swing speeds
+// (≤ 24 m/s, ≤ 0.4 m per step); add a sweep if anything thinner than that needs to stop a swing.
 export const GRAPPLE = {
   range: 30, minDot: .5,      // reach (m) and how far off the camera's bearing an anchor may sit (cos)
   fire: .14,                  // seconds for the line to reach the anchor
@@ -32,7 +33,8 @@ export function pickAnchor(anchors, eye, look, { range = GRAPPLE.range, minDot =
   return best;
 }
 
-export function createGrapple({ anchors = [], eyeHeight = 2.05 } = {}) {
+// solid(x, feet, head, z): true if a body spanning feet..head there is inside something (e.g. Heart's islands).
+export function createGrapple({ anchors = [], eyeHeight = 2.05, solid = null } = {}) {
   let phase = 'idle', anchor = null, target = null, length = 0, time = 0, held = false, flip = 0, carry = false, zipLeft = 0, zipTo = 0;
   const vel = { x: 0, y: 0, z: 0 };
   function release(player, jump) {
@@ -86,6 +88,7 @@ export function createGrapple({ anchors = [], eyeHeight = 2.05 } = {}) {
       const p = player.position;
       vel.y -= GRAPPLE.gravity * dt;
       vel.x += (input.moveX || 0) * GRAPPLE.pump * dt; vel.z += (input.moveZ || 0) * GRAPPLE.pump * dt;
+      const was = { x: p.x, y: p.y, z: p.z };
       p.x += vel.x * dt; p.y += vel.y * dt; p.z += vel.z * dt;
       const zipping = zipLeft > 0; zipLeft -= dt;
       length = zipping ? Math.max(zipTo, length - GRAPPLE.zipReel * dt) : Math.max(GRAPPLE.minLength, length - GRAPPLE.reel * dt);
@@ -97,6 +100,14 @@ export function createGrapple({ anchors = [], eyeHeight = 2.05 } = {}) {
         if (out > 0) { vel.x -= nx * out; vel.y -= ny * out; vel.z -= nz * out; }
         const pull = zipping ? GRAPPLE.zipReel * .9 + (vel.x * nx + vel.y * ny + vel.z * nz) : 0; // reel-in carries you with it
         if (pull > 0) { vel.x -= nx * pull; vel.y -= ny * pull; vel.z -= nz * pull; }
+      }
+      // Swung (or reeled) into something solid: stay outside it and bounce off softly; the rope swings you back.
+      if (solid?.(p.x, p.y - eyeHeight, p.y, p.z)) {
+        p.x = was.x; p.y = was.y; p.z = was.z;
+        vel.x *= -0.25; vel.y *= -0.25; vel.z *= -0.25;
+        // The reel must not keep shortening against the rock, or the next taut step would yank you through it.
+        length = Math.max(length, Math.hypot(p.x - anchor.x, p.y - anchor.y, p.z - anchor.z));
+        zipLeft = 0;
       }
       const speed = Math.hypot(vel.x, vel.y, vel.z);
       if (speed > GRAPPLE.maxSpeed) { const s = GRAPPLE.maxSpeed / speed; vel.x *= s; vel.y *= s; vel.z *= s; }

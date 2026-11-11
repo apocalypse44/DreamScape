@@ -83,3 +83,15 @@ test('while hanging from the rope the player counts as airborne, from the attach
   for (let i = 0; i < 40; i++) { step({ hold: true, moveZ: -1 }); if (g.phase === 'swing') { attached = true; assert.equal(player.grounded, false, `step ${i}`); } }
   assert.ok(attached);
 });
+
+test('a swing cannot pass through something solid: it stops at the surface and bounces back', () => {
+  const wall = (x, y0, y1, z) => z < -3 && z > -4.5; // a thin slab across the swing's path
+  const g = createGrapple({ anchors: [{ x: 0, y: 12, z: -7 }], solid: wall });
+  const player = { position: { x: 0, y: 2.05, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, grounded: true };
+  let deepest = 0;
+  for (let i = 0; i < 120; i++) {
+    g.update(1 / 60, { hold: true, moveZ: -1, look }, player, () => -100);
+    deepest = Math.min(deepest, player.position.z);
+  }
+  assert.ok(deepest > -3, `never inside the slab (reached z ${deepest.toFixed(2)})`);
+});

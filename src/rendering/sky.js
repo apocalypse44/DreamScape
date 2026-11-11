@@ -34,8 +34,8 @@ const vertexShader = /* glsl */`
 
 const fragmentShader = /* glsl */`
   uniform vec3 uZenith, uHorizon, uFogColor, uSunDirection;
-  uniform float uDaylight, uTwilight, uStars, uTime, uCloudCover, uStorm, uFlash, uCapture, uEvil;
-  uniform vec3 uEvilClouds, uEvilFlash;
+  uniform float uDaylight, uTwilight, uStars, uTime, uCloudCover, uStorm, uFlash, uCapture, uEvil, uHeart;
+  uniform vec3 uEvilClouds, uEvilFlash, uHeartFlash;
   uniform float uVortex, uVortexPhase;
   uniform vec3 uVortexDir;
   varying vec3 vDir;
@@ -130,7 +130,7 @@ const fragmentShader = /* glsl */`
       col = mix(col, vec3(0.012, 0.0, 0.006), vortex.a * show);          // the eye swallows the light
       col += vortex.rgb * show;
     }
-    col += mix(vec3(0.35, 0.42, 0.6), uEvilFlash, uEvil) * uFlash;
+    col += mix(mix(vec3(0.35, 0.42, 0.6), uEvilFlash, uEvil), uHeartFlash, uHeart) * uFlash; // Heart: the stolen current arcs teal
     float horizonFog = 1.0 - smoothstep(0.0, 0.14, altitude);
     if (uCapture > 0.5) col = mix(col, pow(uFogColor, vec3(2.2)), horizonFog * 0.85);
     gl_FragColor = vec4(col, 1.0);
@@ -148,7 +148,7 @@ export function createSky() {
     uDaylight: { value: 1 }, uTwilight: { value: 0 }, uStars: { value: 0 },
     uTime: { value: 0 }, uCloudCover: { value: 0.4 }, uStorm: { value: 0 }, uFlash: { value: 0 }, uCapture: { value: 0 },
     uVortex: { value: 0 }, uVortexPhase: { value: 0 }, uVortexDir: { value: new THREE.Vector3(0, 1, 0) },
-    uEvil: { value: 0 }, uEvilClouds: { value: new THREE.Vector3(...CONFIG.evil.clouds) }, uEvilFlash: { value: new THREE.Vector3(...CONFIG.evil.flash) },
+    uEvil: { value: 0 }, uHeart: { value: 0 }, uHeartFlash: { value: new THREE.Vector3(0.25, 1.1, 1.2) }, uEvilClouds: { value: new THREE.Vector3(...CONFIG.evil.clouds) }, uEvilFlash: { value: new THREE.Vector3(...CONFIG.evil.flash) },
   };
   const material = new THREE.ShaderMaterial({
     uniforms, vertexShader, fragmentShader, side: THREE.BackSide,

@@ -42,7 +42,15 @@ Spade castle discoveries, find **Iven at the Rootkeeper Archive**, west of the t
 crossings, read the Stormleaf Scar for the **Root Sigil**, then climb Clover Terraces, take the summit teleporter to Sky Garden, and jump the Starlight Ledges to Iven’s chest for
 the **Tide Hook**. The summit and Sky Garden remain available. Heart owns the hook's grapple mechanics.
 
-For a direct development demo, use `?seed=1234&unlock=all`, then press **2** for Clover's gate.
+For a direct development demo, use `?seed=1234&unlock=all`. The title screen asks for a starting quest
+before loading the world. Choose **Clover — restore the Living Road** to test the bridges directly,
+or any other listed checkpoint. Earlier quests and their rewards are completed automatically;
+the selected step and later steps remain playable. **R** restores that same checkpoint.
+To change it, press **Esc** and click **Choose another quest** on the title screen.
+For Diamond, choose **Diamond — meet Orin / Shatterglass Relay**, **collect the workshop fragments**,
+or **repair and power the relay**. Diamond presets include the Tide Sigil prerequisite while Heart's
+campaign is absent from this branch. `start=diamond` (or `start=diamond-repair`) preselects an option
+when added to the testing URL. Without `unlock=all`, the regular story progression applies.
 **L** near the puzzle shows the optional L-system study. See [the chapter notes](CLOVER_LIVING_ROAD.md)
 for the route, limits, integration and reset behavior. The grimoire has separate Atlas, Quests and Satchel pages.
 
@@ -56,6 +64,11 @@ passages stay open, and a lost route makes the spirit wait rather than walk into
 reef return you to your last safe landing. The Tide Sigil opens the Diamond chapter.
 
 ## Requirements
+
+The new character can be inspected and played in `movement-lab.html` through the
+local server. Its generated GLB is included; no Blender or paid service is needed.
+Add `character=traveler` to the game URL to compare it in the kingdoms. See
+[the traveller prototype notes](TRAVELER_PROTOTYPE.md) for controls and scope.
 
 - **Python 3.8 or newer**, for the local launcher. It uses the standard library only.
 - A **desktop browser with WebGL** (Chrome, Edge or Firefox), plus a keyboard and mouse.
@@ -90,10 +103,9 @@ and [the upstream license](vendor/simple-particle-effects-LICENSE.txt).
 | `assets/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb` | [Universal Animation Library](https://quaternius.itch.io/universal-animation-library) (Quaternius, CC0), **Standard** pack |
 | `assets/universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb` | [Universal Animation Library 2](https://quaternius.com/packs/universalanimationlibrary.html) (Quaternius, CC0), **Standard** pack |
 | `assets/universal_animation_library_2standard/Universal Animation Library 2 [Standard]/Female Mannequin/Unreal-Godot/Mannequin_F.glb` | Same pack as above |
-| `assets/animals/ShibaInu.gltf`, `assets/animals/Wolf.gltf`, `assets/animals/License.txt` | *Ultimate Animated Animal Pack* (Quaternius, CC0), `glTF/` folder |
+| `assets/animals/ShibaInu.gltf`, `assets/animals/Wolf.gltf`, `assets/animals/License.txt` | *Ultimate Animated Animal Pack* (Quaternius, CC0), `glTF/` folder. Only needed to rebuild `src/assets/dog.glb` / `hound.glb` with `tools/dog-builder.html`; not deployed |
 | `assets/shrine/WatchTower.glb` | [Watch Tower](https://poly.pizza/m/cMxuj2gt7D) |
 | `assets/crystals/BigCrystal.glb`, `assets/crystals/GemPink.glb` | [Big Crystal](https://poly.pizza/m/pf5lzmgr2J), [Gem Pink](https://poly.pizza/m/PJnKvWluqs) |
-| `assets/character/Erika Archer.fbx` and the clips `Breathing Idle.fbx`, `Walking.fbx`, `Running.fbx`, `Jump.fbx`, `Crouching Idle.fbx`, `Crouch Walk.fbx` | [Mixamo](https://www.mixamo.com) (free Adobe account). Download as FBX; download the clips **In Place** |
 
 ## 3. Run the game
 

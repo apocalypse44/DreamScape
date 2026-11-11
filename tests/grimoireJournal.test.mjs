@@ -58,7 +58,7 @@ test('active parkour hints and completion inscriptions remain useful without fut
   const tasks=grimoireQuests(quest,spade);
   assert.equal(tasks[WITNESS].hint,spade.echo.objective);
   assert.equal(new Set(tasks.map(t=>t.stamp)).size,8);
-  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest','heart-reef','diamond-quarry','diamond-row'].includes(t.destination)));
+  assert.ok(tasks.every(t=>['quest','spade-refuge','spade-anchor','spade-castle','clover-archive','clover-scar','clover-sky-chest','heart-nim','heart-sera','heart-reef','diamond-quarry','diamond-row'].includes(t.destination)));
   assert.equal(grimoireQuests(quest,undefined)[CROWN].done,false);
   assert.equal(grimoireQuests(quest,undefined)[1].done,false);
 });

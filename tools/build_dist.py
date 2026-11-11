@@ -51,9 +51,16 @@ KIT_MODELS = {
                                                                            'resource_stone', 'bucket_water', 'pallet',
                                                                            'target', 'weaponrack', 'bucket_arrows', 'resource_lumber', 'crate_B_big',
                                                                            'crate_open', 'flag_yellow', 'flag_red'],
-    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/neutral': ['building_destroyed', 'building_scaffolding'],
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/neutral': ['building_destroyed', 'building_scaffolding',
+                                                                             'building_grain'],  # Heart: Tidewell's farmland
     'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/yellow': ['building_well_yellow', 'building_barracks_yellow', 'building_archeryrange_yellow'],
-    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/red': ['building_tower_A_red'],
+    'KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/red': ['building_tower_A_red',
+                                                                         # Heart: Tidewell and the palace (heartTown.js)
+                                                                         'building_home_A_red', 'building_home_B_red', 'building_tavern_red',
+                                                                         'building_church_red', 'building_windmill_red', 'building_market_red',
+                                                                         'building_blacksmith_red', 'building_well_red', 'building_watermill_red',
+                                                                         'building_tower_B_red', 'building_barracks_red',
+                                                                         'building_lumbermill_red'],
 }
 OPTIONAL = ['sounds']  # copied when present; the game falls back to synthesized sounds
 SKIP = shutil.ignore_patterns('desktop.ini', 'Desktop.ini', 'Thumbs.db', '.DS_Store', '__pycache__')

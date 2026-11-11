@@ -74,13 +74,15 @@ test('world rendering runs without an external timeline and follows actual chaos
   assert.equal(atmosphere.clock.hour, 9);
 });
 
-test('Diamond suppresses ambient glowing motes while other kingdoms keep them', () => {
+test('Diamond and Heart replace the ambient glowing motes; other kingdoms keep them', () => {
   const { atmosphere, moteMat } = fixture();
-  atmosphere.update(.9, { fog: 0, sky: 0 });
-  atmosphere.finish(.02, .9, { position: { x: 0, y: 2, z: 400 } });
-  assert.equal(moteMat.opacity, 0);
+  for (const [x, z] of [[0, 400], [400, 0]]) { // Diamond's sand, Heart's petals
+    atmosphere.update(.9, { fog: 0, sky: 0 });
+    atmosphere.finish(.02, .9, { position: { x, y: 2, z } });
+    assert.equal(moteMat.opacity, 0);
+  }
   atmosphere.update(.9, { fog: 0, sky: 0 });
   const opacity = moteMat.opacity;
-  atmosphere.finish(.02, .9, { position: { x: 400, y: 2, z: 0 } });
+  atmosphere.finish(.02, .9, { position: { x: 0, y: 2, z: -400 } }); // Clover
   assert.equal(moteMat.opacity, opacity);
 });

@@ -1,6 +1,6 @@
 import { createWorldClock } from '../models/worldClock.js';
 import { createAtmosphereEffects } from './atmosphereEffects.js';
-import { diamondClimateAt } from '../models/climate.js';
+import { diamondClimateAt, heartClimateAt } from '../models/climate.js';
 
 // The full world environment is always active and responds to actual movement.
 export function createAtmosphere({ scene, renderer, sun, hemi, moteMat, materialProfiles, chunks }) {
@@ -30,6 +30,8 @@ export function createAtmosphere({ scene, renderer, sun, hemi, moteMat, material
       effects.update(dt, visualScore, camera, { hour: clock.hour, ...story });
       // The desert weather supplies the sand; suppress the large ambient magic motes.
       moteMat.opacity *= 1 - diamondClimateAt(camera.position.x, camera.position.z);
+      // Heart has real petals and fireflies instead (heartPetals.js), so its square motes fade out too.
+      moteMat.opacity *= 1 - heartClimateAt(camera.position.x, camera.position.z);
     },
     reset() { clock.reset(); effects.reset(); refreshTime(); },
     update(score, biome) {

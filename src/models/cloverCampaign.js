@@ -98,7 +98,7 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
         : stage === 'road' ? `LIVING ROAD ${generation}/3 · ${pending ? 'THE ROOTS ARE GROWING' : 'CALM + E TURNS THE GUIDE · CHAOS + E GROWS THE BRIDGE'}`
         : stage === 'scar' ? 'THE ROAD IS BACK · CROSS TO THE STORMLEAF SCAR · PRESS E THERE WHILE CALM'
         : stage === 'chest' ? 'ROOT SIGIL EARNED · CLOVER TERRACES → SUMMIT TELEPORTER → SKY GARDEN → STARLIGHT LEDGES CHEST'
-        : 'ROOT SIGIL AND TIDE HOOK EARNED · GO EAST TO HEART · FIND SERA';
+        : 'ROOT SIGIL AND TIDE HOOK EARNED · TALK TO NIM BY THE CLOVER GATE · THEN GO EAST TO HEART';
     },
     hint(position, mode) {
       const target = interaction(position);
@@ -107,9 +107,9 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
       if (pending) return 'THE ROOTS ARE GROWING · WAIT UNTIL THE BRIDGE IS FINISHED';
       if (target.kind === 'iven') return mode === 'chaos' ? 'CALM DOWN TO TALK TO IVEN' : 'E · TALK TO IVEN';
       if (target.kind === 'chest') return !model.sigil ? 'LOCKED CHEST · REGROW THE ROAD AND GET THE ROOT SIGIL FIRST'
-        : model.hook ? 'TIDE HOOK TAKEN · GO BACK THROUGH THE GATEWAY · HEART IS EAST' : mode === 'chaos' ? 'CALM DOWN TO OPEN THE CHEST' : 'E · OPEN THE CHEST · TAKE THE TIDE HOOK';
+        : model.hook ? 'TIDE HOOK TAKEN · GO BACK THROUGH THE GATEWAY · TALK TO NIM BY THE CLOVER GATE' : mode === 'chaos' ? 'CALM DOWN TO OPEN THE CHEST' : 'E · OPEN THE CHEST · TAKE THE TIDE HOOK';
       if (target.kind === 'scar') return !model.sigil && generation < 3 ? 'NOT YET · REGROW ALL THREE ROOT BRIDGES FIRST'
-        : model.hook ? 'TIDE HOOK EARNED · GO EAST TO HEART · FIND SERA'
+        : model.hook ? 'TIDE HOOK EARNED · TALK TO NIM BY THE CLOVER GATE · THEN GO EAST TO HEART'
         : model.sigil ? 'NEXT · CLOVER TERRACES → SUMMIT TELEPORTER → SKY GARDEN → STARLIGHT LEDGES CHEST'
         : mode === 'chaos' ? 'CALM DOWN TO READ THE SCAR' : 'E · READ THE SCAR · TAKE THE ROOT SIGIL';
       return mode === 'chaos' ? `E · GROW THE ROOTS · GUIDE ${generation + 1} POINTS ${cardinal[guides[generation]]}`

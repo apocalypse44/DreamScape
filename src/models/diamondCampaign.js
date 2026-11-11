@@ -114,6 +114,12 @@ export function createDiamondCampaign({ layout = diamondLayout(), ready = () => 
       }[stage];
     },
 
+    // The bottom prompt while Orin has something to say (Orin talks when you walk up calm).
+    hint(position, chaos) {
+      if (!['meet', 'report'].includes(stage) || !near(position, layout.orin, 14)) return null;
+      return chaos >= CALM ? 'CALM DOWN TO TALK TO ORIN' : 'WALK UP TO ORIN TO TALK';
+    },
+
     // V: fit a loose fragment into the socket underfoot, or turn the one fitted there last.
     fit(position, chaos) {
       if (!fitting()) return null;

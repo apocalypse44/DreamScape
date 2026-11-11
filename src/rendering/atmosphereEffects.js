@@ -2,7 +2,7 @@
 import { CONFIG } from '../models/chaosLookConfig.js';
 import { sampleLook } from '../models/look.js';
 import { sampleDaylight } from '../models/daylight.js';
-import { spadeClimateAt, diamondClimateAt } from '../models/climate.js';
+import { spadeClimateAt, diamondClimateAt, heartClimateAt } from '../models/climate.js';
 import { createSky } from './sky.js';
 import { createChaosWeather } from './chaosWeather.js';
 import { createEnvironmentLighting } from './environmentLighting.js';
@@ -33,6 +33,13 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
   const groundNight = new THREE.Color(0x111a2d), groundDay = new THREE.Color(0x59634c);
   const skyNight = new THREE.Color(0x849bcd), skyDay = new THREE.Color(0xc4ddff);
   const white = new THREE.Color(0xffffff);
+  // Heart, "the Drained Tide": always golden hour. Rose-gold horizon, violet zenith, pink haze; a crimson
+  // storm in chaos. Once the Tide Sigil restores the current, the haze thins and the air clears.
+  const heartZenith = new THREE.Color(0x5a3478).convertSRGBToLinear(), heartHorizon = new THREE.Color(0xffa27e).convertSRGBToLinear();
+  const heartFog = new THREE.Color(0xc98593), heartClearFog = new THREE.Color(0xe3b7ad), roseSun = new THREE.Color(0xffa080);
+  const heartStormFog = new THREE.Color(0x5a1622), heartStormZenith = new THREE.Color(0x2a0710).convertSRGBToLinear();
+  const heartStormHorizon = new THREE.Color(0x7a1828).convertSRGBToLinear();
+  const duskSun = new THREE.Vector3(0.82, 0.16, -0.55).normalize(); // Heart's sun hangs low, whatever the hour
   const E = CONFIG.evil;
   const evilZenith = new THREE.Color(E.zenith).convertSRGBToLinear(), evilHorizon = new THREE.Color(E.horizon).convertSRGBToLinear();
   const evilFog = new THREE.Color(E.fog), evilLight = new THREE.Color(E.light);
@@ -42,14 +49,23 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
   return {
     prepare: lighting.prepare,
     // indoors (0–1): inside an enclosed hall, where sky reflections (the environment light) are mostly blocked.
-    update(dt, visual, camera, { hour = 9, rift = 0, indoors = 0 } = {}) {
+    update(dt, visual, camera, { hour = 9, rift = 0, indoors = 0, heartRestored = false } = {}) {
       time += dt;
       const look = sampleLook(visual);
       const dry = diamondClimateAt(camera.position.x, camera.position.z);
-      const flash = weather.update(dt, visual, camera.position, { desert: dry, indoors });
+      const lush = heartClimateAt(camera.position.x, camera.position.z);
+      const flash = weather.update(dt, visual, camera.position, { desert: dry, heart: lush, indoors });
       const climate = spadeClimateAt(camera.position.x, camera.position.z);
       // Spade cannot become sunny while its full snow climate is being added.
       const day = sampleDaylight(hour, climate);
+      if (lush > 0) { // Heart holds the world at golden hour, as Spade holds it at night
+        const mix = (a, b) => a + (b - a) * lush;
+        const s = new THREE.Vector3(day.sun.x, day.sun.y, day.sun.z).lerp(duskSun, lush).normalize();
+        day.sun = { x: s.x, y: s.y, z: s.z };
+        day.daylight = mix(day.daylight, 0.6); day.twilight = mix(day.twilight, 0.85);
+        day.sunIntensity = mix(day.sunIntensity, 1.35); day.moonIntensity = mix(day.moonIntensity, 0);
+        day.ambientIntensity = mix(day.ambientIntensity, 0.95); day.stars = mix(day.stars, 0.08);
+      }
       const storm = visual * 0.8;
       const u = sky.uniforms;
       u.uZenith.value.copy(zenithNight).lerp(zenithDay, day.daylight).lerp(stormSky, storm * 0.65);
@@ -86,6 +102,16 @@ export function createAtmosphereEffects({ renderer, scene, sun, hemi, chunks, ma
         u.uFogColor.value.copy(scene.fog.color);
         sun.color.lerp(warmSun, dry * 0.35);
       }
+      if (lush > 0) {
+        const calm = lush * (1 - storm);
+        u.uZenith.value.lerp(heartZenith, calm * 0.7).lerp(heartStormZenith, lush * storm);
+        u.uHorizon.value.lerp(heartHorizon, calm * 0.75).lerp(heartStormHorizon, lush * storm * 0.8);
+        scene.fog.color.lerp(heartRestored ? heartClearFog : heartFog, calm * 0.7).lerp(heartStormFog, lush * storm);
+        scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, (heartRestored ? 0.005 : 0.0085) + storm * 0.01, lush);
+        u.uFogColor.value.copy(scene.fog.color);
+        sun.color.lerp(roseSun, lush * 0.6);
+      }
+      u.uHeart.value = lush;
       hemi.color.copy(skyNight).lerp(skyDay, day.daylight);
       hemi.groundColor.copy(groundNight).lerp(groundDay, day.daylight);
       hemi.intensity = day.ambientIntensity * (1 - storm * 0.4) + flash * 1.2;

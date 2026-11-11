@@ -40,6 +40,9 @@ import { createStartupReadiness, observeStartupLoading } from '../models/startup
 import { createHoundCutscene } from './houndScene.js';
 import { createDoorScene } from './doorScene.js';
 import { createCloverScenes } from './cloverScenes.js';
+import { heartVisionShot } from './heartScenes.js';
+import { createHeartPastFlashback } from './heartFlashback.js'; // Heart: "The Quiet Springs"
+import { HEART_SHOTS, heartShotKeys } from '../models/heartStory.js';
 import { createSeveringFlashback } from './cloverFlashback.js';
 import { createEmberFlashback } from './emberFlashback.js';
 import { createMemoryLook } from '../rendering/memoryLook.js';
@@ -59,6 +62,8 @@ import { createChainOrderFlashback } from './diamondFlashback.js'; // Diamond ki
 import { diamondMapLocations, DIAMOND_SHOTS, shotKeys } from '../models/diamondStory.js'; // Diamond kingdom: Atlas places and shots
 import { buildCloverCampaign } from '../rendering/cloverCampaign.js';
 import { buildHeartCampaign } from '../rendering/heartCampaign.js';
+import { buildHeartTown } from '../rendering/heartTown.js';
+import { createHeartPetals } from '../rendering/heartPetals.js';
 import { applyTestStart, getTestStart } from '../models/testStarts.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
@@ -105,12 +110,27 @@ export function startGame(ui, { testStartId = null } = {}) {
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   let doorScene = null, cloverScenes = null; // created below, with the camera controls
   const inventory = createInventory({ onAdd: (id, item) => toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500) });
-  const heart = buildHeartCampaign({ scene, world, keys, notify: toast,
+  // Nim, Sera's scout, waits beside the Clover gate on the way out (shown once the Tide Hook is carried).
+  const cloverGate = gates.gates.find(g => /clover/i.test(g.name));
+  const scout = cloverGate ? { x: cloverGate.x + 7, z: cloverGate.z + 6 } : null;
+  const nim = VILLAGERS.find(v => v.name === 'Nim');
+  if (nim && scout) nim.home = [scout.x, scout.z];
+  const heart = buildHeartCampaign({ scene, world, keys, notify: toast, scout,
+    // Everyone else you must talk to gets the same bottom prompt as Nim and Sera.
+    talkHint: p => spade.campaign.hint(p, state.chaos) ?? diamond.model.hint(p, state.chaos)
+      ?? (quest.stage === 'return' && quest.nearShrine ? (quest.drowned ? 'CALM DOWN TO TALK TO THE SHRINE KEEPER' : 'WALK UP TO THE SHRINE KEEPER') : null),
+    onVision: from => cloverScenes?.queue(from === 'nim' ? 'heart-quake' : 'heart-quake-gate'),
+    onMeet: () => { cloverScenes?.queue('heart-past'); cloverScenes?.queue('heart-sera'); }, // the spring's memory, then Sera's instructions
     ready: () => inventory.has('root-sigil') && inventory.has('tide-hook'),
     onSigil: () => inventory.add('tide-sigil'),
     onReady: root => atmosphere?.prepare?.(root) });
   const sera = VILLAGERS.find(v => v.name === 'Sera');
   if (sera) sera.home = [heart.model.layout.sera.x, heart.model.layout.sera.z];
+  // Tidewell, Heart's town of stopped mills, and the palace; its townsfolk stand where the layout says.
+  const heartAir = createHeartPetals({ scene }); // rose petals in Heart; fireflies once it is restored
+  const tidewell = buildHeartTown({ scene, model: heart.model, onReady: root => atmosphere?.prepare?.(root) });
+  const { folk: townsfolk, returning: homecomers } = heart.model.layout.town;
+  for (const f of [...townsfolk, ...homecomers]) { const v = VILLAGERS.find(n => n.name === f.name); if (v) { v.home = [f.x, f.z]; if (f.y !== undefined) v.y = f.y; } }
   const spade = createSpade({ scene, world, onReady: root => atmosphere?.prepare?.(root), notify: toast,
     chapterReady: () => quest.stage === 'cured', // Spade's chapter waits for the Ember Hound's cure
     onChapterComplete: () => doorScene.queue(9), // the castle doors open; the sigil waits in the archive chest
@@ -123,7 +143,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     onReady: root => atmosphere?.prepare?.(root) });
   shrine.colliders.push(...livingRoad.colliders);
   // --- end Clover chapter ---
-  shrine.colliders.push(...heart.colliders, ...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
+  shrine.colliders.push(...heart.colliders, ...tidewell.colliders, ...skyIsland.colliders, ...heavenly.colliders, ...gates.colliders, ...spade.colliders);
   const towerPlaza = createTowerPlaza({ scene, ground: terrainHeight, spadeFree: () => ['report', 'complete'].includes(spade.campaign.stage),
     occupied: (x, z) => shrine.colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.radius + 1.5) });
   shrine.colliders.push(...towerPlaza.colliders);
@@ -149,7 +169,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   const diamondSigns = buildDiamondSigns({ scene, kingdom: world.diamond, surfaceHeight: world.surfaceHeight });
   shrine.colliders.push(...diamondQuarry.colliders, ...diamondKingdom.colliders, ...diamondRoyal.colliders, ...diamondDustward.colliders, ...diamondStockade.colliders, ...diamondRow.colliders, ...diamondSiege.colliders, ...diamondSigns.colliders, ...world.diamond.bridge.rails);
   // --- end Diamond chapter ---
-  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...heart.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms, world.diamond.bridge.platform];
+  const platforms = [...quest.platforms, ...waterfall.platforms, ...clover.platforms, ...heart.platforms, ...tidewell.platforms, ...skyIsland.platforms, ...heavenly.platforms, ...spade.platforms, ...livingRoad.platforms, world.diamond.bridge.platform];
   const kingdomBorder = createKingdomBorder({ scene, world, player });
   // Standing and feet use the ground as drawn (flat mesh triangles), not the smooth height between vertices.
   const surfaceAt = createSurfaceAt(platforms, world.surfaceHeight);
@@ -181,8 +201,10 @@ export function startGame(ui, { testStartId = null } = {}) {
   const severing = createSeveringFlashback({ scene, campaign: livingRoad, look: memory.look, state, npcs: cast });
   const mark = createEmberFlashback({ scene, look: memory.look, state, npcs: cast, groundAt: terrainHeight });
   const chainOrder = createChainOrderFlashback({ scene, kingdom: world.diamond, look: memory.look, state, npcs: cast });
-  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement, flashbacks: { severing, mark, chainOrder }, groundAt: terrainHeight,
+  const heartPast = createHeartPastFlashback({ scene, layout: heart.model.layout, look: memory.look, state, npcs: cast, groundAt: terrainHeight, heart, tidewell });
+  cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement, flashbacks: { severing, mark, chainOrder, heartPast }, groundAt: terrainHeight,
     heart: heartGate && { x: heartGate.x, y: terrainHeight(heartGate.x, heartGate.z), z: heartGate.z } }); // gates expose only name, x, z
+  for (const from of ['nim', 'gate']) cloverScenes.define(from === 'nim' ? 'heart-quake' : 'heart-quake-gate', heartVisionShot({ model: heart.model, terrainHeight, from }));
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...towerPlaza.colliders, ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   // Where an NPC must not stand: ground obstacles (not other NPCs) and solid structures at ground level.
   let npcObstacles = [], npcObstaclesAt = -Infinity;
@@ -200,12 +222,23 @@ export function startGame(ui, { testStartId = null } = {}) {
   npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight: world.surfaceHeight, staticColliders: shrine.colliders,
     platforms,
-    isMovementBlocked: () => skyIsland.journey.blocked || heart.model.traversing || houndScene.active || doorScene.active || cloverScenes.active,
+    locomotion: { drive: () => heart.grapple.drive }, // after a Tide Hook swing, the controller keeps its momentum
+    isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active || doorScene.active || cloverScenes.active,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
-    allowFallRecovery: player => !spade.isInsideCastle(player.position),
+    // Long falls are fine in the castle and over Heart's crater (coming down off the islands is allowed).
+    allowFallRecovery: player => !spade.isInsideCastle(player.position) && !world.heart.ownsArea(player.position, 8),
     courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
       : livingRoad.model.ownsArea(player.position) ? livingRoad.recovery(player)
-      : heart.model.recovery(player) || waterfall.courseRecovery(player) || clover.courseRecovery(player) });
+      : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
+
+  // Stick and look in world space for the Tide Hook (as in the movement lab).
+  function hookInput() {
+    const f = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+    const sd = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+    const len = Math.hypot(f, sd) || 1, sin = Math.sin(state.yaw), cos = Math.cos(state.yaw), live = state.locked && !state.cinematic && !state.mapOpen;
+    return { hold: live && keys.has('KeyQ'), jump: player.jumpBuffer > 0,
+      moveX: live ? (-sin * f + cos * sd) / len : 0, moveZ: live ? (-cos * f - sin * sd) / len : 0, look: { x: -sin, z: -cos } };
+  }
 
   // Same seed + same starting state + rebuilt chunks = identical conditions for comparing play styles.
   function reset() {
@@ -274,8 +307,8 @@ export function startGame(ui, { testStartId = null } = {}) {
   atmosphere.prepare?.(diamondSiege.root);
   atmosphere.prepare?.(livingRoad.root); // Clover chapter
   const grass = createGrass({ hash, chunks });
-  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles] });
-  const character = createTravelerCharacter({ scene, state, player, surfaceAt }); // the sigil-blade wanderer (src/assets/traveler.glb)
+  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles, tidewell.obstacles] });
+  const character = createTravelerCharacter({ scene, state, player, surfaceAt, terrainAt: world.surfaceHeight }); // the sigil-blade wanderer (src/assets/traveler.glb)
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) &&
@@ -331,7 +364,13 @@ export function startGame(ui, { testStartId = null } = {}) {
     cloverScenes.define(`diamond-${name.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}`, { ...shot, keys, focus: ['arrival', 'power'].includes(name) ? along : undefined });
   }
   let diamondArrived = false, diamondStage = diamond.model.stage;
-  window.dreamscape.chainOrder = chainOrder;
+  window.dreamscape.chainOrder = chainOrder; window.dreamscape.heartPast = heartPast; // e.g. dreamscape.scenes.queue('heart-past')
+  // Heart's shots are laid out from its gate. The memory streams terrain between the town and the reef.
+  for (const [name, shot] of Object.entries(HEART_SHOTS)) {
+    const keys = heartShotKeys(heart.model.layout, shot).map(([t, a, b]) => [t, new THREE.Vector3(a.x, a.y, a.z), new THREE.Vector3(b.x, b.y, b.z)]);
+    const middle = heart.model.layout.at(110, 0);
+    cloverScenes.define(`heart-${name}`, { ...shot, keys, focus: name === 'past' ? () => middle : undefined });
+  }
   window.dreamscape.scenes = cloverScenes; window.dreamscape.severing = severing; window.dreamscape.mark = mark; // e.g. dreamscape.scenes.queue('severing')
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
@@ -357,7 +396,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   // so islands and arches don't float over the void. At radius 2+ they stay visible from afar as
   // destinations, as designed. Footprints (XZ boxes) are measured when the radius changes.
   const landmarks = [waterfall.root, wayfinding.root, ridge.root, plaza.root, clover.root, clover.lake,
-    skyIsland.root, skyIsland.water, heavenly.root, heavenly.jet, heart.root, ...gates.root.children].filter(Boolean);
+    skyIsland.root, skyIsland.water, heavenly.root, heavenly.jet, heart.root, tidewell.root, ...gates.root.children].filter(Boolean);
   const footprints = new Map();
   let cullRadius = null;
   function cullLandmarks() {
@@ -414,11 +453,17 @@ export function startGame(ui, { testStartId = null } = {}) {
     const streamFocus = cloverScenes.focus ?? player.position;
     updateChunks(streamFocus);
     world.updateTerrain(playDt);
-    const heartFrame = heart.update(dt, player, state, biomeAt(player.position.x, player.position.z).kind === 'crystals');
-    if (heartFrame.target) movement.teleport(heartFrame.target);
-    else if (heartFrame.flight) player.position.set(heartFrame.flight.x, heartFrame.flight.top + 2.05, heartFrame.flight.z);
+    const inHeart = biomeAt(player.position.x, player.position.z).kind === 'crystals';
+    heart.update(dt, player, state, inHeart, streamFocus);
+    tidewell.update(dt, streamFocus);
+    heartAir.update(dt, player.position, { chaos: state.chaos, restored: heart.model.sigil });
     if (!houndScene.active) skyIsland.update(dt, player, keys, state, target => movement.teleport(target));
-    if (!skyIsland.journey.blocked && !heart.model.traversing && !houndScene.active) movement.update(startup.ready ? dt : 0);
+    const moveBlocked = skyIsland.journey.blocked || houndScene.active;
+    const moveDt = startup.ready ? dt : 0;
+    // Heart's Tide Hook (hold Q at a floating crystal): while the rope holds the body, it replaces the controller.
+    const hook = !moveBlocked && moveDt && (inHeart || heart.grapple.phase !== 'idle')
+      ? heart.step(moveDt, hookInput(), player, surfaceAt) : { owns: false };
+    if (!moveBlocked && !hook.owns) movement.update(moveDt);
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
     if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
@@ -443,6 +488,11 @@ export function startGame(ui, { testStartId = null } = {}) {
     if (diamond.model.stage !== diamondStage) { diamondStage = diamond.model.stage; if (diamondStage === 'report') cloverScenes.queue('diamond-power'); }
     livingRoad.update(dt, player, state, startup.ready && !houndScene.active && !doorScene.active && !skyIsland.journey.blocked); // Clover chapter (cutscenes pause its input via state.cinematic)
     heavenly.update(dt, player.position);
+    if (!state.cinematic) { // flashbacks stage their own cast
+      npcs.setHidden('Nim', !heart.model.available);
+      for (const f of homecomers) npcs.setHidden(f.name, !heart.model.sigil); // they come home with the water
+    }
+    world.setHeartCrater(heart.model.craterOpen && !heartPast.playing); // opens at the quake's dust burst; closed in the past (the memory) and on reset
     npcs.update(dt);
     shrine.update(dt, state.elapsed);
     waterfall.update(dt, player.position);
@@ -462,7 +512,9 @@ export function startGame(ui, { testStartId = null } = {}) {
     // A chest reveal (Spade's archive, Clover's sky chest): both hands reach for the rising item.
     const reach = spade.reachAt ?? livingRoad.reachAt;
     if (reach) state.swarmGesture = 'grab';
-    character.update(dt, cameraDistance, houndScene.active ? null : reach ?? swarmCast);
+    const rope = heart.grapple;
+    character.update(dt, cameraDistance, houndScene.active ? null : reach ?? swarmCast, null,
+      { anchor: rope.anchor, reach: rope.reach, phase: rope.phase, flip: rope.flip });
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     if (startup.ready) help.update(dt);
@@ -509,7 +561,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     if (!houndScene.active) applyCameraShake(camera, dt);
     const chaosScore = chaosLook.update(houndScene.active ? 0 : dt, state);
     indoors += ((!doorScene.active && (spade.isInsideCastle(player.position) || diamondRow.isInsideHall(player.position)) ? 1 : 0) - indoors) * (1 - Math.exp(-3 * dt));
-    atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade), indoors });
+    atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade), indoors, heartRestored: heart.model.sigil });
     darkenCastle();
     updateShortcuts();
     music.update(dt);

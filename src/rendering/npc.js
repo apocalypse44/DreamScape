@@ -21,7 +21,18 @@ export const VILLAGERS = [
   { name: 'Cartographer', role: 'cartographer', tint: 0x5a4a7a, home: [-34, 30], path: 'wander' }, // not 'Traveller': that is the player
   // Spade resistance guide, inside the Lantern Refuge (y: the refuge floor), carrying a wisp lantern.
   { name: 'Neris', person: 'neris', tint: 0x2e2448, home: [-368, -20], y: 1.65, idle: 'Idle_Lantern_Loop', lantern: 0xd9c8ff },
-  { name: 'Sera', role: 'guardian', tint: 0x8c354c, home: [355, 0], idle: 'Idle_FoldArms_Loop' },
+  { name: 'Sera', person: 'sera', role: 'guardian', tint: 0x8c354c, home: [355, 0], idle: 'Idle_FoldArms_Loop' },
+  // Heart refugee and Sera's scout in Clover; the game moves `home` beside the Clover gate and hides
+  // Nim until the Tide Hook is carried. Teal: Heart's water colour, standing out in green Clover.
+  { name: 'Nim', role: 'scout', tint: 0x1f8a8f, home: [8, -330], idle: 'Idle_Loop' },
+  // Tidewell (Heart's town): homes are set from the town layout at startup. The last two come home
+  // only once the current is restored.
+  { name: 'Miller Tobin', role: 'townsfolk', tint: 0x7a3a3a, home: [400, 8], idle: 'Idle_FoldArms_Loop' },
+  { name: 'Rosa', role: 'townsfolk', tint: 0xa8506a, home: [380, -13], idle: 'Interact' },
+  { name: 'Bridgekeeper Kett', role: 'townsfolk', tint: 0x5a3a44, home: [405, -5], idle: 'Idle_Loop' },
+  { name: 'Steward Maren', role: 'townsfolk', tint: 0x9a2a3a, home: [420, -80], y: 3.9, idle: 'Idle_FoldArms_Loop' }, // in the throne hall
+  { name: 'Fisher Ilo', role: 'townsfolk', tint: 0x2f6f7a, home: [388, 5], idle: 'Farm_Watering' },
+  { name: 'Lamplighter Wen', role: 'townsfolk', tint: 0x8a6a3a, home: [372, 5], idle: 'Idle_Lantern_Loop', lantern: 0xffc477 },
   // Diamond artificer beside the Shatterglass Relay. The game moves `home` to the relay at startup;
   // this default matches a Diamond gate at (0, 344).
   { name: 'Orin', person: 'orin', tint: 0x6a5f4a, home: [11, 374], idle: 'Idle_FoldArms_Loop' },
@@ -203,7 +214,10 @@ export function createNPCs({ scene, state, player, terrainHeight, hash, collider
     // Hide or show a villager by name (a flashback stages its younger self instead).
     // name '*' hides every villager (a flashback shows the past, where they were not).
     setHidden(name, hidden) {
-      for (const npc of npcs) if (name === '*' || npc.def.name === name) { npc.group.visible = !hidden; if (npc.lantern) npc.lantern.visible = !hidden; }
+      for (const npc of npcs) if (name === '*' || npc.def.name === name) {
+        npc.group.visible = !hidden; npc.collider.off = hidden; // an unseen villager does not block the way
+        if (npc.lantern) npc.lantern.visible = !hidden;
+      }
     },
     // A story actor: { group, model, play(clip, fade, once), update(dt), dispose() }, or null until the
     // people kit has loaded. person: a recipe name (e.g. 'ivenYoung', 'orin'); otherwise a villager in `tint`.

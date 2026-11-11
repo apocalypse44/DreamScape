@@ -110,6 +110,12 @@ export function createSpadeCampaign({ lanternY = () => 0, wardY = 0, crownKnown 
           : 'SPADE CASTLE · TAKE THE LANTERN SIGIL FROM THE ARCHIVE CHEST · FIND OUT WHAT PROTECTS THE CROWN',
       }[stage];
     },
+    // The bottom prompt while Neris has something to say (Neris talks once you are inside the refuge, calm).
+    hint(position, chaos) {
+      if (!(stage === 'meet' && ready()) && stage !== 'report') return null;
+      if (Math.hypot(position.x + 366, position.z + 23) > 14) return null; // the refuge's centre
+      return chaos >= CALM ? 'CALM DOWN TO TALK TO NERIS' : 'WALK INTO THE LANTERN REFUGE TO TALK TO NERIS';
+    },
     // swarm: { enabled, positions, previous } (any {x, y, z}). Returns a story event or null.
     update(dt, position, chaos, swarm) {
       time += dt;
