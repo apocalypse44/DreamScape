@@ -158,12 +158,15 @@ function leadShot(g) {
   const at = (x, y, z) => v(x, g + y, z);
   return {
     title: 'THE GRIMOIRE TOWER', chapter: 'I · A BOND RESTORED',
-    keys: [[0, at(9, 3.4, 10), at(0, 2.2, -9)], [10, at(7.5, 2.8, 8), at(0, 2, -10)], [20, at(6.5, 2.6, 6.5), at(0, 2, -10)], [28, at(7, 3, 7), at(0, 2.4, -10)]],
+    // The last keys turn to the pup by the tower's east side, where it stays with the Keeper (companion.js HOME).
+    keys: [[0, at(9, 3.4, 10), at(0, 2.2, -9)], [10, at(7.5, 2.8, 8), at(0, 2, -10)], [20, at(6.5, 2.6, 6.5), at(0, 2, -10)],
+      [26, at(9.5, 2.4, -3), at(4.5, 0.8, -9)], [33, at(10, 2.2, -4.5), at(5, 0.7, -9)]],
     lines: [
       [0.6, 'YOU', 'So this wasn’t the only bond the Triad broke, was it?'],
       [5, 'SHRINE KEEPER', 'West, in Spade, the Triad binds people by stealing their memories. Neris shelters those they tried to erase.'],
       [13, 'SHRINE KEEPER', 'Find her at the Lantern Refuge, the first house on your right as you enter Spade. Hear her story, then seek the stolen testimonies in the castle archive.'],
-      [22, 'YOU', 'Then we head west. Stay close, friend. We’ll find Neris together.'],
+      [21.6, 'SHRINE KEEPER', 'Leave the pup with me. The curse is gone, but it needs rest, and the road west is no place for it yet.'],
+      [28, 'YOU', 'Look after it. I’ll come back when the Triad is finished.'],
     ],
   };
 }

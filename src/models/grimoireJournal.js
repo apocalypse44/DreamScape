@@ -15,7 +15,7 @@ export function grimoireQuests(quest, spade, clover, diamond, heart) {
   const fitted=diamond?.fitted??0;
   return [
     {id:'hound',chapter:'I · THE CROSSING',title:'The Ember Hound',done:stage==='cured',locked:false,
-      progress:stage==='companion'?'Your companion walks beside you.':`${embers}/3 embers gathered`,
+      progress:stage==='companion'?'Your companion walks beside you.':stage==='cured'?'The pup rests with the Shrine Keeper at the Grimoire Tower':`${embers}/3 embers gathered`,
       hint:stage==='cured'?'Go west to Spade. Find Neris at the Lantern Refuge, the first house on your right after the gate.'
         :stage==='return'?'Return to the Grimoire Tower shrine. Become still to offer the three embers.'
         :stage==='cursed'?(quest.houndCarrying?'Follow the hound to the embers. Chaos raises their peaks; approach the hound calmly for the ember it carries.'

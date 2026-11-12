@@ -9,7 +9,7 @@
       text: 'Every kingdom has a rhythm. Explore the paths beyond the Crossing, and let a calmer step reveal the world around you.',
       hint: 'Calm movement gives you time to notice new paths.', spell: 'Flow with the world.', color: '#81d7d0' },
     { id: 'diamond', symbol: '♦', realm: 'THE DIAMOND KINGDOM', title: 'A spark is only the beginning.',
-      text: 'Beyond familiar ground, every new direction offers a reason to explore. Keep your companion close and watch the landscape change.',
+      text: 'Beyond familiar ground, every new direction offers a reason to explore. Watch the landscape change.',
       hint: 'Sprinting and jumping stir the world toward chaos.', spell: 'Shape your own strength.', color: '#edc374' },
     { id: 'spade', symbol: '♠', realm: 'THE SPADE KINGDOM', title: 'There is magic in the darkness.',
       text: 'Snow falls beneath an endless night. Beyond the gates, a castle keeps its secrets in quiet halls and hidden rooms.',

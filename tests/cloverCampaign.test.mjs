@@ -94,11 +94,6 @@ test('falls return to a visited safe junction and cannot erase growth or earned 
   assert.notEqual(checkpoint.z, ROOT_LANDINGS[2].z); // clear of the guide's collider
   assert.equal(model.generation, 3); assert.equal(model.sigil, true);
 });
-test('companion visits the bend instead of cutting diagonally across the ravine', () => {
-  const model = restored(), dog = { x: -55, z: -420 }, player = position(ROOT_LANDINGS[2]);
-  assert.deepEqual(model.companionTarget(dog, player), ROOT_LANDINGS[1]);
-  assert.equal(model.companionTarget({ x: -68, z: -420 }, player).x, -68);
-});
 test('reset clears all chapter state and deactivates the same registered platform objects', () => {
   const model = restored(); model.interact(position(CLOVER_STORY.scar), 'calm'); model.interact(position(CLOVER_STORY.chest), 'calm');
   const first = model.platforms.find(p => p.name === 'living-road'); model.reset();

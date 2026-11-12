@@ -178,7 +178,6 @@ export function startGame(ui, { testStartId = null } = {}) {
     .flatMap(colliders => colliders.filter(c => !c.off && c.minY === undefined));
   const companion = createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation: {
     height: terrainHeight, obstacles: groundObstacles, version: () => world.terrainVersion,
-    followRoute: (position, target) => livingRoad.model.companionTarget(position, target),
   } });
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });

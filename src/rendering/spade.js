@@ -134,7 +134,7 @@ export function createSpade({ scene, world, onReady, notify, onChapterComplete, 
   module('spire', 165, 53, 0, 24, 22, 24);
   add('cone', 165, 64, 0, 17, 25, 17, 'roof', Math.PI / 4);
   add('cone', 165, 66, 0, 15, 22, 15, 'snow', Math.PI / 4);
-  // Small interior gallery; columns keep a wide central lane for the companion.
+  // Small interior gallery; columns keep a wide central lane.
   for (let u = 132; u < 172; u += 12) for (const v of [-11, 11]) {
     module('torch', u, 19.5, Math.sign(v) * 14.65, 0.7, 2, 0.7);
     block(u, Math.sign(v) * 14.65, 0.3, 0.3, 0.65, 21, 'light');

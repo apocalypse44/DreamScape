@@ -28,7 +28,7 @@ export const SKY_RAMP = { x: SKY.x - 5, z: SKY.z, width: 5, depth: 10,
   topAt: (x, z) => 64 + 4 * Math.max(0, Math.min(1, (SKY.z + 5 - z) / 10)) };
 export const SKY_SHRINE = { x: SKY.x - 5, z: SKY.z - 11, width: 12, depth: 12, top: 68, bottom: 64, solid: true };
 // The Clover Sanctum terrace has a balustrade on its rim, open on the south where the grand stair
-// (SKY_RAMP, 5 m wide on the terrace's centre line) arrives. Tops stay above the companion's step-up.
+// (SKY_RAMP, 5 m wide on the terrace's centre line) arrives. Tops stay above the player's step-up.
 const sanctumRail = (x, z, width, depth) => ({ name: 'sanctum-rail', x: SKY_SHRINE.x + x, z: SKY_SHRINE.z + z, width, depth,
   top: SKY_SHRINE.top + 1.1, bottom: SKY_SHRINE.top, solid: true });
 export const SKY_SHRINE_RAILS = [sanctumRail(0, -5.9, 11.8, .14), sanctumRail(-5.9, 0, .14, 11.8), sanctumRail(5.9, 0, .14, 11.8),

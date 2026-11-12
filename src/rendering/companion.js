@@ -2,6 +2,7 @@ import { createDogBody, playDog } from './dogCharacter.js';
 import { findPath } from '../models/pathfinding.js';
 import { companionScenePosition } from '../models/companionSpacing.js';
 import { createHoundFire } from './houndFire.js';
+import { SHRINE } from '../models/quest.js';
 
 // [right, behind] offsets in metres, tried in order: beside, tighter beside, other side, behind.
 const SLOTS = [[1.5, 0], [1.1, 0.3], [-1.5, 0], [-1.1, 0.3], [0, 1.3]];
@@ -70,8 +71,11 @@ function animateFallback(body, dt) {
 }
 
 // navigation (optional): { height(x, z), obstacles(): [{x, z, radius}], version() } for A* leading.
+// Once the hound is cured the pup stays with the Shrine Keeper at the Grimoire Tower (HOME), by the tower's east side.
+const HOME = { x: SHRINE.x + 5, z: SHRINE.z + 2.2 };
+
 export function createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation = null }) {
-  // Climbs onto Clover terraces / Sky Garden instead of staying in the ravine below.
+  // The surface at the player's level (the ember slab climb), not the ground under it.
   const groundAt = (x, z) => surfaceAt(x, z, player.position.y - 2.05 + 1);
   const dog = createBody(scene, 'dog', 0.9, false);
   const hound = createBody(scene, 'hound', 1.5, true);
@@ -134,9 +138,6 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
         wait: 'sit',
         pet: 'pet',
         howl: 'howl',
-        run: 'Gallop',
-        fetch_go: 'Gallop',
-        fetch_back: 'Gallop',
       };
       play(activeBody, clips[name] || 'Idle');
       moodControl = true; // may come from a key handler between frames: keep the clip from being overwritten
@@ -179,9 +180,9 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
         return;
       }
 
-      // Cursed: lead the player to the next ember. Otherwise: walk at the player's right side.
+      // Cursed: lead the player to the next ember. Cured: stay home with the Keeper. Otherwise: walk at the player's right side.
       const ember = quest.stage === 'cursed' ? quest.nextEmber() : null;
-      const authoredRoute = !cursed ? navigation?.followRoute?.(position, player.position) : null;
+      const home = quest.stage === 'cured';
       // Carrying its ember, the hound keeps away from a nearby player (flees in chaos, waits when
       // calm so it can be approached); farther away it leads as usual. 12/18 m hysteresis avoids jitter.
       const playerDistance = Math.hypot(position.x - player.position.x, position.z - player.position.z);
@@ -204,8 +205,8 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
           const away = Math.atan2(player.position.x - ember.x, player.position.z - ember.z);
           goal.set(ember.x + Math.sin(away) * 3, 0, ember.z + Math.cos(away) * 3);
         }
-      } else if (authoredRoute) {
-        goal.set(authoredRoute.x, 0, authoredRoute.z);
+      } else if (home) {
+        goal.set(HOME.x, 0, HOME.z);
       } else {
         // Player right = (cos yaw, -sin yaw); see player.js movement basis. On narrow bridges
         // and ledges the side slot can hang over a drop, so pull it in or swap sides until the
@@ -225,13 +226,13 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       const dz = goal.z - position.z;
       const distance = Math.hypot(dx, dz);
       // ponytail: no collision with trees or ruins; add the player's collider check if it clips badly.
-      if (!ember && distance > 70) position.set(goal.x, 0, goal.z); // never lose the companion
+      if (!ember && distance > 70) position.set(goal.x, 0, goal.z); // never lose the companion (or, cured, it is simply home)
       // Following: match the player's velocity plus a spring toward the side slot, so it
-      // keeps pace instead of chasing a moving point. Leading and guarding: plain seek to the goal
+      // keeps pace instead of chasing a moving point. Leading, guarding and going home: plain seek to the goal
       // (guarding must not inherit the player's velocity, or a calm approach pushes the hound away).
       let vx, vz;
-      if (ember || houndGuarding || authoredRoute) {
-        const seek = distance > (authoredRoute ? .25 : 1) ? Math.min(22, distance * 2.5 + 1) / distance : 0;
+      if (ember || houndGuarding || home) {
+        const seek = distance > 1 ? Math.min(home ? 4 : 22, distance * 2.5 + 1) / distance : 0; // home: an easy trot
         vx = dx * seek; vz = dz * seek;
       } else {
         vx = player.velocity.x + dx * 4; vz = player.velocity.z + dz * 4;
@@ -250,9 +251,9 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
 
       // Resting beside a still player: look around, sniff, then lie down after a while.
       const playerStill = Math.hypot(player.velocity.x, player.velocity.z) < .3;
-      still = speed <= .5 && playerStill && !cursed && state.chaos < .65 ? still + dt : 0;
+      still = speed <= .5 && (playerStill || home) && !cursed && state.chaos < .65 ? still + dt : 0; // at home it settles down whatever you do
       if ((idleTimer -= dt) <= 0) { idleTimer = 5 + Math.random() * 4; idleClip = ['Idle', 'Idle_2', 'Idle_2_HeadLow'][Math.floor(Math.random() * 3)]; }
-      if (moodControl) { /* sit, bark, pet, howl, fetch: the brain chose the clip */ }
+      if (moodControl) { /* sit, bark, pet, howl: the brain chose the clip */ }
       else if (speed > 8) play(body, 'Gallop');
       else if (speed > 0.5) play(body, 'Walk');
       else if (quest.restless) play(body, 'Idle_HitReact1');
@@ -262,7 +263,7 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       body.tick(dt, mood(body, speed, cursed));
       animateFallback(body, dt);
 
-      moodControl = !authoredRoute && updateMoods(dt);
+      moodControl = updateMoods(dt);
       if (moodControl) {
         position.copy(body.root.position);
         yaw = body.root.rotation.y;
@@ -271,7 +272,8 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
     },
 
     reset() {
-      position.set(player.position.x + 1.5, 0, player.position.z + 2.5);
+      if (quest.stage === 'cured') position.set(HOME.x, 0, HOME.z);
+      else position.set(player.position.x + 1.5, 0, player.position.z + 2.5);
       fire.reset();
     }
   };

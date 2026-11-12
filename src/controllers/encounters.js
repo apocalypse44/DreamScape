@@ -1,8 +1,7 @@
-// Encounters: ember shards, the dog's moods (pet / sit / bark / howl / fetch) and the lore NPCs.
+// Encounters: ember shards, the dog's moods (pet / sit / bark / howl) and the lore NPCs.
 // game.js calls update() each frame; companion.js calls updateDog(); the quest calls the ember hooks.
 import { makeRng, subSeed } from '../models/rng.js';
 import { SHRINE } from '../models/quest.js';
-import { isInsideSpadeCastle } from '../models/spadeCastle.js';
 import { HINTS, PET_DISTANCE, PET_TIME, PET_CHAOS_DROP, CHAOS_CALM } from '../models/encounterConfig.js';
 import { unlockAudio } from '../rendering/fx.js';
 import { EmberSystem } from '../rendering/embers.js';
@@ -16,13 +15,12 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
   const addChaos = (d) => { state.chaos = THREE.MathUtils.clamp(state.chaos + d, 0.025, 0.98); };
   const embers = new EmberSystem(scene);
   const dog = companion.dogHandle;
-  const dogBrain = new DogBrain({ scene, dog, rng: makeRng(subSeed(world.seed, 101)), terrainHeight: world.terrainHeight, addChaos });
+  const dogBrain = new DogBrain({ scene, dog, terrainHeight: world.terrainHeight });
   let people = null;
   const promptPos = new THREE.Vector3();
 
-  // The dog's moods only tell apart before, during (cursed + return) and after the curse.
-  const stage = () => (quest.stage === 'cursed' || quest.stage === 'return' ? 'cursed'
-    : quest.stage === 'cured' ? 'cured' : 'dog');
+  // The dog's moods only tell apart the cursed hound (cursed + return) from the dog.
+  const cursed = () => quest.stage === 'cursed' || quest.stage === 'return';
   const feetAboveGround = () => player.position.y - 2.05 - world.terrainHeight(player.position.x, player.position.z);
 
   function spawnPeople() {
@@ -39,8 +37,7 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
   spawnPeople(); // people-kit characters stream in on their own
 
   function canPet() {
-    if (stage() === 'cursed' || state.chaos >= CHAOS_CALM) return false;
-    if (world.biomeAt(player.position.x, player.position.z).kind === 'wisps') return false; // E belongs to the swarm there
+    if (cursed() || state.chaos >= CHAOS_CALM) return false;
     const at = dog.object.position;
     return Math.hypot(at.x - player.position.x, at.z - player.position.z) < PET_DISTANCE;
   }
@@ -56,9 +53,9 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
 
   return {
     get keeper() { return people?.keeper ?? null; },
-    get dogState() { return dogBrain.state; }, // debugging: free / sit / bark / wait / pet / howl / fetch_go / fetch_back
+    get dogState() { return dogBrain.state; }, // debugging: free / sit / bark / wait / pet / howl
     update(dt, t) {
-      embers.setWorldVisible(stage() === 'cursed');
+      embers.setWorldVisible(cursed());
       embers.update(dt, t, player.position, state.chaos);
       people?.update(dt, { playerPos: player.position, sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'), chaos: state.chaos, camera, renderer,
         cinematic: state.cinematic, speaker: state.cinematicSpeaker, face: state.cinematicFace, dogPos: dog.object.visible !== false ? dog.object.position : null });
@@ -73,16 +70,13 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
 
     // Called by companion.js after it moves the dog. True when a mood controls the dog this frame.
     updateDog(dt, t) {
-      // Indoors counts as elevated too: the fetch ball lands on base terrain, which inside Spade castle is the hall floor.
-      const elevated = feetAboveGround() > 1.5 || isInsideSpadeCastle(player.position);
       return dogBrain.update(dt, t, {
         playerPos: player.position,
         sprinting: keys.has('ShiftLeft') || keys.has('ShiftRight'),
         crouching: state.crouching,
-        elevated,
-        // Only the ember slab climb is a course; Clover terraces and the Sky Garden are also elevated.
-        onCourse: elevated && quest.platforms.some(slab => Math.hypot(player.position.x - slab.x, player.position.z - slab.z) < 4),
-        stage: stage(),
+        // Up on the ember slab climb, the dog waits below and barks you on.
+        onCourse: feetAboveGround() > 1.5 && quest.platforms.some(slab => Math.hypot(player.position.x - slab.x, player.position.z - slab.z) < 4),
+        cursed: cursed(),
         nextEmberPos: quest.nextEmber(),
       });
     },
@@ -98,7 +92,7 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
     reset() {
       hidePrompt();
       embers.setEmbers(quest.embers.map(({ x, y, z }) => new THREE.Vector3(x, y, z)));
-      dogBrain.reset(makeRng(subSeed(world.seed, 101)));
+      dogBrain.reset();
       spawnPeople();
     },
   };

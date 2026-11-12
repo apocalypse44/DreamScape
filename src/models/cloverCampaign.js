@@ -30,7 +30,7 @@ const cardinal = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
 
 // Handrails along each restored crossing, over the gap between its landings: thin solid strips
 // matching the briar rails, active only once that crossing has grown. The top stays above the
-// companion's step-up limit so neither it nor the player can stand on a rail.
+// player's step-up limit so no one can stand on a rail.
 export const ROAD_RAIL = Object.freeze({ offset: 1.95, height: 1.1 });
 export function roadRails(segment, i, enabled = () => true) {
   const a = ROOT_LANDINGS[i], b = ROOT_LANDINGS[i + 1];
@@ -165,33 +165,6 @@ export function createCloverCampaign({ seed = 1, ready = () => true } = {}) {
     recovery(player) {
       if (model.ownsArea(player.position) && player.velocity.y < 0 && player.position.y - 2.05 < 8) return { ...checkpoint };
       return null;
-    },
-    // Explicit route for the cured companion. Terrain A* must not invent a path
-    // through the ravine below these elevated, newly generated bridges.
-    companionTarget(position, playerPosition) {
-      if (!model.ownsArea(playerPosition)) return null;
-      const points = [{ x: -10, z: -430 }, { x: -28, z: -430 }, { x: -28, z: -420 }, ROOT_START,
-        ...ROOT_LANDINGS.slice(1, generation + 1)];
-      const project = p => {
-        let best = null, distance = Infinity, offset = 0;
-        for (let i = 0; i < points.length - 1; i++) {
-          const a = points[i], b = points[i + 1], dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
-          const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (length * length)));
-          const x = a.x + dx * t, z = a.z + dz * t, d = Math.hypot(p.x - x, p.z - z);
-          if (d < distance) { distance = d; best = { x, z, along: offset + t * length, i }; }
-          offset += length;
-        }
-        return { ...best, distance };
-      };
-      const from = project(position), to = project(playerPosition);
-      // Approach the authored line first, then visit every corner in order.
-      // Selecting the next *nearest node* would cut diagonally over the ravine.
-      if (from.distance > .8) return from;
-      if (Math.abs(to.along - from.along) < 2) return { x: position.x, z: position.z };
-      const forward = to.along > from.along;
-      let corner = points[forward ? from.i + 1 : from.i];
-      if (Math.hypot(position.x - corner.x, position.z - corner.z) < .6) corner = points[forward ? Math.min(points.length - 1, from.i + 2) : Math.max(0, from.i - 1)];
-      return corner;
     },
     setTestStage(next) {
       if (!['meet', 'road', 'scar', 'chest', 'complete'].includes(next)) throw new Error(`Invalid Clover test stage: ${next}`);

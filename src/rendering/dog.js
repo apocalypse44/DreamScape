@@ -1,37 +1,32 @@
-// Dog moods, a finite state machine: free / sit / bark / wait / pet / howl / fetch.
+// Dog moods, a finite state machine: free / sit / bark / wait / pet / howl.
 //
 // companion.js moves the dog every frame, then asks this brain. When update() returns true
-// the brain controls the dog this frame (sitting, barking, being petted, fetching...) and
+// the brain controls the dog this frame (sitting, barking, being petted...) and
 // companion.js takes the brain's position; when false, companion.js movement stands.
-import { turnTowards, stepTowards } from './anim.js';
+import { turnTowards } from './anim.js';
 import { Burst, sfx } from './fx.js';
 import {
-  PET_TIME, BARK_DISTANCE, BARK_COOLDOWN, SIT_DISTANCE, FETCH_EVERY, FETCH_CHAOS_DROP,
+  PET_TIME, BARK_DISTANCE, BARK_COOLDOWN, SIT_DISTANCE,
 } from '../models/encounterConfig.js';
 
 const S = {
   FREE: 'free', SIT: 'sit', BARK: 'bark', WAIT: 'wait', PET: 'pet', HOWL: 'howl',
-  FETCH_GO: 'fetch_go', FETCH_BACK: 'fetch_back',
 };
 
 export class DogBrain {
   // dog = { object, play(state), onRelease() } from companion.js:
   //   object      : the active body's root Object3D
-  //   play(state) : plays the clip for a mood ('sit', 'bark', 'wait', 'pet', 'howl', 'fetch_go', 'fetch_back')
+  //   play(state) : plays the clip for a mood ('sit', 'bark', 'wait', 'pet', 'howl')
   //   onRelease() : control goes back to companion.js
-  constructor({ scene, dog, rng, terrainHeight, addChaos }) {
+  constructor({ scene, dog, terrainHeight }) {
     this.scene = scene;
     this.dog = dog;
-    this.rng = rng;
     this.terrainHeight = terrainHeight;
-    this.addChaos = addChaos;
     this.state = S.FREE;
     this.timer = 0;
     this.barkCooldown = 0;
-    this.fetchTimer = FETCH_EVERY;
     this.groundOffset = 0;
     this.hearts = new Burst(scene, { color: 0xff7aa8, count: 30, size: 0.25, gravity: -0.5, speed: [0.3, 1], up: [1, 2], life: 1.6, systems: 2 });
-    this.sparkle = new Burst(scene, { color: 0xbfe8ff, count: 50, size: 0.15, life: 1.0, systems: 2 });
 
     // glowing ring that marks an ember while the cursed dog howls
     this.ring = new THREE.Mesh(
@@ -42,13 +37,6 @@ export class DogBrain {
     this.ring.visible = false;
     scene.add(this.ring);
 
-    // the thing the dog fetches
-    this.mote = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 12, 10),
-      new THREE.MeshBasicMaterial({ color: 0xbfe8ff })
-    );
-    this.mote.visible = false;
-    scene.add(this.mote);
   }
 
   get object() { return this.dog.object; }
@@ -87,17 +75,16 @@ export class DogBrain {
     return true;
   }
 
-  // info = { playerPos, sprinting, crouching, onCourse, elevated, stage, nextEmberPos }
+  // info = { playerPos, sprinting, crouching, onCourse, cursed, nextEmberPos }
   // returns true when this brain controls the dog this frame
   update(dt, t, info) {
     this.timer += dt;
     this.barkCooldown -= dt;
-    if (info.stage === 'cured') this.fetchTimer -= dt;
 
     const o = this.object.position;
     const p = info.playerPos;
     const d = Math.hypot(p.x - o.x, p.z - o.z);
-    const cursed = info.stage === 'cursed';
+    const cursed = info.cursed;
 
     switch (this.state) {
       case S.FREE: {
@@ -113,8 +100,6 @@ export class DogBrain {
           this.barkCooldown = BARK_COOLDOWN;
           this._go(S.BARK);
         } else if (info.onCourse && d < 30) this._go(S.WAIT);
-        // The mote lands on base terrain, so no fetch while the player is up on terraces or the Sky Garden.
-        else if (info.stage === 'cured' && !info.elevated && this.fetchTimer <= 0 && d < 15) this._startFetch(p);
         break;
       }
       case S.SIT:
@@ -148,61 +133,20 @@ export class DogBrain {
         if (d < 4) this._go(S.FREE);
         break;
       }
-      case S.FETCH_GO: {
-        const m = this.mote.position;
-        if (stepTowards(this.object, m.x, m.z, 6, dt, (x, z) => this._ground(x, z), 0.8)) {
-          this._go(S.FETCH_BACK);
-        } else if (this.timer > 10) {
-          this.mote.visible = false; this.fetchTimer = FETCH_EVERY; this._go(S.FREE);
-        }
-        break;
-      }
-      case S.FETCH_BACK: {
-        // carry the mote in front of the nose
-        const fwd = new THREE.Vector3(0, 0, 0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.object.rotation.y);
-        this.mote.position.copy(o).add(fwd);
-        this.mote.position.y += 0.6;
-        if (stepTowards(this.object, p.x, p.z, 6, dt, (x, z) => this._ground(x, z), 1.6)) {
-          this.mote.visible = false;
-          this.sparkle.fire(this.mote.position);
-          sfx.pickup();
-          this.addChaos?.(FETCH_CHAOS_DROP);
-          this.fetchTimer = FETCH_EVERY;
-          this._go(S.FREE);
-        }
-        if (this.timer > 15) { this.mote.visible = false; this.fetchTimer = FETCH_EVERY; this._go(S.FREE); }
-        break;
-      }
     }
 
     this.hearts.update(dt);
-    this.sparkle.update(dt);
     return this.state !== S.FREE;
   }
 
-  _startFetch(playerPos) {
-    // seeded spot 8-14 m from the player
-    const a = this.rng() * Math.PI * 2;
-    const r = 8 + this.rng() * 6;
-    const x = playerPos.x + Math.cos(a) * r;
-    const z = playerPos.z + Math.sin(a) * r;
-    this.mote.position.set(x, this.terrainHeight(x, z) + 0.4, z);
-    this.mote.visible = true;
-    this._go(S.FETCH_GO);
-  }
-
-  reset(rng) {
-    this.rng = rng;
+  reset() {
     this.barkCooldown = 0;
-    this.fetchTimer = FETCH_EVERY;
-    this.mote.visible = false;
     if (this.state !== S.FREE) this._go(S.FREE);
   }
 
   dispose() {
     this.hearts.dispose();
-    this.sparkle.dispose();
-    for (const m of [this.ring, this.mote]) {
+    for (const m of [this.ring]) {
       this.scene.remove(m);
       m.geometry.dispose();
       m.material.dispose();
