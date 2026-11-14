@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 import sys
 import threading
+import time
 import webbrowser
 
 
@@ -28,6 +29,20 @@ class DemoRequestHandler(SimpleHTTPRequestHandler):
     # download. Code always revalidates (a quick 304 when unchanged), so edits show on the next reload.
     # Replaced an asset under the same name? Hard-reload (Ctrl+Shift+R) to fetch it again.
     CACHED = {".glb", ".gltf", ".bin", ".fbx", ".png", ".jpg", ".jpeg", ".webp", ".hdr", ".exr", ".mp3", ".ogg", ".wav"}
+
+    # Log each GET after its body is sent: seconds since the first request, size, and how long it took.
+    started = None
+
+    def log_request(self, code="-", size="-"):
+        self._code = code
+
+    def do_GET(self):
+        t0 = time.perf_counter()
+        DemoRequestHandler.started = DemoRequestHandler.started or t0
+        super().do_GET()
+        size = os.path.getsize(self.translate_path(self.path)) if os.path.isfile(self.translate_path(self.path)) else 0
+        print(f"+{t0 - self.started:7.2f}s  {(time.perf_counter() - t0) * 1000:7.0f} ms  {size / 1024:8.0f} KB  "
+              f"{getattr(self, '_code', '-')}  {self.path}", flush=True)
 
     def end_headers(self):
         ext = os.path.splitext(self.path.split("?", 1)[0])[1].lower()

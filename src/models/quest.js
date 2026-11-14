@@ -65,6 +65,17 @@ function shardOutline(world, i) {
     return [Math.cos(a) * r, Math.sin(a) * r];
   });
 }
+// The course appears once chaos passes 0.65 and chaos tops out at 0.98; the ground keeps reshaping in between.
+const COURSE_CHAOS = [0.66, 0.75, 0.88, 0.98];
+// Highest ground under a shard's rock (centre and outline corners) at any course chaos, so the
+// reshaping terrain never swallows a shard.
+function highestGround(world, x, z, outline) {
+  let high = -Infinity;
+  for (const chaos of COURSE_CHAOS) for (const [dx, dz] of [[0, 0], ...outline]) {
+    high = Math.max(high, world.heightAt(x + dx, z + dz, chaos));
+  }
+  return high;
+}
 function raiseEmber(world, ember, isActive) {
   const platforms = [];
   let top = -Infinity;
@@ -72,8 +83,9 @@ function raiseEmber(world, ember, isActive) {
     const angle = i * 1.2;
     const x = ember.x + Math.cos(angle) * SPIRAL_RADIUS;
     const z = ember.z + Math.sin(angle) * SPIRAL_RADIUS;
-    top = Math.max(world.heightAt(x, z, PEAK_CHAOS), top) + STEP_RISE;
-    const slab = { x, z, top, outline: shardOutline(world, i) };
+    const outline = shardOutline(world, i);
+    top = Math.max(highestGround(world, x, z, outline), top) + STEP_RISE;
+    const slab = { x, z, top, outline };
     slab.contains = (px, pz, pad = 0) => isActive() && echoContains(slab, px, pz, pad);
     platforms.push(slab);
   }
