@@ -144,3 +144,23 @@ test('the ending: Sile is gone before the vortex shuts, it shuts with one flash,
   assert.equal(flashes, 1); assert.ok(gone[1] < flash[1], 'she is inside before it shuts'); assert.equal(flash[2], true);
   assert.ok(flash[3] > .95, 'the prism is still purple at the flash'); assert.equal(fight.snapshot().purple, 0, 'and clear by the end');
 });
+
+// Spells: a cast from the traveller toward a point.
+const spell = (a, rune, at) => { const p = a.io.player, from = { x: p.x, y: p.y - .6, z: p.z }, to = at ?? from;
+  return { rune, from, aim: to, facing: Math.atan2(to.x - p.x, to.z - p.z) }; };
+test('her shield drinks Flame Lance and Gale: no damage, and her next blow that lands hits harder', () => {
+  const a = arena(); intoHarvest(a);
+  const sile = a.fight.sile, hp = a.fight.hp;
+  a.run(1 / 60, { cast: spell(a, 'flame', { x: sile.x, y: sile.y + 1.1, z: sile.z }) }); a.run(.6);
+  assert.ok(a.events.some(e => e.type === 'harvested' && e.by === 'flame')); assert.equal(a.fight.hp, hp);
+  assert.ok(a.events.some(e => e.type === 'line' && e.key === 'feed'), 'she gloats the first time she feeds');
+  a.run(6); const hit = a.events.find(e => e.type === 'playerHit');
+  assert.ok(a.types().includes('fedHit')); assert.ok(hit.damage > F[hit.kind === 'sweep' ? 'sweep' : 'darts'].damage, 'the fed blow is stronger');
+});
+test('Tide Ward still catches her darts, and Stone Wall still stops them, both for charge', () => {
+  const w = arena(); intoHarvest(w); w.run(4); w.run(1 / 60, { cast: spell(w, 'tide') }); w.run(2);
+  assert.ok(w.events.some(e => e.type === 'blocked' && e.kind === 'dart')); assert.ok(!w.events.some(e => e.type === 'playerHit' && e.kind === 'dart'));
+  const s = arena(); intoHarvest(s); s.run(3.5); const sile = s.fight.sile;
+  s.run(1 / 60, { cast: spell(s, 'earth', { x: sile.x, y: 2, z: sile.z }) }); s.run(2);
+  assert.ok(s.events.some(e => e.type === 'wallStop' && e.kind === 'dart')); assert.ok(s.fight.charge >= 1);
+});

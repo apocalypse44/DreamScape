@@ -371,6 +371,8 @@ export function startGame(ui, { testStartId = null } = {}) {
     cloverScenes.define(`heart-${name}`, { ...shot, keys, focus: name === 'past' ? () => middle : undefined });
   }
   window.dreamscape.scenes = cloverScenes; window.dreamscape.severing = severing; window.dreamscape.mark = mark; // e.g. dreamscape.scenes.queue('severing')
+  // Developer only: ?scene=<id> plays one cutscene or flashback once the world is ready (the movement lab's showcase links here).
+  const sceneParam = new URLSearchParams(location.search).get('scene'); if (sceneParam) cloverScenes.queue(sceneParam);
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({

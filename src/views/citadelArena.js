@@ -1,6 +1,8 @@
 import { createPerson } from '../rendering/person.js';
 import { createBeam } from '../controllers/flashback.js';
 import { createSileFight } from '../models/sileFight.js';
+import { MORCANT_FIGHT } from '../models/morcantFight.js';
+const SPELL = MORCANT_FIGHT.spells;
 import { RIFT_VORTEX_GLSL } from '../rendering/sky.js';
 
 // The Prism Citadel forecourt for the Sile fight (combat.md). A floating mesa with the Great Prism at
@@ -10,7 +12,7 @@ import { RIFT_VORTEX_GLSL } from '../rendering/sky.js';
 export const CITADEL = { x: 0, z: -110, radius: 21, floor: 0 };
 // Material colours are converted to linear like the rest of the lab (it renders with sRGB output).
 const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
-const ICE = lin(0xdff4ff), VIOLET = lin(0x6a12ff), CRIMSON = 0xff3355, CRIMSON_L = lin(CRIMSON), WHITE_L = lin(0xe8f6ff);
+const ICE = lin(0xdff4ff), VIOLET = lin(0x6a12ff), CRIMSON = 0xff3355, CRIMSON_L = lin(CRIMSON), WHITE_L = lin(0xe8f6ff), FED_L = lin(0xff1030);
 const SKY = new THREE.Color(0x4a3a63), SKY_CHAOS = new THREE.Color(0x6a1828), LAB_SKY = new THREE.Color(0xdce7de);
 
 export const inCitadel = (x, z) => Math.hypot(x - CITADEL.x, z - CITADEL.z) < CITADEL.radius;
@@ -26,7 +28,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
   const fight = createSileFight({ center: C, floor: C.floor, anchors: inversionAt });
   let built = false, sile = null, scythe = null, prismMat = null, prismLight = null, crown = null;
   const spireAnchors = [], spireTips = [], inversion = [], darts = [], shardViews = [];
-  const waveRings = []; let waveCharge = null, fleeCam = null, fleeCut = false, flash = null;
+  const waveRings = [], lanceViews = []; let wardMesh = null, wallMesh = null, galeMesh = null, waveCharge = null, fleeCam = null, fleeCut = false, flash = null;
   let sweepMesh, slash, aura, shieldMesh, tetherBeam, rift, bursts, voice = null, lastPose = '', shake = 0, camPos = new T.Vector3(), camLook = new T.Vector3(), haveShot = false;
 
   function build() {
@@ -97,6 +99,11 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
     // Siphon waves: crimson rings that race out along the floor; a pulse at her feet while she rears up.
     for (let i = 0; i < 4; i++) { const w = new T.Mesh(new T.TorusGeometry(1, .16, 6, 64), new T.MeshBasicMaterial({ color: CRIMSON, transparent: true, opacity: .85, depthWrite: false, toneMapped: false })); w.rotation.x = Math.PI / 2; w.visible = false; group.add(w); waveRings.push(w); }
     waveCharge = new T.Mesh(new T.RingGeometry(.4, 3, 48), new T.MeshBasicMaterial({ color: CRIMSON, transparent: true, opacity: 0, depthWrite: false, side: T.DoubleSide })); waveCharge.rotation.x = -Math.PI / 2; group.add(waveCharge);
+    // The traveller's spells (her shield drinks the attacking ones): lances, the ward bubble, the wall, the gale's fan.
+    for (let i = 0; i < 6; i++) { const l = new T.Mesh(new T.ConeGeometry(.18, 1.2, 8), new T.MeshBasicMaterial({ color: 0xff8a3a, toneMapped: false })); l.geometry.rotateX(Math.PI / 2); l.visible = false; group.add(l); lanceViews.push(l); }
+    wardMesh = new T.Mesh(new T.SphereGeometry(1.5, 20, 14), new T.MeshStandardMaterial({ color: 0x5ec8ff, emissive: 0x5ec8ff, emissiveIntensity: .4, transparent: true, opacity: .3, roughness: .1, depthWrite: false })); wardMesh.visible = false; group.add(wardMesh);
+    wallMesh = new T.Mesh(new T.BoxGeometry(1, 2.6, .7), new T.MeshStandardMaterial({ color: 0x8a7a63, roughness: 1, flatShading: true })); wallMesh.visible = false; wallMesh.castShadow = true; group.add(wallMesh);
+    galeMesh = new T.Mesh(new T.RingGeometry(.6, SPELL.wind.range, 32, 1, -Math.PI / 2 - SPELL.wind.arc / 2, SPELL.wind.arc), new T.MeshBasicMaterial({ color: 0xdff6ff, transparent: true, opacity: 0, side: T.DoubleSide, depthWrite: false })); galeMesh.geometry.rotateX(-Math.PI / 2); galeMesh.visible = false; group.add(galeMesh);
     bursts = createBursts(group); slash = createSlash(group); flash = createFlash(group);
     const seen = new Set();
     group.traverse(o => { const m = o.material; if (!m || seen.has(m) || sile.root === o || isInside(o, sile.root)) return; seen.add(m); m.color?.convertSRGBToLinear(); m.emissive?.convertSRGBToLinear(); });
@@ -183,6 +190,10 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
       else if (e.type === 'down') { toast('You fall... try again'); io.onDown?.(); }
       else if (e.type === 'riftFlash') { flash.fire(fight.snapshot().riftAt); hud.flash?.(); shake = Math.max(shake, .35); bursts.at(fight.snapshot().riftAt, 0xe9d8ff, 0, 40); voice?.rumble(); }
       else if (e.type === 'done') toast('Sile fled. The Great Prism is clear.');
+      else if (e.type === 'harvested') { toast(`She drinks your ${e.by === 'flame' ? 'fire' : 'wind'} · only the blade cuts her`); bursts.at(sile.root.position, CRIMSON, 1.2, 16); }
+      else if (e.type === 'fedHit') { toast('Fed on your magic: that hit harder'); shake = Math.max(shake, .2); }
+      else if (e.type === 'wallStop') { toast('The wall holds +charge'); bursts.at({ x: e.x, y: C.floor + 1.2, z: e.z }, 0xb7a98c, 0, 12); voice?.hit(1.2); }
+      else if (e.type === 'cooling') toast('That spell is still cooling');
     }
   }
 
@@ -197,6 +208,8 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
   return {
     fight, entry, get active() { return fight.active; }, get cinematic() { return fight.cinematic; }, get chaos() { return fight.chaos; },
     get targets() { return fight.active && fight.phase !== 'sky' ? [fight.sile] : []; },
+    /** Spell cooldowns for the spell bar. */
+    get runes() { const s = fight.snapshot(); return { cooldown: s.cooldown, max: s.cooldownMax, chaos: s.chaos }; },
     enter() {
       build(); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(); lastPose = ''; haveShot = false;
       hud.show(true);
@@ -234,6 +247,11 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
       scythe.visible = s.pose !== 'kneel';
       sweepMesh.visible = a?.kind === 'sweep'; sweepMesh.position.set(p.x, C.floor + .05, p.z); sweepMesh.rotation.y = a?.yaw ?? 0;
       sweepMesh.material.opacity = a?.stage === 'windup' ? .12 + .45 * a.progress * (.75 + .25 * Math.sin(now * .03)) : .85;
+      lanceViews.forEach((l, i) => { const ln = s.lances[i]; l.visible = Boolean(ln); if (ln) { l.position.set(ln.x, ln.y, ln.z); l.lookAt(ln.x + ln.vx, ln.y + ln.vy, ln.z + ln.vz); } });
+      wardMesh.visible = s.ward > 0; if (wardMesh.visible) { wardMesh.position.set(player.position.x, player.position.y - .9, player.position.z); wardMesh.material.opacity = .18 + .2 * Math.min(1, s.ward); }
+      const wl = s.walls[0]; wallMesh.visible = Boolean(wl); if (wl) { const rise = Math.min(1, (SPELL.earth.last - wl.t) / .2, wl.t / .4); wallMesh.scale.set(wl.half * 2, rise, 1); wallMesh.position.set(wl.x, C.floor + 1.3 * rise, wl.z); wallMesh.rotation.y = wl.yaw; }
+      galeMesh.visible = Boolean(s.gale); if (s.gale) { galeMesh.position.set(s.gale.x, C.floor + .3, s.gale.z); galeMesh.rotation.y = s.gale.yaw; galeMesh.material.opacity = .6 * (1 - s.gale.t / .45); galeMesh.scale.setScalar(.6 + s.gale.t * 1.2); }
+      aura.material.color.copy(s.fed ? FED_L : CRIMSON_L); if (s.fed) aura.material.opacity += .06 * s.fed; // she glows with what she drank
       darts.forEach((m, i) => { const d = s.darts[i]; m.visible = Boolean(d); if (d) { m.position.set(d.x, d.y, d.z); m.lookAt(player.position); } });
       shardViews.forEach((v, i) => {
         const sh = s.shards[i], show = Boolean(sh); v.ring.visible = v.disc.visible = v.shard.visible = show; if (!show) return;
@@ -283,7 +301,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
 const F_RADIUS = 2.6; // matches SILE_FIGHT.invert.radius
 
 // The vortex shutting: a white-violet sphere of light and a light burst that swell and fade in under half a second.
-function createFlash(group) {
+export function createFlash(group) {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xf2e8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
   const light = new THREE.PointLight(0xd9c2ff, 0, 60); ball.visible = false; group.add(ball, light);
   let t = 1;
@@ -299,7 +317,7 @@ function createFlash(group) {
 // Sile's escape: the Hollow Gate vortex from Spade's sky (rendering/sky.js), hung in the air as a disc that
 // always faces the camera. It spins up first; then, as it turns, its black eye opens wider and wider
 // until a pitch-black hole hangs over the forecourt.
-function createPortal(group) {
+export function createPortal(group) {
   const material = new THREE.ShaderMaterial({
     uniforms: { uPhase: { value: 0 }, uOpen: { value: 0 }, uShow: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -337,7 +355,7 @@ function createPortal(group) {
 
 // The air strike's hit: a crescent slash cut across Sile (diagonal, facing the camera) and a
 // shockwave ring, both growing and fading in about a third of a second.
-function createSlash(group) {
+export function createSlash(group) {
   const T = THREE, add = color => new T.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false });
   const arc = new T.Mesh(new T.RingGeometry(1.5, 2.3, 40, 1, -.4, Math.PI * .95), add(0xc9a8ff));
   const core = new T.Mesh(new T.RingGeometry(1.75, 2.0, 40, 1, -.4, Math.PI * .95), add(0xffffff));
@@ -361,9 +379,11 @@ function createSlash(group) {
 }
 
 // Pooled spark bursts.
-function createBursts(group, count = 96) {
+export function createBursts(group, count = 96) {
   const positions = new Float32Array(count * 3), geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({ color: 0xffffff, size: .12, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'), r = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.4, 'rgba(255,255,255,.6)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 32, 32);
+  const material = new THREE.PointsMaterial({ color: 0xffffff, size: .12, map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }); // soft round sparks, not squares
   const points = new THREE.Points(geometry, material); points.frustumCulled = false; group.add(points);
   const sparks = Array.from({ length: count }, () => ({ p: new THREE.Vector3(0, -99, 0), v: new THREE.Vector3(), life: 0 })); let next = 0;
   return {

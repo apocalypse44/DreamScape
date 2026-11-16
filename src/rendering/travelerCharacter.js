@@ -105,7 +105,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, terra
       aimBone(arm.hand, wrist, knuckle, aim.lerp(up, gesture === 'recall' ? .2 : .6).normalize(), castWeight); // palms out
     }
   }
-  let mixer = null, model = null, sword = null, sockets = {}, failed = false, label = '', name = 'loading', heading = state.yaw + Math.PI, tilt = 0, ik = 0;
+  let sheath = null, mixer = null, model = null, sword = null, sockets = {}, failed = false, label = '', name = 'loading', heading = state.yaw + Math.PI, tilt = 0, ik = 0;
   let slideLean = 0, descent = 0, lastFeet = player.position.y; // the slide pose and the feet's measured descent
   let rootMotion = {}, modelScale = 1, clock = 0, drawn = false, face = null, faceOverride = null, faceOverrideTime = 0, expression = 'neutral';
   const capeState = { pitch: .1, pitchV: 0, roll: 0, rollV: 0, lastHeading: heading };
@@ -205,6 +205,23 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, terra
     get expression() { return expression; },
     /** Show an expression for a while (cutscenes, dialogue): 'joy', 'sad', 'surprised', ... */
     setExpression(name, seconds = 2) { faceOverride = name; faceOverrideTime = seconds; },
+    /** Give the sword a new look (movement lab: the sigil-blade). object is built in the sword's own frame (grip at the
+     *  origin, +Y to the tip), so sockets, trail and tip stay as they are; the original meshes are hidden. */
+    setSwordModel(object) {
+      if (!sword) return false;
+      const hidden = new THREE.MeshBasicMaterial({ visible: false }); // a fresh material: the old one is shared with the body
+      sword.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(() => hidden) : hidden; });
+      sword.add(object); return true;
+    },
+    /** Hang a sheath where the sword rests on the back (object in the sword's frame); it stays when the sword is drawn. */
+    setSheath(object) {
+      if (!sword || !sockets.socket_back) return false;
+      const back = sockets.socket_back; holdSword(false);
+      object.position.copy(sword.position); object.quaternion.copy(sword.quaternion); object.scale.copy(sword.scale);
+      back.add(object); sheath = object; return true;
+    },
+    /** Show or hide the sword (e.g. before it is forged); sheath: how far the sheath has grown in (0..1). */
+    showSword(on, sheathShown = on ? 1 : 0) { if (sword) sword.visible = on; sheath?.userData.setShow?.(sheathShown); if (sheath && !sheath.userData.setShow) sheath.visible = sheathShown > 0; },
     swordTip(target, offset = .86) { if (!sword) return null; return sword.localToWorld(target.set(0, offset, 0)); },
     reset() { motion.reset(); heading = state.yaw + Math.PI; tilt = ik = bank = slideLean = descent = 0; lastFeet = player.position.y; hang.identity(); capeState.pitch = .1; capeState.pitchV = capeState.roll = capeState.rollV = 0; holdSword(false); trail.clear(); },
     /** hook: { anchor:{x,y,z}|null, reach 0..1, phase, flip 0..1 } from models/grapple.js. */
@@ -222,8 +239,11 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, terra
       if (status && nextLabel !== label) { status.textContent = nextLabel; label = nextLabel; }
       root.visible = Boolean(mixer) && !state.memory && cameraDistance > .65;
       root.position.copy(player.position); root.position.y -= 2.05;
-      const target = state.cinematic ? state.cinematicYaw ?? heading : acting ? combat.facing : speed > .15 ? Math.atan2(player.velocity.x, player.velocity.z)
-        : castAt && state.swarmGesture === 'grab' ? Math.atan2(castAt.x - player.position.x, castAt.z - player.position.z) : heading; // turn to the chest
+      // Casting (wisps, spells, the chest grab) turns the body to what it casts at, even while moving: the hands
+      // follow the body, so facing anywhere else bent the arms toward the camera's aim instead.
+      const target = state.cinematic ? state.cinematicYaw ?? heading : acting ? combat.facing
+        : castAt ? Math.atan2(castAt.x - player.position.x, castAt.z - player.position.z)
+        : speed > .15 ? Math.atan2(player.velocity.x, player.velocity.z) : heading;
       const difference = Math.atan2(Math.sin(target - heading), Math.cos(target - heading));
       heading += difference * (1 - Math.exp(-(acting ? 26 : 12) * dt)); root.rotation.y = heading;
       const turnRate = dt > 0 ? Math.atan2(Math.sin(heading - capeState.lastHeading), Math.cos(heading - capeState.lastHeading)) / dt : 0; capeState.lastHeading = heading;

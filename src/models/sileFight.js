@@ -5,6 +5,11 @@
 //
 // Mana follows combat.md: a successful block or roll of a real attack gives one charge, once per attack;
 // spending one charge enters Chaos, which lasts until the player returns to Calm or is hit.
+//
+// Spells (GRIMOIRE_SPELLS_PLAN.md): her shield harvests magic. Flame Lance and Gale that reach her are drunk and
+// feed her next blow; only the sigil-blade hurts her. Tide Ward still catches darts and Stone Wall still stops them.
+import { MORCANT_FIGHT, crosses } from './morcantFight.js';
+const S = MORCANT_FIGHT.spells;
 export const SILE_FIGHT = {
   hp: 100, skyAt: 60, playerHp: 100, maxCharge: 3, retryCharge: 1,
   hover: .5, speed: 3.4, keep: 3.4, rest: 1, restShielded: 1.7,
@@ -18,6 +23,7 @@ export const SILE_FIGHT = {
   // fall; once exposed she has a last stand, then reclaims an anchor if you have not finished her.
   wave: { windup: .8, speed: 7.5, every: [4.6, 3.4, 2.5], double: 2, damage: 10, clear: .7, setback: .35, reach: 22 },
   exposedFor: 9,
+  feed: { per: .3, max: 3 }, // each spell she drinks adds 30% to her next blow that lands, up to three
   crash: 1.2, intro: 11.5, ending: 10.4, flee: [5.4, 2], // she backs into the vortex over 2 s
   close: [7.5, .6], // then it collapses and shuts with a flash
 };
@@ -32,6 +38,7 @@ const LINES = {
   waves: ['SILE', 'Jump, little bug! Jump!'],
   desperate: ['SILE', 'Stop that! Those are MINE!'],
   reclaim: ['SILE', 'Hehe... mine again.'],
+  feed: ['SILE', 'Mmm, delicious! Did Morcant not warn you? Feed me more!'],
   bored: ['SILE', 'That wasn\'t fun anymore.'],
 };
 const ease = k => k * k * (3 - 2 * k);
@@ -48,6 +55,7 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
   let darts = [], shards = [], tether = null, shardTimer = 1.5, airHits = 0, airCooldown = 0, orbit = 0, airBuffer = 0, inReach = false;
   let shield = true, exposed = false, subtitle = null, crashFrom = null, checkpoint = null;
   let waves = [], waveTimer = 3, waveWindup = 0, wavesQueued = 0, firstWave = true, exposeLeft = 0;
+  let lances = [], walls = [], ward = 0, gale = null, fed = 0, tasted = false, cooldown = { wind: 0, flame: 0, tide: 0, earth: 0 };
   const sile = { x: cx, y: floor - 14, z: cz - 20, yaw: 0 };
   const inversion = anchors.map(a => ({ x: a.x, z: a.z, progress: 0, inverted: false }));
   let events = [];
@@ -56,7 +64,7 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
   const gain = () => { charge = Math.min(F.maxCharge, charge + 1); emit('charge', { charge }); };
 
   function save() { checkpoint = { phase, hp, airHits }; }
-  function clearAttacks() { attack = null; tether = null; darts = []; shards = []; open = 0; rest = F.rest; waves = []; waveWindup = 0; wavesQueued = 0; waveTimer = 3; }
+  function clearAttacks() { lances = []; attack = null; tether = null; darts = []; shards = []; open = 0; rest = F.rest; waves = []; waveWindup = 0; wavesQueued = 0; waveTimer = 3; }
   function enter(next) {
     phase = next; time = 0; clearAttacks(); save();
     if (next === 'sky') { say('sky'); emit('laugh'); emit('takeoff'); orbit = Math.atan2(sile.x - cx, sile.z - cz); shardTimer = 1.6; }
@@ -65,8 +73,9 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
   }
   // One blow at the player. Defending gives charge; a hit costs health and knocks them back to Calm.
   function defend(io, from, { heavy = false, damage, kind }) {
-    const result = io.hurt?.(from, { heavy }) ?? 'hit';
+    const result = kind === 'dart' && ward > 0 ? 'blocked' : io.hurt?.(from, { heavy }) ?? 'hit';
     if (result === 'hit') {
+      if (fed) { damage = Math.round(damage * (1 + fed * F.feed.per)); emit('fedHit', { fed }); fed = 0; }
       playerHp -= damage; emit('playerHit', { kind, damage });
       if (chaos) { chaos = false; emit('calm', { knocked: true }); }
     } else { gain(); emit(result, { kind }); }
@@ -148,6 +157,39 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
       return w.r < W.reach;
     });
   }
+  // ---- the traveller's spells: her shield drinks the attacks, the defences still work ----
+  function harvest(by) {
+    fed = Math.min(F.feed.max, fed + 1); emit('harvested', { by, fed });
+    if (!tasted) { tasted = true; say('feed', 3.2); emit('laugh'); }
+  }
+  function cast(io, p) {
+    const c = io.cast; if (!c) return;
+    if (cooldown[c.rune] > 0) { emit('cooling', { rune: c.rune }); return; }
+    const spell = S[c.rune]; cooldown[c.rune] = spell.cooldown; emit('cast', { rune: c.rune, chaos });
+    if (c.rune === 'wind') {
+      gale = { x: p.x, z: p.z, yaw: c.facing, t: 0 };
+      const d = Math.hypot(sile.x - p.x, sile.z - p.z);
+      if (d < spell.range && Math.abs(angleDiff(Math.atan2(sile.x - p.x, sile.z - p.z), c.facing)) < spell.arc / 2) harvest('wind');
+    } else if (c.rune === 'flame') {
+      const d = Math.hypot(c.aim.x - c.from.x, c.aim.y - c.from.y, c.aim.z - c.from.z) || 1;
+      lances.push({ x: c.from.x, y: c.from.y, z: c.from.z, vx: (c.aim.x - c.from.x) / d * spell.speed, vy: (c.aim.y - c.from.y) / d * spell.speed, vz: (c.aim.z - c.from.z) / d * spell.speed, life: spell.life });
+    } else if (c.rune === 'tide') ward = chaos ? spell.lastChaos : spell.last;
+    else if (c.rune === 'earth') { // she keeps close, so the wall rises halfway to her when she is nearer than its usual reach
+      const ahead = Math.min(spell.ahead, Math.hypot(sile.x - p.x, sile.z - p.z) * .5);
+      walls = [{ x: p.x + Math.sin(c.facing) * ahead, z: p.z + Math.cos(c.facing) * ahead, yaw: c.facing, half: spell.width / 2 * (chaos ? 1.5 : 1), t: spell.last }];
+    }
+  }
+  function spellStep(dt, io, p) {
+    for (const k in cooldown) cooldown[k] = Math.max(0, cooldown[k] - dt);
+    ward = Math.max(0, ward - dt); walls = walls.filter(w => (w.t -= dt) > 0);
+    if (gale && (gale.t += dt) > .45) gale = null;
+    cast(io, p);
+    lances = lances.filter(l => {
+      l.x += l.vx * dt; l.y += l.vy * dt; l.z += l.vz * dt; l.life -= dt;
+      if (Math.hypot(l.x - sile.x, l.y - (sile.y + 1.1), l.z - sile.z) < 1.4 + S.flame.radius) { harvest('flame'); return false; }
+      return l.life > 0 && l.y > floor - 1;
+    });
+  }
   function swordStep(io, damage) {
     const hit = io.swordHit; if (!hit || hit.id === lastSwing) return;
     const p = io.player, dx = sile.x - p.x, dz = sile.z - p.z, d = Math.hypot(dx, dz);
@@ -164,10 +206,13 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
     get cinematic() { return phase === 'intro' || phase === 'ending'; }, get time() { return time; },
     start() {
       phase = 'intro'; time = 0; hp = F.hp; playerHp = F.playerHp; charge = 0; chaos = false; order = 0; airHits = 0; lastSwing = -1;
-      shield = true; exposed = false; subtitle = null; firstWave = true; exposeLeft = 0; clearAttacks(); inversion.forEach(a => { a.progress = 0; a.inverted = false; });
+      shield = true; exposed = false; subtitle = null; firstWave = true; exposeLeft = 0; clearAttacks();
+      walls = []; ward = 0; gale = null; fed = 0; tasted = false; cooldown = { wind: 0, flame: 0, tide: 0, earth: 0 }; inversion.forEach(a => { a.progress = 0; a.inverted = false; });
       Object.assign(sile, { x: cx, y: floor - 14, z: cz - 20, yaw: 0 }); events = []; emit('prism');
     },
     skip() { if (phase === 'intro') { time = F.intro; } else if (phase === 'ending') time = F.ending; },
+    /** Developer: jump straight to her defeat and the ending (she rises from where she crashes and flees). */
+    finish() { if (phase !== 'idle' && phase !== 'done') { Object.assign(sile, { x: crashSpot.x, y: floor + F.hover, z: crashSpot.z }); hp = 0; enter('ending'); } },
     stop() { phase = 'idle'; chaos = false; subtitle = null; clearAttacks(); },
     takeEvents() { const out = events; events = []; return out; },
     /**
@@ -210,8 +255,11 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
       }
       const distance = Math.hypot(p.x - sile.x, p.z - sile.z);
       // Darts fly in every fighting phase.
+      spellStep(dt, io, p);
       darts = darts.filter(d => {
+        const was = { x: d.x, z: d.z };
         d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.life -= dt;
+        if (walls.some(w => crosses(was, d, w)) && d.y - floor < 3) { gain(); emit('wallStop', { kind: 'dart', x: d.x, z: d.z }); return false; }
         if (Math.hypot(d.x - p.x, d.y - (p.y - .7), d.z - p.z) < F.darts.radius) { defend(io, d.from, { damage: F.darts.damage, kind: 'dart' }); return false; }
         return d.life > 0 && d.y > floor - 2;
       });
@@ -328,7 +376,9 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
         closing: phase === 'ending' ? clamp01((time - F.close[0]) / F.close[1]) : 0, gone: phase === 'ending' && time >= F.flee[0] + F.flee[1],
         flee: phase === 'ending' ? clamp01((time - F.flee[0]) / F.flee[1]) : 0,
         waves: waves.map(w => ({ r: w.r })), waveWindup: waveWindup > 0 ? 1 - waveWindup / F.wave.windup : 0, exposeLeft: exposed ? exposeLeft : 0,
-        riftAt, crashSpot,
+        riftAt, crashSpot, fed,
+        lances: lances.map(l => ({ ...l })), walls: walls.map(w => ({ ...w })), ward, gale: gale && { ...gale },
+        cooldown: { ...cooldown }, cooldownMax: Object.fromEntries(Object.entries(S).map(([k, v]) => [k, v.cooldown])),
       };
     },
   };

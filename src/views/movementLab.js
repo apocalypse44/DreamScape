@@ -9,6 +9,13 @@ import { createCharacterGallery } from './characterGallery.js';
 import { EXPRESSIONS } from '../models/faceExpression.js';
 import { createGrapple } from '../models/grapple.js';
 import { createCitadelArena, createArenaHud, citadelGround } from './citadelArena.js';
+import { createGatehall } from './gatehallArena.js';
+import { createSpellBar } from './spellBar.js';
+import { createSpellPracticeArea } from './spellPracticeArea.js';
+import { spellForKey, PAGES } from '../models/grimoireSpells.js';
+import { createGrimoireReveal } from './grimoireReveal.js';
+import { createSigil } from '../rendering/sigil.js';
+import { createSigilBlade, createSigilSheath } from '../rendering/sigilBlade.js';
 
 const canvas=document.querySelector('#labCanvas'),status=document.querySelector('#labStatus'),toastBox=document.querySelector('#labToast');
 let toastTimer=0;function toast(text){if(!toastBox)return;toastBox.textContent=text;toastBox.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastBox.classList.remove('show'),700);}
@@ -16,6 +23,7 @@ async function start(){
   const T=THREE,scene=new T.Scene();scene.background=new T.Color(0xdce7de);scene.fog=new T.Fog(0xdce7de,30,105);
   const renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
   renderer.outputEncoding=T.sRGBEncoding;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+  renderer.localClippingEnabled=true; // the forged blade rises out of the grimoire's void
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
   const camera=new T.PerspectiveCamera(54,innerWidth/innerHeight,.1,130);
   scene.add(new T.HemisphereLight(0xe9f0df,0x7f907b,.95));
@@ -61,6 +69,7 @@ async function start(){
   // Doorway and low posts test shoulder/camera collision.
   for(const x of [-1.8,1.8]){block(x,8,.65,.75,3.2);colliders.push({x,z:8,radius:.48});}
   block(0,8,4.2,.75,3.65,3.1);
+  for(let i=0;i<5;i++)block(4+i*3,18,.8,.8,1.1); // plinths for the showcase sigils and the sigil-blade
   const treeMat=new T.MeshStandardMaterial({color:0x466d52,roughness:1,flatShading:true});
   for(const [x,z,s]of [[-22,-8,1],[-24,5,1.3],[-19,18,1.1],[25,9,1.3],[24,-25,.9],[-6,-31,1.5],[7,-30,1]]){
     const y=ground(x,z),trunk=new T.Mesh(new T.CylinderGeometry(.14*s,.23*s,2.7*s,7),timber);trunk.position.set(x,y+1.35*s,z);trunk.castShadow=true;scene.add(trunk);
@@ -92,6 +101,36 @@ async function start(){
   // Sile the Harvester at the Prism Citadel (combat.md): its own arena, cutscenes and HUD.
   const arenaHud=createArenaHud();arenaHud.toast=text=>toast(text);
   const arena=createCitadelArena({scene,obstacles,colliders,anchors:anchorPoints,hud:arenaHud});
+  // Morcant the Gatekeeper in his own Gatehall (models/morcantFight.js): a sealed drum east of the clearing.
+  const gatehall=createGatehall({scene,center:{x:110,z:0},floor:0,toast,obstacles});colliders.push(...gatehall.colliders);
+  // Grimoire spells. Morcant: LMB Flame Lance (hold to keep casting), RMB Tide Ward, E Gale, Q Stone Wall, or 1-4.
+  // Sile: the sword keeps the mouse, so spells are 1-4 and E (Q stays the grapple); her shield drinks Flame and Gale.
+  // Developer showcase: the grimoire receiving each page, and the four ornate sigils on plinths by the clearing.
+  const reveal=createGrimoireReveal({scene});
+  const sigilShow=['lantern','root','tide','prism'].map((kind,i)=>{const x=4+i*3,z=18,s=createSigil(kind,.55,{ornate:true});s.position.set(x,1.75,z);scene.add(s);return{kind,s,at:new T.Vector3(x,1.75,z)};});
+  {const b=createSigilBlade();b.scale.setScalar(1.8);b.position.set(16,1.25,18);b.userData.tick=dt=>{b.rotation.y+=dt*.6;b.userData.setGlow(.3+.2*Math.sin(performance.now()*.002));};scene.add(b);sigilShow.push({kind:'sigil-blade',s:b,at:new T.Vector3(16,1.95,18)});} // the forged sword on the fifth plinth
+  sign('THE FOUR SIGILS',8.5,21.5).rotation.y=Math.PI;
+  // Spell practice ground: walk into its rune circle and the grimoire spells replace the sword (as in the Gatehall).
+  const practice=createSpellPracticeArea({scene,center:{x:-30,z:-30},floor:0,toast});let practiceOn=false;
+  sign('SPELL PRACTICE · LMB RMB E Q',-30,-16.5);
+  const spellBar=createSpellBar();let pendingRune=null,castPose=0,runeBarOn=null;const castPoint=new T.Vector3(),aimDir=new T.Vector3();
+  const spellArena=()=>gatehall.active?gatehall:arena.active?arena:practiceOn?practice:null;
+  const runic=()=>gatehall.active||(practiceOn&&!arena.active); // spells on the mouse, no sword
+  const runeFight=()=>Boolean(spellArena()&&!spellArena().cinematic&&state.locked);
+  const spellKey=code=>runic()||code!=='KeyQ'?spellForKey(code):null;
+  // The cast's aim: the target nearest the centre of view (him, a spider, a pillar), else straight ahead.
+  function takeCast(){
+    if(!pendingRune)return null;const rune=pendingRune;pendingRune=null;
+    const eye=player.position;camera.getWorldDirection(aimDir);
+    let best=null,bestOff=.55;
+    for(const t of spellArena()?.targets||[]){const d=new T.Vector3(t.x-eye.x,t.y-eye.y+.6,t.z-eye.z),len=d.length();if(len<.5||len>30)continue;const off=d.divideScalar(len).angleTo(aimDir);if(off<bestOff){bestOff=off;best=t;}}
+    const chest={x:eye.x,y:eye.y-.6,z:eye.z},aim=best?{x:best.x,y:best.y,z:best.z}:{x:chest.x+aimDir.x*25,y:chest.y+aimDir.y*25,z:chest.z+aimDir.z*25};
+    // Spells leave from the hands, just in front of the traveller along the aim (the body turns to face it).
+    const dx=aim.x-chest.x,dz=aim.z-chest.z,d=Math.hypot(dx,dz)||1,from={x:chest.x+dx/d*.7,y:chest.y+.15,z:chest.z+dz/d*.7};
+    // The wall always rises where you look; the other runes turn to the target.
+    const facing=best&&rune!=='earth'?Math.atan2(aim.x-from.x,aim.z-from.z):Math.atan2(aimDir.x,aimDir.z);
+    castPose=.45;castPoint.set(aim.x,aim.y,aim.z);spellBar.flash(rune);return{rune,from,aim,facing};
+  }
   // Air strike: a short lunge to Sile, the slash clip played in mid-air, then a bounce back off her.
   let airStrike=null;const AIR={dash:.14,total:.5};
   function startAirStrike(at){
@@ -110,7 +149,7 @@ async function start(){
   const view=createCameraController({camera,state,player:renderPlayer,chunks:new Map(),terrainHeight:ground,staticObstacles:[obstacles]});
   const avatar=createTravelerCharacter({scene,state,player:renderPlayer,surfaceAt,status,walkSpeed:4.2});
   function reset(target={x:0,z:0,top:0}){
-    keys.clear();pointerButtons.clear();combat?.reset();grapple.reset();arena?.exit();airStrike=null;crossingCheckpoint={x:-7,z:32,top:0};combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
+    keys.clear();pointerButtons.clear();combat?.reset();grapple.reset();arena?.exit();gatehall?.exit();airStrike=null;crossingCheckpoint={x:-7,z:32,top:0};combatState=null;movement.teleport({...target,yaw:0});state.pitch=-.12;state.chaos=.06;state.mode='calm';previous.copy(player.position);renderPosition.copy(player.position);stepper.reset();avatar.reset();
   }
   reset();
   const explore=document.querySelector('#explore'),portrait=document.querySelector('#portrait');
@@ -120,24 +159,26 @@ async function start(){
   explore.onclick=()=>{inspect=false;galleryTarget=null;canvas.requestPointerLock();};portrait.onclick=()=>{document.exitPointerLock();inspect=true;galleryTarget=null;portraitDistance=4.2;portraitYaw=avatar.root.rotation.y+.5;release();};
   document.querySelector('#reset').onclick=()=>reset();document.querySelector('#gaps').onclick=()=>{reset({x:18,z:-16,top:1.8});inspect=false;};
   document.querySelector('#citadel').onclick=()=>{reset(arena.entry);state.yaw=0;inspect=false;arena.enter();canvas.requestPointerLock();};
+  document.querySelector('#gatehall').onclick=()=>{reset(gatehall.entry);state.yaw=0;inspect=false;gatehall.begin();canvas.requestPointerLock();};
   document.querySelector('#sky').onclick=()=>{reset({x:-7,z:32,top:0});state.yaw=Math.PI/2;inspect=false;canvas.requestPointerLock();};
   document.querySelector('#livingGround').onchange=e=>{living=e.target.checked;groundDirty=true;};
   canvas.onclick=()=>{if(!inspect&&avatar.loaded&&!state.locked)canvas.requestPointerLock();};
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
-  canvas.addEventListener('mousedown',e=>{if(!state.locked)return;pointerButtons.add(e.button);if(e.button===0)pressed.attack=true;});
+  canvas.addEventListener('mousedown',e=>{if(!state.locked)return;pointerButtons.add(e.button);if(e.button===0&&!runic())pressed.attack=true;if(runeFight()&&runic()&&e.button===2)pendingRune='tide';});
   addEventListener('mouseup',e=>pointerButtons.delete(e.button));
   document.addEventListener('mousemove',e=>{if(state.locked){state.yaw-=e.movementX*.0022;state.pitch=T.MathUtils.clamp(state.pitch-e.movementY*.002,-.85,.6);}else if(inspect&&e.buttons===1)portraitYaw-=e.movementX*.008;});
-  addEventListener('keydown',e=>{if(!state.locked)return;keys.add(e.code);if(e.code==='Space'&&!e.repeat)player.jumpBuffer=.15;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='KeyF'&&!e.repeat)pressed.dodge=true;if(e.code==='KeyX'&&!e.repeat)pressed.sheathe=true;if(e.code==='KeyJ'&&!e.repeat)pressed.attack=true;if(e.code==='KeyG'&&!e.repeat)pressed.chaos=true;if(e.code==='Enter'&&!e.repeat)arena.skip();if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
+  addEventListener('keydown',e=>{if(!state.locked)return;keys.add(e.code);if(e.code==='Space'&&!e.repeat)player.jumpBuffer=.15;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='KeyF'&&!e.repeat)pressed.dodge=true;if(runeFight()&&!e.repeat&&spellKey(e.code))pendingRune=spellKey(e.code);if(e.code==='KeyX'&&!e.repeat){if(reveal.active)reveal.close();else pressed.sheathe=true;}if(e.code==='KeyJ'&&!e.repeat)pressed.attack=true;if(e.code==='KeyG'&&!e.repeat)pressed.chaos=true;if(e.code==='Enter'&&!e.repeat){arena.skip();gatehall.skip();reveal.skip();}if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();});
   addEventListener('keyup',e=>keys.delete(e.code));
   const resize=()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();};addEventListener('resize',resize);resize();
   function combatInput(){
     const f=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0),sd=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);
     const len=Math.hypot(f,sd)||1,sin=Math.sin(state.yaw),cos=Math.cos(state.yaw);
-    const input={attack:pressed.attack,dodge:pressed.dodge,sheathe:pressed.sheathe,block:pointerButtons.has(2)||keys.has('KeyK'),
+    const spells=runic(); // in the Gatehall and the practice ground the traveller casts grimoire spells: no sword swings, RMB is the Tide Ward
+    const input={attack:pressed.attack&&!spells,dodge:pressed.dodge,sheathe:pressed.sheathe,block:!spells&&(pointerButtons.has(2)||keys.has('KeyK')),
       moveX:state.locked?(-sin*f+cos*sd)/len:0,moveZ:state.locked?(-cos*f-sin*sd)/len:0,sprinting:keys.has('ShiftLeft')||keys.has('ShiftRight')};
     pressed.attack=pressed.dodge=pressed.sheathe=false;return input;
   }
-  window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,grapple,anchorPoints,arena,get airStrike(){return airStrike;},get combat(){return combat;},get combatState(){return combatState;},
+  window.travelerLab={scene,renderer,camera,player,state,keys,movement,avatar,reset,ground,stepper,renderPosition,surfaces,yard,pressed,pointerButtons,grapple,anchorPoints,arena,gatehall,get airStrike(){return airStrike;},get combat(){return combat;},get combatState(){return combatState;},
     inspect:()=>{inspect=true;document.exitPointerLock();},explore:()=>{inspect=false;},portrait:(yaw,distance=4.2,height=.05,aim=.8)=>{inspect=true;portraitYaw=yaw;portraitDistance=distance;portraitHeight=height;portraitAim=aim;}};
   let last=performance.now(),frameCount=0,frameTime=0,groundRefresh=0;
   function frame(now){
@@ -147,28 +188,37 @@ async function start(){
       previous.copy(player.position);groundTime+=step;
       const input=combatInput();
       const arenaIo={player:player.position,feet:player.position.y-2.05,grounded:player.grounded,chaosPress:pressed.chaos,attackPress:input.attack,
-        invulnerable:Boolean(combatState?.invulnerable),swordHit:combatState?.hit||null,hurt:(from,o)=>combat?combat.hurt(from,player.position,o):'hit',
+        invulnerable:Boolean(combatState?.invulnerable),swordHit:combatState?.hit||null,cast:spellArena()&&!spellArena().cinematic?takeCast():null,hurt:(from,o)=>combat?combat.hurt(from,player.position,o):'hit',
         push:from=>{const dx=player.position.x-from.x,dz=player.position.z-from.z,d=Math.hypot(dx,dz)||1;player.position.x+=dx/d*1.1;player.position.z+=dz/d*1.1;},
-        onDown:()=>{movement.teleport({...arena.entry,yaw:0});grapple.reset();combat?.reset();},onImpact:heavy=>{hitstop=heavy?.09:.05;},onAirStrike:at=>{startAirStrike(at);hitstop=.13;}};
+        onDown:()=>{movement.teleport({...(gatehall.active?gatehall.entry:arena.entry),yaw:0});grapple.reset();combat?.reset();},onImpact:heavy=>{hitstop=heavy?.09:.05;},onAirStrike:at=>{startAirStrike(at);hitstop=.13;}};
       pressed.chaos=false;
-      if(arena.cinematic){player.velocity.x=player.velocity.z=0;combatState=null;arena.step(step,arenaIo);return;} // cutscene: the traveller waits
+      if(reveal.active){player.velocity.x=player.velocity.z=0;combatState=null;return;} // the grimoire scene: the traveller holds still
+      if(arena.cinematic||gatehall.cinematic){player.velocity.x=player.velocity.z=0;combatState=null;arena.step(step,arenaIo);gatehall.step(step,arenaIo);return;} // cutscene: the traveller waits
       const lunging=stepAirStrike(step);
       const hook=lunging?{owns:true}:grapple.update(step,{hold:state.locked&&keys.has('KeyQ')&&!airStrike,jump:player.jumpBuffer>0,moveX:input.moveX,moveZ:input.moveZ,look:{x:-Math.sin(state.yaw),z:-Math.cos(state.yaw)}},player,surfaceAt);
-      if(combat){combatState=combat.update(step,input,{grounded:player.grounded,speed:Math.hypot(player.velocity.x,player.velocity.z),yaw:state.yaw,heading:avatar.heading,position:player.position,targets:arena.active?arena.targets:yard.targets});}
+      if(combat){combatState=combat.update(step,input,{grounded:player.grounded,speed:Math.hypot(player.velocity.x,player.velocity.z),yaw:state.yaw,heading:avatar.heading,position:player.position,targets:arena.active?arena.targets:gatehall.active?gatehall.targets:yard.targets});}
       if(!hook.owns)movement.update(step);
       if(player.grounded&&crossing.some(c=>Math.abs(player.position.x-c.x)<c.width/2&&Math.abs(player.position.z-c.z)<c.depth/2))crossingCheckpoint=crossing.find(c=>Math.abs(player.position.x-c.x)<c.width/2&&Math.abs(player.position.z-c.z)<c.depth/2);
       if(combat)yard.step(step,{player,combat,combatState,toast});
-      if(arena.active&&state.locked){arenaIo.swordHit=combatState?.hit||null;arenaIo.invulnerable=Boolean(combatState?.invulnerable);arena.step(step,arenaIo);}
+      practiceOn=!arena.active&&!gatehall.active&&practice.contains(player.position);
+      if(practiceOn&&state.locked){arenaIo.invulnerable=Boolean(combatState?.invulnerable);practice.step(step,arenaIo);}
+      if((arena.active||gatehall.active)&&state.locked){arenaIo.swordHit=combatState?.hit||null;arenaIo.invulnerable=Boolean(combatState?.invulnerable);arena.step(step,arenaIo);gatehall.step(step,arenaIo);}
     });
     renderPosition.lerpVectors(previous,player.position,alpha);
     if(inspect){const at=galleryTarget||renderPosition;portraitYaw+=dt*.07;camera.position.set(at.x+Math.sin(portraitYaw)*portraitDistance,at.y+portraitHeight,at.z+Math.cos(portraitYaw)*portraitDistance);camera.lookAt(at.x,at.y-portraitAim,at.z);}
-    else if(!arena.shot(camera,dt,renderPlayer)){view.update(dt);arena.applyShake(camera,dt);}
-    gallery.update(dt);
+    else if(!reveal.shot(camera,dt)&&!arena.shot(camera,dt,renderPlayer)&&gatehall.shot(camera,dt,renderPlayer)===null){view.update(dt);arena.applyShake(camera,dt);gatehall.applyShake(camera,dt);}
+    gallery.update(dt);reveal.update(dt);for(const x of sigilShow)x.s.userData.tick(dt);
     if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;shake=Math.max(0,shake-dt*.9);}
-    yard.render(dt);arena.render(dt,now,{camera,grapple,player:renderPlayer});
-    const castAt=keys.has('KeyE')?new T.Vector3(player.position.x,player.position.y,player.position.z-8):null;
+    yard.render(dt);arena.render(dt,now,{camera,grapple,player:renderPlayer});gatehall.render(dt,now,{camera,player:renderPlayer});practice.render(dt,now,renderPlayer);
+    castPose=Math.max(0,castPose-dt);
+    {const f=gatehall.forgeShow;avatar.showSword(f.sword,f.sheath);} // in the Gatehall the blade does not exist until it is forged
+    const bar=runeFight()?(runic()?'morcant':'sile'):'';
+    if(runeBarOn!==bar){runeBarOn=bar;spellBar.show(Boolean(bar),bar==='sile'?['1','2','E','4']:null);}
+    if(bar){const r=spellArena().runes;spellBar.update(r);if(bar==='morcant'&&pointerButtons.has(0)&&!r.cooldown.flame&&!pendingRune)pendingRune='flame';} // hold LMB: a lance whenever it is ready
+    if(castPose>0)state.swarmGesture='push';
+    const castAt=reveal.active?null:castPose>0?castPoint:keys.has('KeyE')?new T.Vector3(player.position.x,player.position.y,player.position.z-8):null;
     // During an air strike the avatar plays the real slash clip (with its trail) at the lunge's pace.
-    const shown=airStrike?{clip:'slash1',time:Math.min(.42,.08+airStrike.t*.95),facing:airStrike.facing,drawn:true,trail:airStrike.t<.38}:combatState;
+    const shown=airStrike?{clip:'slash1',time:Math.min(.42,.08+airStrike.t*.95),facing:airStrike.facing,drawn:true,trail:airStrike.t<.38}:runic()&&combatState?{...combatState,drawn:false}:combatState; // runes, not the blade
     avatar.update(simDt,inspect?4.2:camera.position.distanceTo(renderPosition),castAt,shown,{anchor:grapple.anchor,reach:grapple.reach,phase:grapple.phase,flip:grapple.flip});
     anchorMeshes.forEach((m,i)=>{const lit=anchorPoints[i]===grapple.target,hooked=anchorPoints[i]===grapple.anchor;m.rotation.y+=dt*(lit?3:.6);m.material.emissiveIntensity+=((hooked?2.2:lit?1.4+.4*Math.sin(now*.012):.5)-m.material.emissiveIntensity)*Math.min(1,dt*10);});
     groundRefresh+=dt;
@@ -195,9 +245,23 @@ async function start(){
   clipPick.onfocus=()=>{const item=gallery.items[galleryIndex],clips=item.clips?.()||[];if(clips.length&&clipPick.options.length!==clips.length)clipPick.innerHTML=clips.map(c=>`<option>${c}</option>`).join('');}; // clips arrive once loaded
   clipPick.onchange=()=>gallery.items[galleryIndex].play?.(clipPick.value);
   facePick.onchange=()=>{const item=gallery.items[galleryIndex];if(item.id==='player')avatar.setExpression(facePick.value,1e9);else item.setExpression?.(facePick.value);};
-  window.travelerLab.gallery={gallery,show:showCharacter};
+  window.travelerLab.gallery={gallery,show:showCharacter};window.travelerLab.reveal=reveal;
+  // Showcase: grimoire pages, sigils, and the game's cutscenes and flashbacks (they need the full world, so they open in the game).
+  const pagePick=document.querySelector('#pagePick'),sigilPick=document.querySelector('#sigilPick'),scenePick=document.querySelector('#scenePick');
+  pagePick.innerHTML=PAGES.map((p,i)=>`<option value="${i}">${p.numeral} · ${p.name||{wind:'GALE',flame:'FLAME LANCE',earth:'STONE WALL',tide:'TIDE WARD'}[p.spell]} (${p.from.toLowerCase()})`).join('');
+  sigilPick.innerHTML=sigilShow.map((x,i)=>`<option value="${i}">${x.kind==='sigil-blade'?'Sigil-blade (sword)':x.kind[0].toUpperCase()+x.kind.slice(1)+' Sigil'}</option>`).join('');
+  const SCENES=[['mark','Prologue · The Mark in the Flame (flashback)'],['meet','Clover · Iven, then The Severing (flashback)'],['sigil','Clover · the Root Sigil'],['heart-quake','Heart · Nim’s earthquake vision'],['heart-quake-gate','Heart · the vision at the gate'],['heart-past','Heart · The Quiet Springs (flashback)'],['heart-sera','Heart · Sera’s instructions'],['diamond-arrival','Diamond · arrival'],['diamond-chain-order','Diamond · The Chain Order (flashback)'],['diamond-power','Diamond · powering the relay'],['diamond-lead','Diamond · the lead onward']];
+  scenePick.innerHTML=SCENES.map(([id,label])=>`<option value="${id}">${label}</option>`).join('');
+  document.querySelector('#pagePlay').onclick=()=>{reset();inspect=false;galleryTarget=null;canvas.requestPointerLock();reveal.play(Number(pagePick.value),player.position,state.yaw);};
+  document.querySelector('#sigilView').onclick=()=>{document.exitPointerLock();release();inspect=true;galleryTarget=sigilShow[Number(sigilPick.value)].at;portraitDistance=1.7;portraitHeight=.15;portraitAim=0;};
+  // Morcant's defeat, retreat and the sigil-blade's forging, without fighting him first.
+  document.querySelector('#morcantEnding').onclick=()=>{reset(gatehall.entry);state.yaw=0;inspect=false;galleryTarget=null;gatehall.begin();gatehall.fight.finish();canvas.requestPointerLock();};
+  document.querySelector('#sileEnding').onclick=()=>{reset(arena.entry);state.yaw=0;inspect=false;galleryTarget=null;arena.enter();arena.fight.finish();canvas.requestPointerLock();};
+  document.querySelector('#practiceGo').onclick=()=>{reset({x:-30,z:-24,top:0});state.yaw=0;inspect=false;galleryTarget=null;canvas.requestPointerLock();};
+  document.querySelector('#scenePlay').onclick=()=>window.open(`index.html?unlock=all&scene=${scenePick.value}`,'_blank');
   requestAnimationFrame(frame);await avatar.ready;
   if(!avatar.loaded)throw new Error('The traveller asset did not load.');
+  avatar.setSwordModel(createSigilBlade());avatar.setSheath(createSigilSheath()); // the lab's traveller carries the sigil-blade in its sheath
   combat=createTravelerCombat({rootMotion:avatar.rootMotion,scale:avatar.modelScale});
   explore.disabled=portrait.disabled=false;document.querySelector('#galleryOpen').disabled=false;status.textContent='Ready. Inspect the character, then explore the course.';
 }
