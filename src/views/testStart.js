@@ -43,5 +43,6 @@ export function chooseTestStart(ui, params = new URLSearchParams(location.search
       resolve(select.value);
     };
     ui.enterButton.addEventListener('click', load);
+    if (params.has('scene') && select.value) load(); // the movement lab's scene links name their quest, so skip the pick
   });
 }

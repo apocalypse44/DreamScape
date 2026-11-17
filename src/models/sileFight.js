@@ -29,7 +29,7 @@ export const SILE_FIGHT = {
 };
 const ORDER = ['sweep', 'darts', 'sweep', 'tether', 'darts', 'sweep'];
 const LINES = {
-  arrive: ['SILE', 'Ooh, the little relay-breaker climbed all the way up here.'],
+  arrive: ['SILE', 'Ooh, the bug that sent Morcant crawling home. My turn.'],
   fun: ['SILE', 'Come... let\'s have some fun.'],
   sky: ['SILE', 'Can\'t reach me down there, can you?'],
   crash: ['SILE', 'Hey! That hurt!'],
@@ -39,7 +39,7 @@ const LINES = {
   desperate: ['SILE', 'Stop that! Those are MINE!'],
   reclaim: ['SILE', 'Hehe... mine again.'],
   feed: ['SILE', 'Mmm, delicious! Did Morcant not warn you? Feed me more!'],
-  bored: ['SILE', 'That wasn\'t fun anymore.'],
+  bored: ['SILE', 'Not fun... Next time, Veyr plays too.'],
 };
 const ease = k => k * k * (3 - 2 * k);
 const clamp01 = k => Math.min(1, Math.max(0, k));

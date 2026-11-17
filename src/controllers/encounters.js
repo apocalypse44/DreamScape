@@ -83,7 +83,7 @@ export function createEncounters({ scene, camera, renderer, world, state, keys, 
 
     pickupEmber(i, count, total) {
       embers.pickup(i);
-      toast(`EMBER ${count}/${total}`);
+      toast(count < total ? `EMBER ${count}/${total}` : 'ALL EMBERS GATHERED · TAKE THEM TO THE SHRINE KEEPER', count < total ? undefined : 4000);
     },
     setEmberPosition(i, pos) { embers.setEmberPosition(i, new THREE.Vector3(pos.x, pos.y, pos.z)); },
     startOffering(onDone) { embers.startOffering(shrine.crystalWorldPosition, onDone); },

@@ -114,6 +114,11 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
     drowned: false,
     shrineText: '',
     goal: '',
+    /** Developer (movement-lab links): jump to 'cursed' (the hound wakes) or 'cured' (the cure scene plays). */
+    debugStage(next) {
+      stage = next; houndCarrying = next === 'cursed';
+      if (next === 'cured') for (const ember of embers) ember.taken = true;
+    },
 
     update() {
       // Two thresholds, so hovering around one value never flips the mode back and forth.
@@ -174,7 +179,7 @@ export function createQuest({ world, state, player, onEmberPickup, onEmberPositi
         cursed: houndCarrying && (houndDistance < 25 || embers.every(e => e.taken || e.challenge === 'hound'))
           ? `EMBERS ${taken}/${EMBERS} · THE HOUND HOLDS ONE · CALM DOWN AND WALK UP TO IT`
           : `EMBERS ${taken}/${EMBERS} · FOLLOW THE HOUND · STAY WILD`,
-        return: 'RETURN TO THE SHRINE · BE STILL',
+        return: 'BRING THE EMBERS TO THE SHRINE KEEPER · BE STILL TO OFFER THEM',
         cured: 'NEXT · SPADE KINGDOM · FIND NERIS AT LANTERN REFUGE'
       }[stage];
     },

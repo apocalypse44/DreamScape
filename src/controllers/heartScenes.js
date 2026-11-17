@@ -15,15 +15,15 @@ export function heartVisionShot({ model, terrainHeight, from = 'nim' }) {
   const rise = QUAKE_START + HEART_QUAKE.burst; // the islands start to lift
   const lines = from === 'nim'
     ? [
-      [0.6, 'NIM · THE SCRYING SHELL', 'Look into the water. This is Heart, right now.'],
-      [QUAKE_START + 1.6, 'NIM', 'The ground is splitting. The Triad are tearing the reef out of the earth to hide their siphon.'],
-      [rise + 1.5, 'NIM', 'Every island Sera guarded is going up into the sky.'],
-      [rise + 5.2, 'SERA · THROUGH THE SHELL', 'Traveller, the reef is in the sky. Bring the Tide Hook. Come quickly.'],
+      [0.6, 'NIM · THE SCRYING SHELL', 'This shell shows me Heart. That’s happening right now.'],
+      [QUAKE_START + 1.6, 'NIM', 'An earthquake! The ground near Sera’s springs is tearing open.'],
+      [rise + 1.5, 'NIM', 'The land… it’s lifting into the sky!'],
+      [rise + 5.2, 'SERA · THROUGH THE SHELL', 'Traveller, if you have the Tide Hook, come quickly. It’s the only way up there.'],
     ]
     : [
       [0.6, 'HEART KINGDOM', 'The ground shudders under the gate.'],
-      [QUAKE_START + 1.6, 'SERA · FROM THE SPRING', 'The Triad are tearing the reef out of the earth to hide their siphon!'],
-      [rise + 5.2, 'SERA', 'The reef is in the sky now. Find me by the gate, traveller. Your hook is the only way up.'],
+      [QUAKE_START + 1.6, 'SERA · FROM THE SPRING', 'Earthquake! Hold on, traveller. The springs are tearing open!'],
+      [rise + 5.2, 'SERA', 'I’m Sera, keeper of Heart’s springs. The land has lifted into the sky, and your Tide Hook is the only way up. Find me by the gate.'],
     ];
   return {
     title: from === 'nim' ? 'A VISION · THE RESONANCE REEF' : 'THE RESONANCE REEF',

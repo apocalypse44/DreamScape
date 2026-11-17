@@ -14,11 +14,11 @@ export const SPELL_INK = { flame: ['#b2401a', '#ff9a4a'], tide: ['#1d6f93', '#7f
 // it makes the four split into stronger forms in Chaos.
 export const PAGES = [
   { id: 'wind', spell: 'wind', source: 'ember', numeral: 'I', from: 'THE EMBER HOUND', where: 'The Grimoire Tower',
-    lore: 'The hound breathed warmth across the empty pages, and the first of them caught the wind.', speaker: 'SHRINE KEEPER', line: 'This book once held the Accord. Gather its torn pages, and it will remember how to fight.' },
+    lore: 'The cured hound breathed on the book, and the first page filled with wind. Throw it, and a gale knocks enemies back.', speaker: 'SHRINE KEEPER', line: 'This is the Grimoire. The Triad tore out its pages. Every page you bring back gives you a new spell.' },
   { id: 'flame', spell: 'flame', source: 'lantern', numeral: 'II', from: 'THE LANTERN SIGIL', where: 'The Spade Kingdom',
     lore: 'Spade gave its last light freely. Light given freely burns the hottest, and now it burns for you.', speaker: 'NERIS', line: 'Our people kept this light alive for you. Burn the dark with it.' },
   { id: 'earth', spell: 'earth', source: 'root', numeral: 'III', from: 'THE ROOT SIGIL', where: 'The Clover Kingdom',
-    lore: 'The roots that raised the Living Road answer you now. Speak, and the ground stands up to guard you.', speaker: 'IVEN', line: 'A branch remembers where it came from. So does the ground.' },
+    lore: 'The roots that grew the Living Road now grow for you. Call on them, and a wall of stone rises to protect you.', speaker: 'IVEN', line: 'You gave the road back its roots. Now let them stand between you and the Triad.' },
   { id: 'tide', spell: 'tide', source: 'tide', numeral: 'IV', from: 'THE TIDE SIGIL', where: 'The Heart Kingdom',
     lore: 'Heart’s stolen current flows free again, and it wraps around you as a shield of living water.', speaker: 'SERA', line: 'The springs answer you now. Let the water guard you.' },
   { id: 'prism', spell: null, source: 'prism', numeral: 'V', from: 'THE PRISM SIGIL', where: 'The Diamond Kingdom',

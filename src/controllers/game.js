@@ -65,6 +65,7 @@ import { buildHeartCampaign } from '../rendering/heartCampaign.js';
 import { buildHeartTown } from '../rendering/heartTown.js';
 import { createHeartPetals } from '../rendering/heartPetals.js';
 import { applyTestStart, getTestStart } from '../models/testStarts.js';
+import { createGrimoirePages, PAGE_FOR_SIGIL } from './grimoirePages.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
@@ -109,7 +110,8 @@ export function startGame(ui, { testStartId = null } = {}) {
   const heavenly = createHeavenlyFalls({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   let doorScene = null, cloverScenes = null; // created below, with the camera controls
-  const inventory = createInventory({ onAdd: (id, item) => toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500) });
+  let pages = null; // the grimoire page reveals, made once the scene and camera exist
+  const inventory = createInventory({ onAdd: (id, item) => { toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500); if (id in PAGE_FOR_SIGIL) pages?.queue(PAGE_FOR_SIGIL[id]); } });
   // Nim, Sera's scout, waits beside the Clover gate on the way out (shown once the Tide Hook is carried).
   const cloverGate = gates.gates.find(g => /clover/i.test(g.name));
   const scout = cloverGate ? { x: cloverGate.x + 7, z: cloverGate.z + 6 } : null;
@@ -188,6 +190,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     getKeeper: () => encounters?.keeper,
     onCureComplete() {
       cloverScenes.queue('mark'); // the shrine remembers how the curse was planted, then the keeper points to Spade
+      pages.queue(0); // then the grimoire's first page (Gale), once the keeper has finished
       cloverScenes.observe(true); // start it this frame, under the cure's black, so gameplay never flashes between
     },
     obstacles: () => [...chunks.values(), waterfall.obstacles, wayfinding.root, ridge.root, plaza.root,
@@ -203,6 +206,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   const heartPast = createHeartPastFlashback({ scene, layout: heart.model.layout, look: memory.look, state, npcs: cast, groundAt: terrainHeight, heart, tidewell });
   cloverScenes = createCloverScenes({ camera, state, keys, campaign: livingRoad, canvas: renderer.domElement, flashbacks: { severing, mark, chainOrder, heartPast }, groundAt: terrainHeight,
     heart: heartGate && { x: heartGate.x, y: terrainHeight(heartGate.x, heartGate.z), z: heartGate.z } }); // gates expose only name, x, z
+  pages = createGrimoirePages({ scene, camera, state, keys, player, canvas: renderer.domElement });
   for (const from of ['nim', 'gate']) cloverScenes.define(from === 'nim' ? 'heart-quake' : 'heart-quake-gate', heartVisionShot({ model: heart.model, terrainHeight, from }));
   props = createProps({ scene, world, blockers: () => [...quest.platforms, ...quest.embers, ...wayfinding.colliders, ...gates.gates, ...VILLAGERS.map(({ home: [x, z] }) => ({ x, z })), ...towerPlaza.colliders, ...diamond.blockers], onReady: root => atmosphere?.prepare?.(root) });
   // Where an NPC must not stand: ground obstacles (not other NPCs) and solid structures at ground level.
@@ -244,6 +248,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     houndScene.reset();
     doorScene.reset();
     cloverScenes.reset();
+    pages.reset();
     inventory.reset();
     music.reset();
     Object.assign(state, START);
@@ -371,8 +376,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     cloverScenes.define(`heart-${name}`, { ...shot, keys, focus: name === 'past' ? () => middle : undefined });
   }
   window.dreamscape.scenes = cloverScenes; window.dreamscape.severing = severing; window.dreamscape.mark = mark; // e.g. dreamscape.scenes.queue('severing')
-  // Developer only: ?scene=<id> plays one cutscene or flashback once the world is ready (the movement lab's showcase links here).
-  const sceneParam = new URLSearchParams(location.search).get('scene'); if (sceneParam) cloverScenes.queue(sceneParam);
+  window.dreamscape.pages = pages; // e.g. dreamscape.pages.queue(2) plays the Stone Wall page
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -504,8 +508,12 @@ export function startGame(ui, { testStartId = null } = {}) {
     clover.update(player.position, dt);
     doorScene.observe(!houndScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
     cloverScenes.observe(!houndScene.active && !doorScene.active && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
+    // A page reveal waits for every story scene (and any queued after it) and any chest reveal to finish.
+    pages.observe(!spade.reachAt && !livingRoad.reachAt && !houndScene.active && !doorScene.active && !cloverScenes.active && !cloverScenes.pending && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
+    pages.update(dt);
     let cameraDistance;
-    if (houndScene.active) cameraDistance = houndScene.update(dt);
+    if (pages.active) cameraDistance = camera.position.distanceTo(player.position); // as in the movement lab: the traveller stays drawn until the book's camera passes through him
+    else if (houndScene.active) cameraDistance = houndScene.update(dt);
     else if (doorScene.active) cameraDistance = doorScene.update(dt);
     else if (cloverScenes.active) cameraDistance = cloverScenes.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
@@ -591,5 +599,17 @@ export function startGame(ui, { testStartId = null } = {}) {
   }
 
   reset();
+  // Developer only: ?scene=<id> plays one cutscene or flashback once the world is ready (the movement lab's showcase
+  // links here). Queued after the first reset(), which clears the scene queue.
+  const sceneParam = new URLSearchParams(location.search).get('scene');
+  if (sceneParam === 'hound-wake') quest.debugStage('cursed');      // the curse wakes the hound
+  else if (sceneParam === 'hound-cure') quest.debugStage('cured');  // the cure, then the memory, the keeper's lead and page I
+  else if (sceneParam === 'door') doorScene.queue(0);               // Spade's castle doors
+  else if (/^page-[0-4]$/.test(sceneParam ?? '')) pages.queue(Number(sceneParam.slice(5)));
+  else if (sceneParam) {
+    cloverScenes.queue(sceneParam);
+    const page = { mark: 0, sigil: 2, 'diamond-lead': 4 }[sceneParam]; // the page each of these scenes leads into in the campaign
+    if (page !== undefined) pages.queue(page);
+  }
   frame();
 }

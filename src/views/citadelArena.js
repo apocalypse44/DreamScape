@@ -189,7 +189,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
       else if (e.type === 'pushback') io.push?.(e.from);
       else if (e.type === 'down') { toast('You fall... try again'); io.onDown?.(); }
       else if (e.type === 'riftFlash') { flash.fire(fight.snapshot().riftAt); hud.flash?.(); shake = Math.max(shake, .35); bursts.at(fight.snapshot().riftAt, 0xe9d8ff, 0, 40); voice?.rumble(); }
-      else if (e.type === 'done') toast('Sile fled. The Great Prism is clear.');
+      else if (e.type === 'done') toast('Sile fled. The Triad still stands.');
       else if (e.type === 'harvested') { toast(`She drinks your ${e.by === 'flame' ? 'fire' : 'wind'} · only the blade cuts her`); bursts.at(sile.root.position, CRIMSON, 1.2, 16); }
       else if (e.type === 'fedHit') { toast('Fed on your magic: that hit harder'); shake = Math.max(shake, .2); }
       else if (e.type === 'wallStop') { toast('The wall holds +charge'); bursts.at({ x: e.x, y: C.floor + 1.2, z: e.z }, 0xb7a98c, 0, 12); voice?.hit(1.2); }

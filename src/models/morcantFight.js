@@ -34,13 +34,13 @@ const ORDER = ['forest', 'spears', 'spider', 'ambush', 'maw', 'spears', 'forest'
 const SEALED_ORDER = ['grove', 'spears', 'spider', 'grove', 'ambush'];
 // Morcant thinks himself a god. Heart is his by right, and this fight is beneath him.
 const LINES = {
-  arrive: ['MORCANT', 'Heart bowed. Its queen bowed. And now its last hope wanders into my hall.'],
+  arrive: ['MORCANT', 'Heart bowed. Its queen bowed. And now a stray insect wanders into my hall.'],
   order: ['MORCANT', 'Kneel, insect. The Bone God is in a generous mood.'],
   seal: ['MORCANT', 'Enough. Behold the armour of a god!'],
   crack: ['MORCANT', 'You dare scorch the throne of bone?'],
-  reseal: ['MORCANT', 'Bone grows back. Gods do not tire.'],
+  reseal: ['MORCANT', 'Burn all you like, insect. A god’s bones always grow back.'],
   strength: ['MORCANT', 'Impossible. I let you have that. Remember it.'],
-  queen: ['MORCANT', 'Keep your little kingdom. Elowen stays mine, beyond the Hollow Gate.'],
+  queen: ['MORCANT', 'Keep your little kingdom, for now. Elowen stays mine, beyond the Hollow Gate.'],
   retreat: ['MORCANT', 'Burn me, then. Sile will drink your little fires.'],
   forged: ['SERA', 'Magic feeds them. Steel that remembers the Accord does not.'],
 };

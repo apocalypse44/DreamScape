@@ -24,6 +24,12 @@
 :is(#houndScene,#doorScene,#cloverScene) .scene-speaker { margin:0 0 8px; color:#f2bc72; font:10px 'DM Mono',monospace; letter-spacing:.2em; }
 :is(#houndScene,#doorScene,#cloverScene) .scene-line { margin:0 0 16px; font:400 clamp(20px,2.3vw,30px)/1.45 Georgia,serif; }
 :is(#houndScene,#doorScene,#cloverScene) [data-scene-next] span { margin-left:12px; }
+#cloverScene .scene-card { position:absolute; inset:0; display:none; place-content:center; justify-items:center; gap:10px; padding:0 16px; text-align:center; pointer-events:none; }
+#cloverScene.carding .scene-card { display:grid; }
+#cloverScene.carding :is(.scene-top,.scene-dialogue) { visibility:hidden; }
+#cloverScene .card-suit { display:flex; gap:.35em; margin:0 0 6px; font:400 clamp(44px,7vw,84px)/1 Georgia,serif; text-shadow:0 0 28px currentColor; }
+#cloverScene .card-kicker { margin:0; color:#c39b64; font:11px 'DM Mono',monospace; letter-spacing:.4em; }
+#cloverScene .card-title { margin:0; color:#f0d39a; font:400 clamp(30px,5.4vw,64px)/1.15 Georgia,serif; letter-spacing:.14em; }
 body.story-playing :is(.hud-top,.hud-right,.swarm-panel,.compass,.movement-hint,.escape-menu,#mapButton,#overlay,#chaosReadout,#resumeHint) { visibility:hidden; }
 @media (max-height:500px) {
   :is(#houndScene,#doorScene,#cloverScene) .scene-chapter { display:none; }

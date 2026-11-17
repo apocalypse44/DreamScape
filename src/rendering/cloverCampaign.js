@@ -10,6 +10,7 @@ import { createWaterSurface } from './waterfall.js';
 import { cloverShapes, banner } from './kingdomGates.js';
 import { dressLivingRoad, shrineLayout, ARCH_SPAN } from './cloverArchiveProps.js';
 import { createVineRoad } from './cloverVines.js';
+import { createTideHook } from './tideHook.js';
 import { loadModel } from './models.js';
 import { createSigil } from './sigil.js';
 
@@ -382,7 +383,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
     object.position.set(chestAt.x, chestAt.top, chestAt.z); root.add(object);
     lid = object.getObjectByName('chest_lid'); onReady?.(root);
   }).catch(error => console.warn('Clover chest model unavailable.', error));
-  const hook = new THREE.Mesh(new THREE.TorusGeometry(.25, .055, 6, 16, Math.PI * 1.6), ink);
+  const hook = createTideHook(); hook.scale.setScalar(1.4); // sized to read from the cutscene's camera
   hook.position.set(chestAt.x, chestAt.top + 1.6, chestAt.z); hook.visible = false; root.add(hook);
   sign('IVEN’S SKY CHEST', 'The Root Sigil opens the way to Heart', chestAt.x, chestAt.top + 2.6, chestAt.z - 1.4, 2.8, 0, chestAt.top);
   function routeBoard(title, subtitle, x, z, floor, target, width = 3.6) {
@@ -515,7 +516,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       if (model.hook && revealed === Infinity) revealed = 0;
       if (!model.hook) revealed = Infinity; else revealed += dt;
       if (!state.cinematic) { hook.visible = revealed < 3; hook.position.y = CLOVER_STORY.chest.top + .9 + Math.min(1, revealed / 2) * 1.3; }
-      hook.rotation.y += dt;
+      hook.rotation.y += dt * .8; hook.userData.tick(dt);
       sigil.userData.tick(dt); sigil.visible = !model.sigil;
     },
     recovery: player => model.recovery(player),

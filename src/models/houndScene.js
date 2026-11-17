@@ -1,14 +1,14 @@
 export const HOUND_LINES = [
   { text: 'Wait—what’s happening to you?', seconds: 3.2, shot: 'hound', face: 'surprised' },
-  { text: 'Those flames… you’re still in there. I know you are.', seconds: 4.2, shot: 'player', face: 'sad' },
-  { text: 'Three embers. Back to the shrine. Hold on—I’m bringing you back.', seconds: 4.8, shot: 'hound', face: 'determined' },
+  { text: 'Hey… easy, boy. Easy.', seconds: 3, shot: 'player', face: 'focus' },
+  { text: 'The keeper warned me about this. Embers… find the embers.', seconds: 4.4, shot: 'hound', face: 'determined' },
 ];
 
 export const HOUND_CURE_LINES = [
   { speaker: 'YOU', text: 'Easy… it’s over. You’re safe now.', seconds: 3.2, shot: 'hound', face: 'smile' },
-  { speaker: 'SHRINE KEEPER', text: 'Three embers returned, and a bond restored. Your companion is free of the flame.', seconds: 5.2, shot: 'keeper', face: 'joy' },
+  { speaker: 'SHRINE KEEPER', text: 'The embers are home, and the curse is broken. He’s free.', seconds: 4.2, shot: 'keeper', face: 'joy' },
   { speaker: 'YOU', text: 'How did this even happen to him?', seconds: 3.2, shot: 'player', face: 'surprised' },
-  { speaker: 'SHRINE KEEPER', text: 'It was no accident. The Triad marked him long ago, and the shrine remembers. Look into its flame.', seconds: 6, shot: 'keeper', face: 'sad' },
+  { speaker: 'SHRINE KEEPER', text: 'No accident. The Triad put that curse in him years ago. The shrine saw it all. Watch.', seconds: 5.6, shot: 'keeper', face: 'sad' },
 ];
 // The memory ("The Mark in the Flame", cloverScenes.js) follows, then the keeper's lead to Spade.
 

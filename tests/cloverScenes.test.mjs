@@ -55,7 +55,7 @@ test('reading the Scar flies the route shot to the chest and restores the view',
   scenes.observe(true);
   assert.equal(scenes.active, true);
   assert.equal(state.cinematic, true);
-  for (let t = 0; t < 18.5 - 1e-9; t += .1) scenes.update(.1);
+  for (let t = 0; t < 22.5 - 1e-9; t += .1) scenes.update(.1);
   const { chest } = CLOVER_STORY;
   assert.ok(Math.hypot(camera.position.x - (chest.x - 4), camera.position.z - (chest.z + 9)) < .5, 'last key is reached at its second');
   for (let i = 0; i < 20 && scenes.active; i++) scenes.update(.1);

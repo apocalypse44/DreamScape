@@ -16,8 +16,8 @@ const SHOTS = {
     keys: [[0, v(-30.5, 14.6, -416.5), v(iven.x, 14, iven.z)], [12, v(-31.4, 14.5, -417.6), v(iven.x, 14, iven.z)]],
     lines: [
       [0.6, 'YOU', 'The bridges out there are all broken. What happened to the living road?'],
-      [4.4, 'IVEN', 'The Dark Triad. Years ago, they cut it in a single night.'],
-      [8.4, 'IVEN', 'The Stormleaf Scar saw it all, and it never forgets. Look.'],
+      [4.4, 'IVEN', 'The Dark Triad. They came one night and cut every crossing. By morning, Clover was split in two.'],
+      [8.4, 'IVEN', 'The Stormleaf Scar saw it all. It never forgets. See for yourself.'],
     ],
   },
   // The Archive is enclosed: the camera stays inside at eye height, leaves through the west door
@@ -65,12 +65,12 @@ const SHOTS = {
     lines: [
       [0.9, 'THE STORMLEAF SCAR REMEMBERS', 'Once, the living road carried all of Clover across the ravine.'],
       [4.6, 'IVEN · YEARS AGO', 'Grow true, little guide. They will cross you for a hundred years.'],
-      [8.4, 'VEYR · THE DARK TRIAD', 'This road remembers too much. Unmake it.'],
-      [10.6, 'SILE · THE DARK TRIAD', 'Cut it, and Clover forgets its own way home.'],
-      [13.2, 'THE STORMLEAF SCAR REMEMBERS', 'His chains drank the roots, and the leaves turned to ash.'],
+      [8.4, 'VEYR · THE DARK TRIAD', 'Clover’s magic runs through these roots. Cut them, and it’s ours.'],
+      [10.6, 'SILE · THE DARK TRIAD', 'Ooh, there’s so much of it!'],
+      [13.2, 'THE STORMLEAF SCAR REMEMBERS', 'His chains drained the roots dry, and the leaves turned to ash.'],
       [17.2, 'IVEN · YEARS AGO', 'Off the road! Everyone, to the Archive!'],
       [19.4, 'THE STORMLEAF SCAR REMEMBERS', 'One by one, the crossings fell.'],
-      [26, 'VEYR · THE DARK TRIAD', 'Let them chase false bindings until the kingdom forgets the true one.'],
+      [26, 'VEYR · THE DARK TRIAD', 'Scatter fake spells among the real ones. Whoever comes after us will chase the wrong one.'],
       [31.3, 'IVEN · YEARS AGO', 'Then the Scar keeps the true pattern. Only a calm heart will read it.'],
       [35.4, 'THE STORMLEAF SCAR REMEMBERS', 'The road can grow again. The Scar still holds the true pattern.'],
     ],
@@ -78,17 +78,18 @@ const SHOTS = {
   sigil: {
     keys: [
       [0, v(scar.x + 5, 17, scar.z + 5), v(scar.x, 12.5, scar.z)], // between the shrine's pillars and arch
-      [4, v(scar.x, 26, scar.z + 6), v(scar.x, 12, scar.z)],
-      [7, v(scar.x + 14, 38, scar.z + 15), v(scar.x, 12, scar.z)],
-      [10.5, v(-70, 52, -430), v(SUMMIT_DOOR.x, SUMMIT_DOOR.top, SUMMIT_DOOR.z)],
-      [14.5, v(-20, 74, -470), v(SKY.x, SKY.top, SKY.z)],
-      [18.5, v(chest.x - 4, chest.top + 6, chest.z + 9), v(chest.x, chest.top + 1, chest.z)],
+      [5, v(scar.x, 26, scar.z + 6), v(scar.x, 12, scar.z)],    // the Scar holds while Iven explains the pattern
+      [10, v(scar.x + 14, 38, scar.z + 15), v(scar.x, 12, scar.z)],
+      [14.5, v(-70, 52, -430), v(SUMMIT_DOOR.x, SUMMIT_DOOR.top, SUMMIT_DOOR.z)],
+      [18.5, v(-20, 74, -470), v(SKY.x, SKY.top, SKY.z)],
+      [22.5, v(chest.x - 4, chest.top + 6, chest.z + 9), v(chest.x, chest.top + 1, chest.z)],
     ],
     lines: [
-      [0.6, 'THE STORMLEAF SCAR', 'The old pattern glows under the leaves.'],
-      [4.8, 'ROOT SIGIL', 'Three marks fade away. They were fakes. The Root Sigil shows which spells are real.'],
-      [9.5, 'IVEN', 'My chest is above the clouds. Climb Clover Terraces to the gateway at the top.'],
-      [14, 'IVEN', 'In the Sky Garden, follow the Starlight Ledges up to the highest one.'],
+      [0.6, 'IVEN', 'There. That’s the road as it was, before they cut it.'],
+      [3.9, 'YOU', 'And the red marks?'],
+      [6.4, 'IVEN', 'Veyr’s fakes. They’re gone now. What’s left are the real spells guarding the Hollow Crown. The Root Sigil will remember them for you.'],
+      [13.3, 'IVEN', 'My chest is above the clouds. Climb Clover Terraces to the gateway at the top.'],
+      [17.8, 'IVEN', 'In the Sky Garden, follow the Starlight Ledges up to the highest one.'],
     ],
     fx: (t, campaign) => campaign.scarReveal(Math.max(0, (t - .5) / 6)), // the renderer clamps; Infinity ends it
   },
@@ -113,10 +114,11 @@ function hookShot(heart) {
       [16, v(chest.x, chest.top + 3, chest.z + 4.2), v(chest.x, chest.top + 1, chest.z)],
     ],
     lines: [
-      [0.6, 'IVEN’S SKY CHEST', 'The Root Sigil unlocks the chest.'],
-      [3.2, 'TIDE HOOK', 'A grappling hook from Heart. It only grabs onto glowing crystals.'],
-      [7.6, 'NEXT · THE STOLEN CURRENT', 'Past the clouds is the Heart Kingdom. Sera is there, guarding its stolen water magic.'],
-      [12.4, 'IVEN', 'Take the hook to Heart’s gate and find Sera.'],
+      // Iven isn't here: his voice is a note left in the chest with the hook.
+      [0.6, 'IVEN · A NOTE IN THE CHEST', 'If you’re reading this, the Scar trusted you. This hook came from Heart, long ago.'],
+      [5.1, 'IVEN · A NOTE IN THE CHEST', 'It only bites into glowing crystal. Nothing else will hold it.'],
+      [8.4, 'IVEN · A NOTE IN THE CHEST', 'Past the clouds is Heart. The Triad stole its water magic. Find Sera, she’s been fighting them alone.'],
+      [13.8, 'YOU', 'Heart it is. Time to find Sera.'],
     ],
     fx: (t, campaign) => campaign.hookRise(t / 4),
     focus: t => t > HEART_AWAY[0] && t < HEART_AWAY[1] ? h : null,
@@ -142,14 +144,14 @@ function markShot(g) {
       [30.5, at(9, 5, 9), at(0, 3, -4)],
     ],
     lines: [
-      [0.9, 'THE SHRINE REMEMBERS', 'Years ago, a small dog slept every night at the foot of the Grimoire Tower.'],
-      [6.6, 'VEYR · THE DARK TRIAD', 'There. A heart that wanders every road. Our mark will travel with it.'],
-      [10.6, 'SILE · THE DARK TRIAD', 'Drink the shrine’s warmth, little flame.'],
-      [13, 'MORCANT · THE DARK TRIAD', 'Three sparks of our sign. Let them scatter when it wakes.'],
-      [16.4, 'SHRINE KEEPER', 'Leave it be!'],
-      [19, 'VEYR · THE DARK TRIAD', 'Guard it, then. It will burn the day the world forgets to be calm.'],
-      [23.6, 'THE SHRINE REMEMBERS', 'The curse slept for years, until a restless traveller stirred the world.'],
-      [27, 'THE SHRINE REMEMBERS', 'Three embers. One mark. The Triad’s sign, inside the flame.'],
+      [0.9, 'THE SHRINE REMEMBERS', 'Years ago, a stray dog slept every night at the foot of the Grimoire Tower.'],
+      [6.6, 'VEYR · THE DARK TRIAD', 'That dog goes everywhere. Curse it, and our curse goes everywhere too.'],
+      [10.6, 'SILE · THE DARK TRIAD', 'Ooh, a warm little shrine. Mine now.'],
+      [13, 'MORCANT · THE DARK TRIAD', 'Split it in three. When it wakes, the pieces scatter.'],
+      [16.4, 'SHRINE KEEPER', 'Get away from that dog!'],
+      [19, 'VEYR · THE DARK TRIAD', 'Too late, old man. The first time someone runs wild beside it, it burns.'],
+      [23.6, 'THE SHRINE REMEMBERS', 'The curse slept for years. Then you came along and ran wild.'],
+      [27, 'THE SHRINE REMEMBERS', 'Three embers, one curse, and the Triad behind it all.'],
     ],
   };
 }
@@ -162,11 +164,13 @@ function leadShot(g) {
     keys: [[0, at(9, 3.4, 10), at(0, 2.2, -9)], [10, at(7.5, 2.8, 8), at(0, 2, -10)], [20, at(6.5, 2.6, 6.5), at(0, 2, -10)],
       [26, at(9.5, 2.4, -3), at(4.5, 0.8, -9)], [33, at(10, 2.2, -4.5), at(5, 0.7, -9)]],
     lines: [
-      [0.6, 'YOU', 'So this wasn’t the only bond the Triad broke, was it?'],
-      [5, 'SHRINE KEEPER', 'West, in Spade, the Triad binds people by stealing their memories. Neris shelters those they tried to erase.'],
-      [13, 'SHRINE KEEPER', 'Find her at the Lantern Refuge, the first house on your right as you enter Spade. Hear her story, then seek the stolen testimonies in the castle archive.'],
-      [21.6, 'SHRINE KEEPER', 'Leave the pup with me. The curse is gone, but it needs rest, and the road west is no place for it yet.'],
-      [28, 'YOU', 'Look after it. I’ll come back when the Triad is finished.'],
+      [0.6, 'YOU', 'They did this to a dog. Who else have they hurt?'],
+      [4, 'SHRINE KEEPER', 'Plenty. West of here is the Spade Kingdom. Veyr turned the people who stood up to him into wisps.'],
+      [11, 'YOU', 'Is anyone helping them?'],
+      [13.6, 'SHRINE KEEPER', 'A woman named Neris. Her house is the Lantern Refuge, the first one on your right past Spade’s gate.'],
+      [21, 'YOU', 'And him?'],
+      [23, 'SHRINE KEEPER', 'He stays with me. The curse is gone, but he needs rest. Spade is no place for him yet.'],
+      [29, 'YOU', 'Look after him. I’ll come back when the Triad is finished.'],
     ],
   };
 }
@@ -179,6 +183,12 @@ function prepare(shot) {
 Object.values(SHOTS).forEach(prepare);
 const ease = k => k * k * (3 - 2 * k);
 
+// A flashback opens on a black title card: the kingdom's suit and the memory's name, then the scene.
+const CARD = 3.4; // seconds; Space cuts it short
+const CARD_SUIT = { // suit and colour as on the loading screen's grimoire seals; the prologue belongs to all four
+  mark: [['♣', '#b8dc87'], ['♥', '#81d7d0'], ['♦', '#edc374'], ['♠', '#b39add']],
+  severing: [['♣', '#b8dc87']], heartPast: [['♥', '#81d7d0']], chainOrder: [['♦', '#edc374']],
+};
 // flashbacks: { severing: createSeveringFlashback(...) }; a shot naming one runs it (begin/update/end).
 // groundAt(x, z): terrain height, for shots placed on the hub's ground (the Ember Hound memory).
 export function createCloverScenes({ camera, state, keys, campaign, canvas, heart = null, flashbacks = {}, groundAt = () => 0 }) {
@@ -188,11 +198,13 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
   overlay.hidden = true;
   overlay.setAttribute('aria-label', 'Clover story scene');
   overlay.innerHTML = `<div class="scene-veil"></div><div class="scene-top"><span class="scene-title">THE LIVING ROAD</span><span>SPACE · FASTER &nbsp; X · SKIP</span></div>
-    <div class="scene-dialogue"><p class="scene-chapter">III · THE CLOVER KINGDOM</p><p class="scene-speaker"></p><p class="scene-line" aria-live="polite" aria-atomic="true"></p></div>`;
+    <div class="scene-dialogue"><p class="scene-chapter">III · THE CLOVER KINGDOM</p><p class="scene-speaker"></p><p class="scene-line" aria-live="polite" aria-atomic="true"></p></div>
+    <div class="scene-card" aria-live="polite"><p class="card-suit"></p><p class="card-kicker"></p><h2 class="card-title"></h2></div>`;
   document.body.appendChild(overlay);
   const chapter = overlay.querySelector('.scene-chapter'), title = overlay.querySelector('.scene-title'), veil = overlay.querySelector('.scene-veil'), speaker = overlay.querySelector('.scene-speaker'), line = overlay.querySelector('.scene-line');
   const savedPosition = new THREE.Vector3(), savedRotation = new THREE.Quaternion(), look = new THREE.Vector3();
-  let shot = null, time = -1, shown = -1;
+  const card = overlay.querySelector('.scene-card');
+  let shot = null, time = -1, shown = -1, cardLeft = 0;
   const queue = [], pace = createPace();
 
   // Map key times onto the curve's own parameter so each key is reached at its second.
@@ -213,7 +225,7 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation);
     shot.fx?.(Infinity, campaign);
     flashbacks[shot.flashback]?.end();
-    shot = null; time = -1; state.cinematic = false; overlay.hidden = true; document.body.classList.remove('story-playing');
+    shot = null; time = -1; cardLeft = 0; overlay.classList.remove('carding'); state.cinematic = false; overlay.hidden = true; document.body.classList.remove('story-playing');
     keys.clear();
     if (canvas) {
       state.locked = document.pointerLockElement === canvas;
@@ -229,11 +241,12 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     if (event.repeat) return;
     if (event.code === 'KeyX') { keepPointerLock(); finish(); }
     else if (event.code === 'Escape') finish();
-    else if (event.code === 'Space') pace.rush();
+    else if (event.code === 'Space') { if (cardLeft > .6) cardLeft = .6; else pace.rush(); }
   }, true);
 
   return {
     get active() { return time >= 0; },
+    get pending() { return queue.length > 0; }, // shots still waiting (e.g. the keeper's lead after the memory)
     // Where terrain should stream while a shot is away from the player, or null (stream around the player).
     get focus() { return time >= 0 ? shot.focus?.(time) ?? null : null; },
     // kind: 'meet' | 'sigil' | 'hook', the Clover story event that earns the shot.
@@ -257,10 +270,23 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
       state.cinematic = true; keys.clear();
       title.textContent = shot.title ?? 'THE LIVING ROAD'; chapter.textContent = shot.chapter ?? 'III · THE CLOVER KINGDOM'; overlay.classList.toggle('memory', Boolean(shot.flashback));
       flashbacks[shot.flashback]?.begin();
+      if (shot.flashback) { // the title card: 'A MEMORY · THE SEVERING' -> a small kicker over a big title
+        const [kicker, name] = shot.title.includes(' · ') ? shot.title.split(' · ') : ['', shot.title];
+        card.querySelector('.card-suit').innerHTML = (CARD_SUIT[shot.flashback] ?? []).map(([s, c]) => `<span style="color:${c}">${s}</span>`).join('');
+        card.querySelector('.card-kicker').textContent = kicker; card.querySelector('.card-title').textContent = name;
+        cardLeft = CARD; overlay.classList.add('carding'); card.style.opacity = '0';
+      }
       veil.style.opacity = '1'; // open on black and fade in (no stale frame from the last shot)
       overlay.hidden = false; document.body.classList.add('story-playing');
     },
     update(realDt) {
+      if (cardLeft > 0) { // black, the card fades in and out, and the scene's clock waits at 0
+        cardLeft -= realDt;
+        card.style.opacity = String(Math.max(0, Math.min(1, (CARD - cardLeft) / .6, cardLeft / .6)));
+        camera.position.copy(sample(shot.position, 0)); camera.lookAt(look.copy(sample(shot.look, 0)));
+        if (cardLeft <= 0) { cardLeft = 0; overlay.classList.remove('carding'); }
+        return 10;
+      }
       // The clock waits on a line still being read (the next line's time, or the fade-out).
       const dt = pace.step(realDt, time, shot.lines[shown + 1]?.[0] ?? shot.duration - 0.6);
       time += dt;

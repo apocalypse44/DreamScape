@@ -325,7 +325,7 @@ export function createHeartCampaign({ layout, ready = () => true, terrainHeight 
         if (mode !== 'calm' || chaos >= CALM) return say('nim-calm', 'NIM · Easy, easy. Calm down and I will show you something.');
         if (!awakened() && !visionAsked) {
           visionAsked = true;
-          return say('vision', 'NIM · You carry the Tide Hook? Then you should see what my scrying shell just showed me. Heart is breaking.', 5000);
+          return say('vision', 'NIM · You found Iven’s hook? Good. Sera sent me to wait for you. Look what’s happening in Heart.', 5000);
         }
         return say('nim', 'NIM · Go east. Sera is waiting at the Listening Spring, and your hook is the only way up.');
       }

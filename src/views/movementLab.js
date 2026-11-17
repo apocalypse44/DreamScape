@@ -250,15 +250,23 @@ async function start(){
   const pagePick=document.querySelector('#pagePick'),sigilPick=document.querySelector('#sigilPick'),scenePick=document.querySelector('#scenePick');
   pagePick.innerHTML=PAGES.map((p,i)=>`<option value="${i}">${p.numeral} · ${p.name||{wind:'GALE',flame:'FLAME LANCE',earth:'STONE WALL',tide:'TIDE WARD'}[p.spell]} (${p.from.toLowerCase()})`).join('');
   sigilPick.innerHTML=sigilShow.map((x,i)=>`<option value="${i}">${x.kind==='sigil-blade'?'Sigil-blade (sword)':x.kind[0].toUpperCase()+x.kind.slice(1)+' Sigil'}</option>`).join('');
-  const SCENES=[['mark','Prologue · The Mark in the Flame (flashback)'],['meet','Clover · Iven, then The Severing (flashback)'],['sigil','Clover · the Root Sigil'],['heart-quake','Heart · Nim’s earthquake vision'],['heart-quake-gate','Heart · the vision at the gate'],['heart-past','Heart · The Quiet Springs (flashback)'],['heart-sera','Heart · Sera’s instructions'],['diamond-arrival','Diamond · arrival'],['diamond-chain-order','Diamond · The Chain Order (flashback)'],['diamond-power','Diamond · powering the relay'],['diamond-lead','Diamond · the lead onward']];
-  scenePick.innerHTML=SCENES.map(([id,label])=>`<option value="${id}">${label}</option>`).join('');
+  // [group, [[id, label, quest it opens on], ...]], in story order. Ids: a cloverScenes shot, or hound-*/door/page-N (game.js).
+  const SCENES=[
+    ['Prologue',[['hound-wake','The hound wakes','ember-hound'],['hound-cure','The cure → Mark in the Flame → keeper → page I','ember-hound'],['mark','The Mark in the Flame → keeper → page I','ember-hound']]],
+    ['Spade',[['door','The castle doors open','spade-castle'],['page-1','Page II · Flame Lance','spade-castle']]],
+    ['Clover',[['meet','Iven → The Severing → his directions','clover'],['sigil','The Root Sigil → page III','clover'],['hook','Iven’s sky chest (Tide Hook)','sky-hook']]],
+    ['Heart',[['heart-quake','Nim’s vision','heart'],['heart-quake-gate','The quake at the gate','heart'],['heart-past','The Quiet Springs','heart'],['heart-sera','Sera’s directions','heart'],['page-3','Page IV · Tide Ward','heart']]],
+    ['Diamond',[['diamond-arrival','Arrival flyover','diamond'],['diamond-power','The relay runs','diamond'],['diamond-chain-order','The Chain Order','diamond'],['diamond-lead','Orin’s lead → page V','diamond']]],
+    ['Grimoire pages',[['page-0','Page I · Gale','ember-hound'],['page-1','Page II · Flame Lance','spade-castle'],['page-2','Page III · Stone Wall','clover'],['page-3','Page IV · Tide Ward','heart'],['page-4','Page V · Refraction','diamond']]],
+  ];
+  scenePick.innerHTML=SCENES.map(([group,list])=>`<optgroup label="${group}">${list.map(([id,label,start])=>`<option value="${id}" data-start="${start}">${label}</option>`).join('')}</optgroup>`).join('');
   document.querySelector('#pagePlay').onclick=()=>{reset();inspect=false;galleryTarget=null;canvas.requestPointerLock();reveal.play(Number(pagePick.value),player.position,state.yaw);};
   document.querySelector('#sigilView').onclick=()=>{document.exitPointerLock();release();inspect=true;galleryTarget=sigilShow[Number(sigilPick.value)].at;portraitDistance=1.7;portraitHeight=.15;portraitAim=0;};
   // Morcant's defeat, retreat and the sigil-blade's forging, without fighting him first.
   document.querySelector('#morcantEnding').onclick=()=>{reset(gatehall.entry);state.yaw=0;inspect=false;galleryTarget=null;gatehall.begin();gatehall.fight.finish();canvas.requestPointerLock();};
   document.querySelector('#sileEnding').onclick=()=>{reset(arena.entry);state.yaw=0;inspect=false;galleryTarget=null;arena.enter();arena.fight.finish();canvas.requestPointerLock();};
   document.querySelector('#practiceGo').onclick=()=>{reset({x:-30,z:-24,top:0});state.yaw=0;inspect=false;galleryTarget=null;canvas.requestPointerLock();};
-  document.querySelector('#scenePlay').onclick=()=>window.open(`index.html?unlock=all&scene=${scenePick.value}`,'_blank');
+  document.querySelector('#scenePlay').onclick=()=>window.open(`index.html?unlock=all&start=${scenePick.selectedOptions[0].dataset.start}&scene=${scenePick.value}`,'_blank'); // opens on that scene's quest, skipping the picker
   requestAnimationFrame(frame);await avatar.ready;
   if(!avatar.loaded)throw new Error('The traveller asset did not load.');
   avatar.setSwordModel(createSigilBlade());avatar.setSheath(createSigilSheath()); // the lab's traveller carries the sigil-blade in its sheath

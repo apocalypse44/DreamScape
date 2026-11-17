@@ -301,7 +301,7 @@ export function createGatehall({ scene, center, floor, toast = () => {}, obstacl
       else if (e.type === 'calm') toast(e.knocked ? 'KNOCKED BACK TO CALM' : 'CALM');
       else if (e.type === 'noCharge') toast('NO CHARGE · WARD, WALL, ROLL OR SHATTER SOMETHING FIRST');
       else if (e.type === 'down') { toast('YOU FALL… TRY AGAIN'); io.onDown?.(); }
-      else if (e.type === 'done') toast('MORCANT IS GONE · THE GATE IS SHUT');
+      else if (e.type === 'done') toast('MORCANT RETREATS · THE TRIAD STILL STANDS');
       else if (e.type === 'forge') { toast('THE GRIMOIRE FORGES THE SIGIL-BLADE'); voice?.clang(); }
       else if (e.type === 'gateFlash') { flash.fire({ x: fight.gateAt.x, y: floor + 4.6, z: fight.gateAt.z }); hud.flash(); shake = Math.max(shake, .3); voice?.rumble(); }
     }
