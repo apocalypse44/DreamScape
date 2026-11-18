@@ -1,5 +1,6 @@
 import { loadModel } from './models.js';
 import { dogMood } from '../models/dogMood.js';
+import { poseSafeBounds, skipStillPoses } from './anim.js';
 
 // The companion (Shiba) and the Ember Hound (Wolf): CC0 Quaternius rigs rebuilt by
 // tools/dogBuilder.js into src/assets with original details and authored clips.
@@ -33,7 +34,8 @@ export function createDogBody({ scene, kind = 'dog', height, accessories = true,
       if (/^Ear1[LR]$/.test(o.name)) ears.push(o);
       if (o.name === 'Neck3' || o.name === 'Head') neck.push(o);
       if (!o.isMesh) return;
-      o.castShadow = true; o.frustumCulled = false;
+      o.castShadow = true;
+      if (o.isSkinnedMesh) poseSafeBounds(o); // culled off-screen, with room for every pose
       // The loader splits each material group into its own mesh, so each gets one material.
       const glowing = o.material.name === 'DogGlow';
       o.material = o.isSkinnedMesh ? (glowing ? glowMaterial : toon) : (glowing ? tagMaterial : rigidToon);
@@ -42,6 +44,11 @@ export function createDogBody({ scene, kind = 'dog', height, accessories = true,
     neck.sort((a, b) => (a.name === 'Head') - (b.name === 'Head'));
     for (const bone of [...tail, ...ears, ...neck]) rest.set(bone, bone.quaternion.clone());
     body.mixer = new THREE.AnimationMixer(object);
+    // Bones re-upload only after the mixer runs or the dog moves (the pup asleep at home costs nothing).
+    // Marked in the mixer itself: the ember flashback drives its pup's mixer directly, not through tick().
+    const skeletons = new Set(); object.traverse(o => { if (o.isSkinnedMesh) skeletons.add(o.skeleton); });
+    const markPosed = skipStillPoses(skeletons, body.root), step = body.mixer.update.bind(body.mixer);
+    body.mixer.update = dt => { markPosed(); return step(dt); };
     for (const clip of animations) {
       const action = body.mixer.clipAction(clip);
       if (ONE_SHOTS.has(clip.name)) { action.setLoop(THREE.LoopOnce); action.clampWhenFinished = true; }

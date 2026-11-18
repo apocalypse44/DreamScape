@@ -22,6 +22,18 @@ export function cloneSkinned(source) {
   return copy;
 }
 
+// Off-screen characters are skipped, but three measures a skinned mesh in its rest pose. Give it a sphere
+// as big as the body is long, around its middle, so raised arms, strides, kneels and lying down stay inside.
+// Shadows are culled against the sun's own view, so a character just off-screen still casts one.
+export function poseSafeBounds(mesh) {
+  const geometry = mesh.geometry;
+  if (geometry.userData.poseSafe) return;
+  geometry.computeBoundingBox();
+  const size = geometry.boundingBox.getSize(new THREE.Vector3());
+  geometry.boundingSphere = new THREE.Sphere(geometry.boundingBox.getCenter(new THREE.Vector3()), Math.max(size.x, size.y, size.z));
+  geometry.userData.poseSafe = true;
+}
+
 // three re-packs and re-uploads every drawn skeleton's bones each frame, even when the pose didn't change
 // (distant NPCs step their animation 10 or 2 times a second). Skip that while nothing changed: the bones
 // are stored in world space, so a move or turn of `root` still counts as a change, and walkers update

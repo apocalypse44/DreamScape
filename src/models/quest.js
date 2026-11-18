@@ -53,6 +53,7 @@ function houndDrops(playerPos, houndPos, chaos) {
 // The slabs are basalt shards torn up by the curse: chaos-only, like the castle echo's fragments.
 const STEPS = 9;
 const STEP_RISE = 1.6;
+const GROUND_CLEARANCE = 0.3; // a shard's top always sits at least this far above the ground beneath it
 const SPIRAL_RADIUS = 6;
 export const SLAB_SIZE = 3;
 // Seven-sided outline, 1.55–1.85 m to each corner: always convex (each corner clears the chord between its
@@ -76,19 +77,51 @@ function highestGround(world, x, z, outline) {
   }
   return high;
 }
-function raiseEmber(world, ember, isActive) {
-  const platforms = [];
+// The climb should start as soon as the course appears in a strong sprint (~0.75), as it did before the
+// shards were lifted clear of the reshaping ground.
+const REACH_CHAOS = 0.75;
+const JUMP_HEIGHT = 10.5 ** 2 / (2 * 25) - .15; // player.js jump speed and gravity, less a landing margin
+// Highest ground a player could jump from, just outside a shard's rock.
+function takeOff(world, x, z, chaos) {
+  let high = -Infinity;
+  for (let k = 0; k < 12; k++) for (const r of [2, 2.6, 3.2]) {
+    high = Math.max(high, world.heightAt(x + Math.cos(k * Math.PI / 6) * r, z + Math.sin(k * Math.PI / 6) * r, chaos));
+  }
+  return high;
+}
+function spiral(world, ember, start, turn, firstRadius = SPIRAL_RADIUS) {
+  const shards = [];
   let top = -Infinity;
   for (let i = 0; i < STEPS; i++) {
-    const angle = i * 1.2;
-    const x = ember.x + Math.cos(angle) * SPIRAL_RADIUS;
-    const z = ember.z + Math.sin(angle) * SPIRAL_RADIUS;
+    const angle = start + turn * i * 1.2;
+    const radius = i ? SPIRAL_RADIUS : firstRadius;
+    const x = ember.x + Math.cos(angle) * radius;
+    const z = ember.z + Math.sin(angle) * radius;
     const outline = shardOutline(world, i);
-    top = Math.max(highestGround(world, x, z, outline), top) + STEP_RISE;
-    const slab = { x, z, top, outline };
-    slab.contains = (px, pz, pad = 0) => isActive() && echoContains(slab, px, pz, pad);
-    platforms.push(slab);
+    // One jump above the last shard, and just clear of the ground at any course chaos (so it is never
+    // swallowed). Not a full step above the ground too: that put the first shards out of reach until ~0.95.
+    top = Math.max(top + STEP_RISE, highestGround(world, x, z, outline) + GROUND_CLEARANCE);
+    shards.push({ x, z, top, outline });
   }
+  return shards;
+}
+// The hardest jump at REACH_CHAOS: onto each shard from the one before it or from the ground beside it.
+function hardestJump(world, shards) {
+  return Math.max(...shards.map((s, i) => s.top - Math.max(i ? shards[i - 1].top : -Infinity, takeOff(world, s.x, s.z, REACH_CHAOS))));
+}
+function raiseEmber(world, ember, isActive) {
+  // The peak's flanks rise unevenly with chaos: start the spiral on the side (and in the direction) where the
+  // hardest jump is smallest, so the first shards sit where the ground at REACH_CHAOS is close below them.
+  let platforms = null, best = Infinity;
+  // On a peak steep all round, the first shard may stand farther out, as a starter step on lower ground
+  // (a ~4.7 m gap to the next: a sprinting jump, and chaos means sprinting).
+  for (const firstRadius of [SPIRAL_RADIUS, SPIRAL_RADIUS + 2]) {
+    for (let k = 0; k < 24 && best > JUMP_HEIGHT; k++) for (const turn of [1, -1]) {
+      const shards = spiral(world, ember, k * Math.PI / 12, turn, firstRadius), need = hardestJump(world, shards);
+      if (need < best) { best = need; platforms = shards; }
+    }
+  }
+  for (const slab of platforms) slab.contains = (px, pz, pad = 0) => isActive() && echoContains(slab, px, pz, pad);
   const last = platforms[STEPS - 1];
   Object.assign(ember, { x: last.x, z: last.z, y: last.top + 1.2 });
   return platforms;

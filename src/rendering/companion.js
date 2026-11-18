@@ -72,7 +72,8 @@ function animateFallback(body, dt) {
 
 // navigation (optional): { height(x, z), obstacles(): [{x, z, radius}], version() } for A* leading.
 // Once the hound is cured the pup stays with the Shrine Keeper at the Grimoire Tower (HOME), by the tower's east side.
-const HOME = { x: SHRINE.x + 5, z: SHRINE.z + 2.2 };
+// About 2 m from the Keeper's post (encounters.js, east of the tower), close enough for her to pet it now and then.
+const HOME = { x: SHRINE.x + 4.6, z: SHRINE.z + 1.6 };
 
 export function createCompanion({ scene, camera, renderer, state, player, quest, surfaceAt, navigation = null }) {
   // The surface at the player's level (the ember slab climb), not the ground under it.
@@ -232,7 +233,7 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       // (guarding must not inherit the player's velocity, or a calm approach pushes the hound away).
       let vx, vz;
       if (ember || houndGuarding || home) {
-        const seek = distance > 1 ? Math.min(home ? 4 : 22, distance * 2.5 + 1) / distance : 0; // home: an easy trot
+        const seek = distance > (home ? .15 : 1) ? Math.min(home ? 4 : 22, distance * 2.5 + 1) / distance : 0; // home: an easy trot, all the way to its spot
         vx = dx * seek; vz = dz * seek;
       } else {
         vx = player.velocity.x + dx * 4; vz = player.velocity.z + dz * 4;
@@ -258,6 +259,7 @@ export function createCompanion({ scene, camera, renderer, state, player, quest,
       else if (speed > 0.5) play(body, 'Walk');
       else if (quest.restless) play(body, 'Idle_HitReact1');
       else if (ember && !quest.houndCarrying) play(body, 'Attack');
+      else if (home) play(body, 'sit'); // after the Ember Hound quest the pup sits by the Keeper's post
       else if (still > 9) play(body, 'lie');
       else play(body, cursed || state.chaos >= .65 ? 'Idle' : idleClip);
       body.tick(dt, mood(body, speed, cursed));

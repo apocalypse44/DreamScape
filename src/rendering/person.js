@@ -1,5 +1,5 @@
 import { loadModel, loadModelAsset } from './models.js';
-import { cloneSkinned, skipStillPoses } from './anim.js';
+import { cloneSkinned, poseSafeBounds, skipStillPoses } from './anim.js';
 import { createTravelerFace } from './travelerFace.js';
 
 // People kit runtime: a character GLB from tools/peopleBuilder.js (body, face shell, props; no
@@ -48,15 +48,8 @@ export function createPerson({ name, height = 1.75, colors = null }) {
       if (o.name === 'PersonFace') { face = createTravelerFace(o, ramp, style || undefined); return; }
       if (colors && palette && o.isSkinnedMesh) recolor(o, palette, colors);
       o.material = material(Boolean(o.isSkinnedMesh), o.material.name === 'PersonGlow');
-      // Off-screen people are skipped, but three measures them in their rest pose: give every body a sphere
-      // as big as the body is tall, around its middle, so raised arms, strides and kneels stay inside it.
-      // Shadows are culled against the sun's own view, so a person just off-screen still casts one.
       o.castShadow = true;
-      if (o.isSkinnedMesh && !o.geometry.userData.posedBounds) {
-        const box = (o.geometry.computeBoundingBox(), o.geometry.boundingBox), size = box.getSize(new THREE.Vector3());
-        o.geometry.boundingSphere = new THREE.Sphere(box.getCenter(new THREE.Vector3()), Math.max(size.x, size.y, size.z));
-        o.geometry.userData.posedBounds = true;
-      }
+      if (o.isSkinnedMesh) poseSafeBounds(o); // culled off-screen, with room for every pose
     });
     const skeletons = new Set(); object.traverse(o => { if (o.isSkinnedMesh) skeletons.add(o.skeleton); });
     markPosed = skipStillPoses(skeletons, root);
