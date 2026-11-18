@@ -3,6 +3,9 @@ import json
 import pathlib
 import shutil
 import sys
+import urllib.parse
+
+from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DIST = ROOT / 'dist'
@@ -62,7 +65,7 @@ KIT_MODELS = {
                                                                          'building_tower_B_red', 'building_barracks_red',
                                                                          'building_lumbermill_red'],
 }
-OPTIONAL = ['sounds']  # copied when present; the game falls back to synthesized sounds
+OPTIONAL = ['sounds', 'voice']  # copied when present; the game falls back to synthesized sounds and captions
 SKIP = shutil.ignore_patterns('desktop.ini', 'Desktop.ini', 'Thumbs.db', '.DS_Store', '__pycache__')
 
 
@@ -102,6 +105,63 @@ for folder, names in KIT_MODELS.items():
 for rel in OPTIONAL:
     if (ROOT / 'assets' / rel).exists():
         copy(rel, ROOT / 'assets', DIST / 'assets')
+
+
+# Kit textures: src/rendering/models.js already shrinks every model texture it can share to 1024 px on load
+# (KIT_TEXTURE_SIZE). Shrink those same PNGs here so players stop downloading and decoding 4K sheets the game
+# throws away. The GPU gets the same size as before. A PNG is only touched when every model using it passes
+# the same rules as modelAssets.js's DreamscapeSharedTextures plugin and no code or page names it directly.
+KIT_TEXTURE_SIZE = 1024
+
+
+def gltf_json(path: pathlib.Path):
+    data = path.read_bytes()
+    if path.suffix == '.glb':  # 12-byte header, then the JSON chunk: length, type, bytes
+        return json.loads(data[20:20 + int.from_bytes(data[12:16], 'little')])
+    return json.loads(data)
+
+
+def shareable(doc: dict, index: int) -> bool:  # mirrors texturePlugin.loadTexture in modelAssets.js
+    texture = doc['textures'][index]
+    image = doc.get('images', [])[texture.get('source', -1)] if 'source' in texture else None
+    if not image or not image.get('uri') or image['uri'].startswith(('data:', 'blob:')) or texture.get('extensions'):
+        return False
+    color = linear = False
+    for m in doc.get('materials', []):
+        pbr = m.get('pbrMetallicRoughness', {})
+        color |= any(pbr.get(k, m.get(k, {})).get('index') == index for k in ['baseColorTexture', 'emissiveTexture'])
+        linear |= any(pbr.get(k, m.get(k, {})).get('index') == index for k in ['metallicRoughnessTexture', 'normalTexture', 'occlusionTexture'])
+        if m.get('extensions'):
+            return False
+    return not (color and linear)
+
+
+verdict = {}  # PNG path -> shareable in every model that uses it
+for model in [p for p in (DIST / 'assets').rglob('*') if p.suffix in ('.gltf', '.glb')]:
+    doc = gltf_json(model)
+    for index, texture in enumerate(doc.get('textures', [])):
+        uri = doc['images'][texture['source']].get('uri', '') if 'source' in texture else ''
+        if uri.lower().endswith('.png'):
+            png = (model.parent / urllib.parse.unquote(uri)).resolve()
+            verdict[png] = verdict.get(png, True) and shareable(doc, index)
+named = '\n'.join(p.read_text(encoding='utf-8', errors='ignore')
+                  for p in [*(ROOT / 'src').rglob('*.js'), *(ROOT / 'styles').rglob('*.css'), *ROOT.glob('*.html')])
+saved = 0
+for png, ok in verdict.items():
+    if not ok or not png.is_file() or png.name in named:
+        continue
+    with Image.open(png) as image:
+        scale = KIT_TEXTURE_SIZE / max(image.size)
+        if scale >= 1:
+            continue
+        size = tuple(max(1, int(side * scale + 0.5)) for side in image.size)  # Math.round, as in models.js
+        alpha = image.mode in ('RGBA', 'LA', 'P')
+        # Premultiplied like a canvas, so see-through pixels don't bleed their colour into leaf edges.
+        small = image.convert('RGBa').resize(size, Image.BOX).convert('RGBA') if alpha else image.convert('RGB').resize(size, Image.BOX)
+    before = png.stat().st_size
+    small.save(png, optimize=True)
+    saved += before - png.stat().st_size
+print(f'Kit textures capped at {KIT_TEXTURE_SIZE} px: {saved / 1e6:.1f} MB smaller')
 
 files = [p for p in DIST.rglob('*') if p.is_file()]
 too_big = [p for p in files if p.stat().st_size > MAX_FILE]

@@ -40,3 +40,6 @@ Desktop.ini
 *.rar
 
 .claude/settings.local.json
+
+# ElevenLabs takes and previews (only chosen takes ship, from assets/voice)
+voice_takes/

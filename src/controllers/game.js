@@ -2,6 +2,8 @@ import { createGameState, START } from '../models/state.js';
 import { createWorld } from '../models/world.js';
 import { DreamSwarm } from '../models/swarm.js';
 import { createScene } from '../rendering/scene.js';
+import { createLightPool } from '../rendering/lightPool.js';
+import { warmEverything } from '../rendering/warmup.js';
 import { createEnvironment } from '../rendering/environment.js';
 import { createAtmosphere } from '../rendering/atmosphere.js';
 import { createGrass } from '../rendering/grass.js';
@@ -80,6 +82,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   const { state, keys, pointerButtons, player } = createGameState();
   const music = createMusic({ state });
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
+  const lamps = createLightPool(scene); // before anything builds a PointLight
   let atmosphere = null;
   let props = null;
   const world = createWorld({ scene, state, player, onChunk: chunk => { props?.decorate(chunk); atmosphere?.prepare?.(chunk); } });
@@ -436,6 +439,9 @@ export function startGame(ui, { testStartId = null } = {}) {
     scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, CASTLE_GLOOM.fog, indoors);
   }
   const resolution = createResolutionGovernor(renderer);
+  // The opaque intro hides the world while it loads: draw those frames at half resolution so the GPU
+  // spends its time on uploads, not pixels nobody sees. Full resolution returns at warmup.
+  renderer.setPixelRatio(0.5);
   const clock = new THREE.Clock();
   let fpsFrames = 0;
   let fpsTime = 0;
@@ -574,15 +580,18 @@ export function startGame(ui, { testStartId = null } = {}) {
     darkenCastle();
     updateShortcuts();
     music.update(dt);
+    lamps.update(camera.position);
     kamui.render(scene, camera, dt);
     memory.apply(dt); // flashback memory look over the rendered frame (off unless a flashback plays)
     if (!startup.ready) {
       const phase = startup.update({ now: performance.now(), frameMs: rawDt * 1000,
         prepared: !world.pendingChunks && props.prepared });
       if (phase === 'warmup') {
-        // All startup assets are now installed; compile their final lighting
-        // variants behind the intro, then wait for real render/upload frames.
-        renderer.compile(scene, camera);
+        // All startup assets are now installed: at full resolution, draw every object once (hidden ones
+        // too) and run the Kamui warp once, behind the intro, then wait for real render/upload frames.
+        renderer.setPixelRatio(resolution.ratio);
+        warmEverything(renderer, scene, camera);
+        kamui.warm();
       }
       if (ui.introEl.dataset.loadPhase !== phase) ui.introEl.dataset.loadPhase = phase;
       const text = phase === 'loading' ? 'Gathering the world…'
@@ -611,5 +620,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     const page = { mark: 0, sigil: 2, 'diamond-lead': 4 }[sceneParam]; // the page each of these scenes leads into in the campaign
     if (page !== undefined) pages.queue(page);
   }
-  frame();
+  // Not frame(): the first render compiles the world's shaders (~5 s), so give the model queue its frame first
+  // to get downloads going underneath that.
+  requestAnimationFrame(frame);
 }

@@ -6,11 +6,12 @@ export const MUSIC_TRACKS = {
 };
 
 // Stream recordings instead of decoding the three long tracks into memory.
+// preload 'none': six media streams would pin all six HTTP/1.1 sockets for ~15 s during startup.
 export function createMusic({ state, mediaFactory = () => new Audio() }) {
   const tracks = Object.fromEntries(Object.entries(MUSIC_TRACKS).map(([id, track]) => {
     const decks = Array.from({ length: 2 }, () => {
       const audio = mediaFactory();
-      audio.preload = 'metadata'; audio.loop = false; audio.volume = 0;
+      audio.preload = 'none'; audio.loop = false; audio.volume = 0;
       audio.src = `assets/music/${track.file}`;
       return { audio, starting: false, failed: false, blocked: false, wanted: false };
     });

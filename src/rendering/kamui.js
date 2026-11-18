@@ -96,6 +96,13 @@ export function createKamui(renderer) {
   }
 
   return {
+    // Run the effect's whole path once behind the intro (screen-sized texture, copy, shader), so the first
+    // warp doesn't stall. The next frame's normal render covers what this draws.
+    warm() {
+      ensureTexture();
+      renderer.copyFramebufferToTexture(origin, texture);
+      renderer.render(quadScene, quadCamera);
+    },
     // A one-off vortex, optionally centred on a world position; full: true swallows the whole screen.
     pulse(at = null, duration = 1.8, { full = false } = {}) {
       pulse = { time: 0, duration, at: full ? null : at?.clone() ?? null, reach: full ? 1.3 : 0.8 };

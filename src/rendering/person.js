@@ -1,5 +1,5 @@
 import { loadModel, loadModelAsset } from './models.js';
-import { cloneSkinned } from './anim.js';
+import { cloneSkinned, skipStillPoses } from './anim.js';
 import { createTravelerFace } from './travelerFace.js';
 
 // People kit runtime: a character GLB from tools/peopleBuilder.js (body, face shell, props; no
@@ -31,7 +31,7 @@ export function createPerson({ name, height = 1.75, colors = null }) {
   const neck = [], rest = new Map(), look = { yaw: 0, pitch: 0, weight: 0 };
   const worldQ = new THREE.Quaternion(), inverse = new THREE.Quaternion(), offset = new THREE.Quaternion();
   const axis = new THREE.Vector3(), target = new THREE.Vector3(), X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0);
-  let clips = new Map(), face = null, override = null, overrideTime = 0, pending = null, mood = null;
+  let clips = new Map(), face = null, override = null, overrideTime = 0, pending = null, mood = null, markPosed = () => {};
 
   function setup(object, pack) {
     clips = pack; person.model = object; root.add(object); object.scale.multiplyScalar(height / 1.75);
@@ -48,8 +48,18 @@ export function createPerson({ name, height = 1.75, colors = null }) {
       if (o.name === 'PersonFace') { face = createTravelerFace(o, ramp, style || undefined); return; }
       if (colors && palette && o.isSkinnedMesh) recolor(o, palette, colors);
       o.material = material(Boolean(o.isSkinnedMesh), o.material.name === 'PersonGlow');
-      o.castShadow = true; o.frustumCulled = false;
+      // Off-screen people are skipped, but three measures them in their rest pose: give every body a sphere
+      // as big as the body is tall, around its middle, so raised arms, strides and kneels stay inside it.
+      // Shadows are culled against the sun's own view, so a person just off-screen still casts one.
+      o.castShadow = true;
+      if (o.isSkinnedMesh && !o.geometry.userData.posedBounds) {
+        const box = (o.geometry.computeBoundingBox(), o.geometry.boundingBox), size = box.getSize(new THREE.Vector3());
+        o.geometry.boundingSphere = new THREE.Sphere(box.getCenter(new THREE.Vector3()), Math.max(size.x, size.y, size.z));
+        o.geometry.userData.posedBounds = true;
+      }
     });
+    const skeletons = new Set(); object.traverse(o => { if (o.isSkinnedMesh) skeletons.add(o.skeleton); });
+    markPosed = skipStillPoses(skeletons, root);
     mood = style?.mood ?? null; // a character's resting expression (e.g. the Triad's glare)
     neck.sort((a, b) => (a.name === 'Head') - (b.name === 'Head'));
     person.mixer = new THREE.AnimationMixer(object); person.loaded = true;
@@ -93,6 +103,7 @@ export function createPerson({ name, height = 1.75, colors = null }) {
   /** ctx = { look: Vector3|null (world point to face), expression, talking } */
   person.update = (dt, ctx = {}) => {
     if (!person.mixer) return;
+    markPosed();
     for (const [bone, q] of rest) bone.quaternion.copy(q);
     person.mixer.update(dt);
     if ((overrideTime -= dt) <= 0) override = null;

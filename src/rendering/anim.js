@@ -22,6 +22,24 @@ export function cloneSkinned(source) {
   return copy;
 }
 
+// three re-packs and re-uploads every drawn skeleton's bones each frame, even when the pose didn't change
+// (distant NPCs step their animation 10 or 2 times a second). Skip that while nothing changed: the bones
+// are stored in world space, so a move or turn of `root` still counts as a change, and walkers update
+// every frame as before. Call the returned markPosed() whenever the bones change (each animation step).
+export function skipStillPoses(skeletons, root) {
+  const states = [...skeletons].map(skeleton => {
+    const update = skeleton.update.bind(skeleton), state = { posed: true, last: new Float64Array(16) };
+    skeleton.update = () => {
+      const now = root.matrixWorld.elements;
+      if (!state.posed && now.every((v, i) => v === state.last[i])) return; // same pose, same place: the GPU has it
+      state.posed = false; state.last.set(now);
+      update();
+    };
+    return state;
+  });
+  return () => { for (const state of states) state.posed = true; };
+}
+
 function parallelTraverse(a, b, cb) {
   cb(a, b);
   for (let i = 0; i < a.children.length; i++) parallelTraverse(a.children[i], b.children[i], cb);
