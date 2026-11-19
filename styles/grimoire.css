@@ -1,23 +1,66 @@
-#worldMap { perspective: 1800px; padding: 12px; }
-#worldMap .atlas { width: calc(var(--map-size) + 46px); padding: 18px 22px 16px; gap: 10px; perspective: 1400px; }
-#worldMap header { flex-shrink: 0; }
-#worldMap header h2 { font-size: 21px; letter-spacing: .19em; }
-#worldMap header button { flex-shrink: 0; }
-#worldMap .book-spread { position: relative; height: calc(var(--map-size) + 60px); perspective: 1600px; background: #16120c; }
-#worldMap .map-page { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; transform-origin: 100% 50%; background: linear-gradient(90deg, #17130c, #241e12 92%, #090805); }
-#worldMap .map-page > * { flex-shrink: 0; }
-#worldMap .map-page .map-frame { position: relative; flex: none; width: var(--map-size); height: var(--map-size); overflow: hidden; display: grid; place-items: center; }
-#worldMap .map-frame canvas { position: absolute; max-width: 100%; max-height: 100%; }
-#worldMap .quest-page { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 19px 22px 16px; color: #332d21; background: linear-gradient(90deg, #9d8e69 0, #d2c29b 4%, #e0d3b2 14%, #d8c9a6 96%, #b09e73 100%); box-shadow: inset 12px 0 14px #44341735; }
-#worldMap .page-kicker { align-self: stretch; margin: 0; color: #b69a5e; font: 7px/1.5 'DM Mono', monospace; letter-spacing: .18em; }
-#worldMap .quest-page .page-kicker { color: #776135; }
-#worldMap .quest-page h3 { margin: 12px 0 5px; color: #332d21; font: 400 30px/1.1 Georgia, serif; }
+/* The Grimoire Atlas (src/views/worldMap.js): the grimoire from the page reveal, closed on its cover. OPEN swings
+   the cover over on the spine; PREV / NEXT turn one leaf at a time (.leaf, animated from worldMap.js). */
+#worldMap { perspective: 2400px; padding: 12px; }
+#worldMap .atlas { position: relative; width: var(--book-w); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+#worldMap .book { position: relative; width: var(--book-w); height: var(--book-h); perspective: 2400px;
+  transition: transform .9s cubic-bezier(.3,.6,.2,1), clip-path .9s cubic-bezier(.3,.6,.2,1); clip-path: inset(-40px); }
+#worldMap .atlas[data-state='closed'] .book { transform: translateX(-25%); clip-path: inset(-40px -40px -40px 50%); }
+#worldMap .spreads { position: absolute; inset: 0; perspective: 2400px; border-radius: 3px; background: #e9dcbc;
+  box-shadow: 0 0 0 7px #3d1622, 0 0 0 8px #c9a24a80, 0 12px 26px #000a; }
+#worldMap .spreads::after { content: ''; position: absolute; z-index: 7; top: 0; bottom: 0; left: 47%; right: 47%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #2a180a55 50%, transparent); }
+#worldMap .spread { position: absolute; inset: 0; overflow: hidden; }
+#worldMap .spread[hidden] { display: none; }
+#worldMap .map-spread { background: #211d13; }
+#worldMap .map-spread canvas { display: block; width: 100%; height: 100%; }
+#worldMap .map-loading { position: absolute; inset: 0; margin: auto; height: 1.5em; text-align: center; color: #bda673; font: italic 12px Georgia, serif; }
+#worldMap .map-loading[hidden] { display: none; }
+#worldMap .grimoire-spread { display: flex; }
+#worldMap .grimoire-spread canvas { width: 50%; height: 100%; }
+
+/* The cover: the right half of the closed book, swinging over the spine to the left. */
+#worldMap .atlas-cover { position: absolute; z-index: 8; top: 0; bottom: 0; left: 50%; right: 0; transform-origin: 0 50%; backface-visibility: hidden;
+  border-radius: 3px 8px 8px 3px; box-shadow: 0 12px 26px #000a; transition: transform .9s cubic-bezier(.45,.05,.3,1); pointer-events: none; }
+#worldMap .atlas-cover canvas { display: block; width: 100%; height: 100%; border-radius: inherit; }
+#worldMap .atlas[data-state='open'] .atlas-cover { transform: rotateY(-180deg); }
+
+/* A turning leaf: a still copy of the old page on its front, of the new page on its back. */
+#worldMap .still { position: absolute; inset: 0; z-index: 4; }
+#worldMap .still.left { clip-path: inset(0 50% 0 0); }
+#worldMap .still.right { clip-path: inset(0 0 0 50%); }
+#worldMap .leaf { position: absolute; inset: 0; z-index: 5; transform-style: preserve-3d; pointer-events: none; }
+#worldMap .leaf > .still { backface-visibility: hidden; }
+#worldMap .leaf > .back { transform: rotateY(180deg); }
+
+/* Controls: ✕ at the book's corner; OPEN under the closed cover; PREV / NEXT once it is open. */
+#worldMap .map-close { position: absolute; z-index: 9; top: -4px; right: -48px; width: 34px; height: 34px; border: 1px solid #d8b25a99; border-radius: 50%;
+  background: #140e08cc; color: #d8b25a; font: 16px Georgia, serif; cursor: pointer; transition: right .9s cubic-bezier(.3,.6,.2,1), background .2s; }
+#worldMap .atlas[data-state='closed'] .map-close { right: calc(25% - 48px); }
+#worldMap .book-controls { display: flex; align-items: center; gap: 18px; }
+#worldMap .book-controls button { min-width: 110px; padding: 9px 16px; border: 1px solid #d8b25a99; border-radius: 3px; background: #140e08cc; color: #e9cf8e;
+  font: 600 11px 'DM Mono', monospace; letter-spacing: .2em; cursor: pointer; }
+#worldMap .book-controls button:disabled { opacity: .35; cursor: default; }
+#worldMap .map-close:hover, #worldMap .map-close:focus-visible, #worldMap .book-controls button:not(:disabled):hover, #worldMap .book-controls button:focus-visible { background: #d8b25a2e; outline: none; box-shadow: 0 0 16px #d8b25a40; }
+#worldMap .book-folio { min-width: 60px; text-align: center; color: #d8b25aaa; font: 10px 'DM Mono', monospace; letter-spacing: .2em; }
+#worldMap .atlas[data-state='closed'] :is(.book-prev, .book-next, .book-folio), #worldMap .atlas[data-state='open'] .book-open { display: none; }
+
+/* Parchment spreads: the quest log and the satchel, two columns either side of the spine. */
+#worldMap .paper-spread { display: flex; flex-direction: column; padding: 4.5% 5%; color: #332d21;
+  background: linear-gradient(90deg, #9d8e69 0, #d2c29b 2%, #e0d3b2 7%, #d8c9a6 48%, #c9b993 50%, #d8c9a6 52%, #e0d3b2 93%, #d2c29b 98%, #b09e73 100%); }
+#worldMap .paper-spread > * { width: 45%; }
+#worldMap .paper-spread > .quest-list, #worldMap .paper-spread > .satchel-items, #worldMap .paper-spread > .quest-colophon { width: auto; }
+#worldMap .quest-spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10%; }
+#worldMap .quest-spread > .page-col { width: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+#worldMap .quest-spread.measuring[hidden] { display: grid; visibility: hidden; }
+#worldMap .page-kicker { margin: 0; color: #776135; font: 8px/1.5 'DM Mono', monospace; letter-spacing: .18em; }
+#worldMap .paper-spread h3 { margin: 10px 0 5px; color: #332d21; font: 400 30px/1.1 Georgia, serif; }
 #worldMap .quest-intro { margin: 0; color: #776340; font: italic 12px/1.5 Georgia, serif; }
-#worldMap .journal-summary { margin: 13px 0 7px; padding-bottom: 10px; border-bottom: 1px solid #836d3c50; color: #65532e; font: 8px/1.5 'DM Mono', monospace; letter-spacing: .1em; }
-#worldMap .quest-list { min-height: 0; flex: 1; overflow-x: hidden; overflow-y: auto; max-height: calc(100dvh - 280px); scrollbar-width: none; }
-#worldMap .quest-list::-webkit-scrollbar { display: none; }
+#worldMap .journal-summary, #worldMap .satchel-summary { margin: 12px 0 6px; padding-bottom: 8px; border-bottom: 1px solid #836d3c50; color: #65532e; font: 8px/1.5 'DM Mono', monospace; letter-spacing: .1em; }
+#worldMap .quest-list, #worldMap .paper-spread .satchel-items { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: max-content; column-gap: 10%;
+  align-content: start; margin: 0; padding: 0; list-style: none; overflow-y: auto; scrollbar-width: none; }
+#worldMap .quest-list::-webkit-scrollbar, #worldMap .satchel-items::-webkit-scrollbar { display: none; }
 #worldMap .quest-card { position: relative; min-height: 124px; padding: 13px 0; border-bottom: 1px solid #8b74403b; }
-#worldMap .quest-chapter { display: block; margin-bottom: 7px; color: #87703f; font: 6px 'DM Mono', monospace; letter-spacing: .12em; }
+#worldMap .quest-chapter { display: block; margin-bottom: 7px; color: #87703f; font: 7px 'DM Mono', monospace; letter-spacing: .12em; }
 #worldMap .quest-card h4 { margin: 0 0 6px; color: #3c3222; font: 400 20px/1.2 Georgia, serif; }
 #worldMap .quest-progress { margin: 0 0 7px; color: #725b33; font: 8px/1.5 'DM Mono', monospace; }
 #worldMap .quest-hint { margin: 0; color: #5d503a; font: 12px/1.65 Georgia, serif; }
@@ -31,85 +74,52 @@
 #worldMap .quest-card[data-status='complete'] .completion-seal { display: block; animation: grimoire-seal .55s ease-out both; }
 #worldMap .quest-card[data-status='complete'] h4 { color: #365b3d; }
 #worldMap .quest-card[data-status='complete'] .quest-state { color: #315d43; border-color: #446d4560; }
-#worldMap .quest-colophon { margin: 13px 0 0; color: #7c6740; text-align: center; font: italic 10px/1.5 Georgia, serif; }
-/* Carried sigils and tools have their own full-height parchment page. */
-#worldMap .satchel-items { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; max-height: 150px; overflow-y: auto; }
-#worldMap .satchel-item { display: flex; gap: 10px; align-items: flex-start; }
-#worldMap .satchel-icon { flex: none; width: 28px; height: 28px; padding: 5px; border: 1px solid #8a714866; border-radius: 50%; color: #3c3222; }
-#worldMap .satchel-kind { display: block; color: #87703f; font: 6px 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; }
-#worldMap .satchel-item strong { display: block; color: #3c3222; font: 400 15px/1.3 Georgia, serif; }
-#worldMap .satchel-item p { margin: 2px 0 0; color: #5d503a; font: 11px/1.5 Georgia, serif; }
-#worldMap .satchel-empty { margin: 0; color: #776340; font: italic 11px/1.5 Georgia, serif; }
-#worldMap .map-loading { position: absolute; margin: 0; color: #bda673; font: italic 11px Georgia, serif; }
-#worldMap .map-loading[hidden] { display: none; }
-#worldMap .map-location-detail { font-size: 10px; min-height: 3em; align-self: stretch; }
-#worldMap .spade-destinations { align-self: stretch; }
-#worldMap .spade-destinations button { font-size: 8px; padding: 7px 8px; }
-#worldMap .map-page footer { align-self: stretch; gap: 9px; font-size: 7px; }
-#worldMap .map-page footer i { width: 6px; height: 6px; margin-right: 3px; }
-#worldMap .book-bottom { display: none; }
-#worldMap .map-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
-#worldMap .map-destinations { position: relative; }
-#worldMap .map-destinations summary { color: #dfc786; cursor: pointer; font: 9px 'DM Mono', monospace; }
-#worldMap .destination-panel { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 3; width: min(360px, var(--map-size)); padding: 12px; border: 1px solid #b59b6060; background: #16120cf5; box-shadow: 0 4px 20px #0008; }
-#worldMap .map-toolbar .page-turn { padding: 3px 8px; font-size: 8px; gap: 8px; }
-#worldMap .map-toolbar .page-turn span { font-size: 18px; }
+#worldMap .quest-colophon { margin: 12px 0 0; color: #7c6740; text-align: center; font: italic 10px/1.5 Georgia, serif; }
+#worldMap .satchel-item { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid #8b74403b; }
+#worldMap .satchel-icon { flex: none; width: 42px; height: 42px; padding: 8px; border: 1px solid #8a714866; border-radius: 50%; color: #3c3222; }
+#worldMap .satchel-kind { display: block; margin-bottom: 5px; color: #87703f; font: 8px 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; }
+#worldMap .satchel-item strong { display: block; color: #3c3222; font: 400 20px/1.3 Georgia, serif; }
+#worldMap .satchel-item p { margin: 2px 0 0; color: #5d503a; font: 13px/1.6 Georgia, serif; }
+#worldMap .satchel-empty { margin: 0; color: #776340; font: italic 12px/1.5 Georgia, serif; }
+#worldMap .satchel-empty[hidden] { display: none; }
+
 body.grimoire-open #chaosReadout { visibility: hidden; }
-#worldMap .map-page, #worldMap .quest-page { position: absolute; inset: 0; transform-origin: 0 50%; backface-visibility: hidden; transition: transform .7s cubic-bezier(.25,.65,.2,1), opacity .7s; }
-#worldMap .map-page { z-index: 2; transform: rotateY(0); }
-#worldMap .quest-page { z-index: 1; transform: rotateY(12deg); opacity: 0; visibility: hidden; }
-#worldMap[data-page='quests'] .map-page { transform: rotateY(-100deg); opacity: 0; pointer-events: none; visibility: hidden; transition: transform .7s cubic-bezier(.25,.65,.2,1), opacity .7s, visibility 0s .7s; }
-#worldMap[data-page='quests'] .quest-page { transform: rotateY(0); opacity: 1; visibility: visible; }
-#worldMap .page-turn { align-self: flex-end; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 8px 12px; border: 1px solid #b59b6060; background: #c5a75d10; color: #dfc786; font: 9px 'DM Mono', monospace; letter-spacing: .12em; cursor: pointer; }
-#worldMap .page-turn span { font: 24px Georgia, serif; }
-#worldMap .page-turn:hover, #worldMap .page-turn:focus-visible { outline: 1px solid #d8b25a; background: #c5a75d25; }
-#worldMap .quest-page .page-turn { align-self: flex-start; color: #65512e; margin-bottom: 12px; border-color: #836d3c66; }
-#worldMap .book-tabs { display:flex; flex-shrink:0; gap:6px; border-bottom:1px solid #b59b6040; padding-bottom:6px; }
-#worldMap .book-tabs button { flex:1; padding:8px 4px; border:1px solid transparent; background:transparent; color:#b9a475; cursor:pointer; font:9px 'DM Mono',monospace; letter-spacing:.06em; }
-#worldMap .book-tabs button[aria-current='page'], #worldMap .book-tabs button:focus-visible { color:#ffe1a2; border-color:#b59b6080; background:#c5a75d20; outline:none; }
-#worldMap .satchel-page { position:absolute; inset:0; min-width:0; min-height:0; display:flex; flex-direction:column; padding:19px 22px 16px; color:#332d21; background:linear-gradient(90deg,#9d8e69 0,#d2c29b 4%,#e0d3b2 14%,#d8c9a6 96%,#b09e73 100%); box-shadow:inset 12px 0 14px #44341735; z-index:1; transform:rotateY(12deg); transform-origin:0 50%; opacity:0; visibility:hidden; backface-visibility:hidden; transition:transform .7s cubic-bezier(.25,.65,.2,1),opacity .7s,visibility 0s .7s; }
-#worldMap[data-page='satchel'] .map-page { transform:rotateY(-100deg); opacity:0; pointer-events:none; visibility:hidden; }
-#worldMap[data-page='satchel'] .satchel-page { transform:rotateY(0); opacity:1; visibility:visible; transition:transform .7s cubic-bezier(.25,.65,.2,1),opacity .7s; }
-#worldMap .satchel-page h3 { margin:12px 0 5px; color:#332d21; font:400 30px/1.1 Georgia,serif; }
-#worldMap .satchel-page .page-kicker { color:#776135; }
-#worldMap .satchel-page .page-turn { align-self:flex-start; color:#65512e; margin-bottom:12px; border-color:#836d3c66; }
-#worldMap .satchel-summary { margin:13px 0 7px; padding-bottom:10px; border-bottom:1px solid #836d3c50; color:#65532e; font:8px/1.5 'DM Mono',monospace; letter-spacing:.1em; }
-#worldMap .satchel-page .satchel-items { flex:1; min-height:0; max-height:none; align-content:start; gap:0; overflow-y:auto; padding-right:8px; }
-#worldMap .satchel-page .satchel-item { padding:14px 0; border-bottom:1px solid #8b74403b; }
-#worldMap .satchel-page .satchel-icon { width:42px; height:42px; padding:8px; }
-#worldMap .satchel-page .satchel-kind { font-size:8px; margin-bottom:5px; }
-#worldMap .satchel-page .satchel-item strong { font-size:20px; }
-#worldMap .satchel-page .satchel-item p { font-size:13px; line-height:1.6; }
 #worldMap.open:not(.closing) .atlas { animation: grimoire-unfold .25s ease-out both; }
 #worldMap.closing .atlas { animation: grimoire-fold .42s ease-in both; pointer-events: none; }
 @keyframes grimoire-unfold { from { opacity: 0; transform: translateY(15px) scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes grimoire-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(15px) scale(.96); } }
 @keyframes grimoire-seal { from { opacity: 0; transform: rotate(-24deg) scale(1.5); } 65% { opacity: 1; transform: rotate(-7deg) scale(.95); } to { opacity: 1; transform: rotate(-9deg) scale(1); } }
 @media (max-width: 800px) {
-  #worldMap .atlas { padding: 14px 22px 11px; }
-  #worldMap header h2 { font-size: 16px; letter-spacing: .12em; }
-  #worldMap header small { font-size: 6px; letter-spacing: .08em; }
-  #worldMap header .seal { width: 30px; height: 30px; }
-  #worldMap .book-spread { height: calc(var(--map-size) + 78px); }
-  #worldMap .quest-page { padding: 17px; }
-  #worldMap .satchel-page { padding:17px; }
-  #worldMap .quest-list { max-height: calc(100dvh - 330px); }
-  #worldMap .book-bottom { font-size: 6px; letter-spacing: 0; }
+  #worldMap .paper-spread > * { width: auto; }
+  #worldMap .quest-list, #worldMap .paper-spread .satchel-items { grid-template-columns: 1fr; }
+  #worldMap .map-close { right: 0 !important; top: -44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   #worldMap *, #worldMap *::before, #worldMap *::after { animation: none !important; transition: none !important; }
 }
-@media (max-height: 500px) {
-  #worldMap .atlas { padding: 8px 22px; gap: 6px; }
-  #worldMap header h2 { font-size: 12px; letter-spacing: .08em; }
-  #worldMap header small { font-size: 6px; letter-spacing: 0; }
-  #worldMap header .seal { width: 24px; height: 24px; }
-  #worldMap .book-spread { height: calc(var(--map-size) + 78px); }
-  #worldMap .quest-list { max-height: none; }
-  #worldMap .quest-page { padding: 12px; }
-  #worldMap .satchel-page { padding:12px; }
-  #worldMap .quest-page .page-turn { margin-bottom: 4px; padding: 3px 8px; }
-  #worldMap .quest-page h3 { margin: 5px 0; font-size: 22px; }
-  #worldMap .quest-intro, #worldMap .quest-colophon { display: none; }
-  #worldMap .journal-summary { margin: 6px 0; padding-bottom: 6px; }
-}
+/* A quest not yet open shows only its chapter, title and AWAITING REVELATION (its hint repeats the one before it). */
+#worldMap .quest-card[data-status='locked'] { min-height: 0; }
+#worldMap .quest-card[data-status='locked'] :is(.quest-progress, .quest-hint, .quest-route) { display: none; }
+#worldMap .quest-card[data-status='locked'] .quest-state { display: inline-block; margin: 2px 0 0; }
+/* Inventory groups; anything not earned yet shows its name and UNCLAIMED, faded. */
+#worldMap .inventory-group { margin: 16px 0 0; padding-bottom: 4px; border-bottom: 1px solid #836d3c80; color: #6a5530; font: 600 9px 'DM Mono', monospace; letter-spacing: .25em; text-transform: uppercase; }
+#worldMap .satchel-item .quest-state { display: none; margin: 4px 0 0; }
+#worldMap .satchel-item[data-has='false'] { opacity: .6; padding: 10px 0; }
+#worldMap .satchel-item[data-has='false'] .satchel-icon { color: #8a7a58 !important; filter: grayscale(1); }
+#worldMap .satchel-item[data-has='false'] p { display: none; }
+#worldMap .satchel-item[data-has='false'] .quest-state { display: inline-block; }
+/* Inventory pages scale their type together (--inv, set by worldMap.js) so each group fits its page when fully claimed. */
+#worldMap .inventory-spread h3 { font-size: calc(30px * var(--inv, 1)); margin: calc(10px * var(--inv, 1)) 0 calc(5px * var(--inv, 1)); }
+#worldMap .inventory-spread .satchel-summary { margin: calc(12px * var(--inv, 1)) 0 0; }
+#worldMap .inventory-spread .inventory-group { margin-top: calc(16px * var(--inv, 1)); font-size: calc(9px * var(--inv, 1)); }
+#worldMap .inventory-spread .page-col > .inventory-group:first-child { margin-top: 0; }
+#worldMap .inventory-spread .satchel-item { gap: calc(12px * var(--inv, 1)); padding: calc(12px * var(--inv, 1)) 0; }
+#worldMap .inventory-spread .satchel-icon { width: calc(42px * var(--inv, 1)); height: calc(42px * var(--inv, 1)); padding: calc(8px * var(--inv, 1)); }
+#worldMap .inventory-spread .satchel-kind { font-size: calc(8px * var(--inv, 1)); margin-bottom: calc(4px * var(--inv, 1)); }
+#worldMap .inventory-spread .satchel-item strong { font-size: calc(20px * var(--inv, 1)); }
+#worldMap .inventory-spread .satchel-item p { font-size: calc(13px * var(--inv, 1)); }
+#worldMap .inventory-spread .satchel-item[data-has='false'] { padding: calc(12px * var(--inv, 1)) 0; }
+#worldMap .inventory-spread .inventory-end { justify-content: center; }
+#worldMap .book-controls button { min-width: 150px; }
+#worldMap .book-controls button:disabled { visibility: hidden; }
+#worldMap .book-folio { min-width: 110px; color: #e9cf8e; }

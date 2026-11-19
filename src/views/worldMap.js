@@ -13,13 +13,19 @@ import { SHRINE } from '../models/quest.js';
 import { SPADE_MAP_LOCATIONS } from '../models/spadeStory.js';
 import { grimoireQuests } from '../models/grimoireJournal.js';
 import { CLOVER_MAP_LOCATIONS } from '../models/cloverCampaign.js';
+import { PAGES, SPELLS } from '../models/grimoireSpells.js';
+import { ITEMS } from '../models/inventory.js';
+import { drawCover, drawPageSpread, PAGE_SIZE } from './grimoireReveal.js';
 
 const STORY_LOCATIONS = [...SPADE_MAP_LOCATIONS, ...CLOVER_MAP_LOCATIONS];
 
 const CENTER = { x: 0, z: -90 }; // shifted north so the Clover terraces and Sky Garden fit
-const HALF = 650;                // metres from the centre to the map edge
-const RES = 320;                 // relief samples per side
+const HALF = 650;                // metres from the centre to the top and bottom edges
+const ASPECT = 2 * PAGE_SIZE.w / PAGE_SIZE.h; // the atlas fills a two-page spread of the grimoire
+const RES = 320;                 // relief samples top to bottom (RES * ASPECT across)
+const RESX = Math.round(RES * ASPECT);
 const CALM = 0.06;
+const MARGIN = 0.19;             // share of the spread's width given to each outer margin of story locations
 const GOLD = '#d8b25a';
 const KINGDOMS = [
   { name: 'CLOVER KINGDOM', suit: '♣', color: '#8fe36b', angle: -Math.PI / 2 - 0.5 }, // off-axis: the Clover landmarks sit due north
@@ -54,25 +60,7 @@ const CSS = `
 #worldMap { position: fixed; inset: 0; z-index: 30; display: none; place-items: center;
   background: radial-gradient(circle at center, rgba(20,16,8,.55), rgba(3,5,4,.88)); backdrop-filter: blur(6px); }
 #worldMap.open { display: grid; }
-#worldMap .atlas { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 22px 16px;
-  border: 1px solid rgba(216,178,90,.55); border-radius: 6px;
-  background: linear-gradient(160deg, #1c1710, #0e0c08 60%, #18130b);
-  box-shadow: 0 0 0 6px #0b0906, 0 0 0 7px rgba(216,178,90,.35), 0 30px 80px rgba(0,0,0,.7); }
-#worldMap header { display: flex; align-items: center; gap: 12px; color: ${GOLD}; }
-#worldMap header h2 { margin: 0; font: 400 22px Georgia, serif; letter-spacing: .28em; }
-#worldMap header small { display: block; margin-top: 3px; color: rgba(216,178,90,.6); font: 9px 'DM Mono', monospace; letter-spacing: .2em; }
-#worldMap header button { margin-left: auto; width: 30px; height: 30px; border: 1px solid rgba(216,178,90,.5); border-radius: 50%;
-  background: none; color: ${GOLD}; font: 16px Georgia, serif; cursor: pointer; }
-#worldMap header button:hover { background: rgba(216,178,90,.15); }
-#worldMap canvas { display: block; border: 1px solid rgba(216,178,90,.45); border-radius: 3px; }
-#worldMap .spade-destinations { display:flex;flex-wrap:wrap;gap:6px; }
-#worldMap .spade-destinations button { background:#191426;border:1px solid #746386;color:#e2d4ff;padding:7px 9px;cursor:pointer;font:10px 'DM Mono',monospace; }
-#worldMap .spade-destinations button:focus-visible,#worldMap .spade-destinations button[aria-pressed="true"] { outline:2px solid #c5afff;outline-offset:1px; }
-#worldMap .map-location-detail { max-width:860px;margin:0;color:#dbd2bf;font:11px/1.5 'DM Mono',monospace;min-height:3em; }
-#worldMap footer { display: flex; flex-wrap: wrap; gap: 16px; color: rgba(240,230,200,.75); font: 9px 'DM Mono', monospace; letter-spacing: .12em; }
-#worldMap footer i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; border-radius: 50%; }
-#worldMap footer .hint { margin-left: auto; color: rgba(216,178,90,.6); }
-#worldMap header .map-close { margin-left: auto; }`;
+`;
 
 // Five-leaf clover seal: five heart-shaped leaves rotated 72° apart.
 function drawClover(ctx, x, y, size, fill, stroke) {
@@ -112,7 +100,7 @@ const ITEM_ICONS = {
 
 // The atlas, quest log and carried inventory each have an independent book page.
 // diamondLocations: Diamond's story places, built at runtime from its gate (diamondMapLocations).
-export function createWorldMap({ world, player, state, quest, spade, clover, heart, diamond, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [] }) {
+export function createWorldMap({ world, player, state, quest, spade, clover, heart, diamond, inventory, companion, navigation, gates = [], canvas: gameCanvas, diamondLocations = [], hasBlade = () => false }) {
   const heartLocations = heart ? [
     ...(heart.scout ? [{ id: 'heart-nim', name: 'NIM · SERA’S SCOUT', x: heart.scout.x, z: heart.scout.z, note: 'Heart refugee by the Clover gate' }] : []),
     { id: 'heart-sera', name: 'SERA · LISTENING SPRING', x: heart.layout.sera.x, z: heart.layout.sera.z, note: 'River guardian' },
@@ -143,24 +131,19 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
   overlay.inert=true;
   button.setAttribute('aria-expanded','false');
   button.setAttribute('aria-controls','worldMap');
-  overlay.innerHTML = `<div class="atlas">
-    <header><canvas class="seal" width="44" height="44" aria-hidden="true" style="border:0"></canvas>
-      <div><h2>GRIMOIRE ATLAS</h2><small>THE FOUR KINGDOMS · SEED DS-${world.seed}</small></div>
-      <button type="button" class="map-close" aria-label="Close map">✕</button></header>
-    <nav class="book-tabs" aria-label="Grimoire pages"><button type="button" data-book-page="atlas" aria-current="page">I · ATLAS</button><button type="button" data-book-page="quests">II · QUESTS</button><button type="button" data-book-page="satchel">III · SATCHEL</button></nav>
-    <div class="book-spread"><section class="map-page" data-book-panel="atlas" aria-label="World atlas">
-    <div class="map-frame"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></div>
-    <div class="map-toolbar"><details class="map-destinations"><summary>DESTINATIONS</summary><div class="destination-panel"><nav class="spade-destinations" aria-label="Spade destinations">${SPADE_MAP_LOCATIONS.map(p=>`<button type="button" data-spade="${p.id}" aria-pressed="false">${p.name}</button>`).join('')}<button type="button" data-quest-route>QUEST ROUTE</button></nav>
-    <p class="map-location-detail" aria-live="polite">Choose a Spade location to read its directions.</p>
-    </div></details><button type="button" class="page-turn" data-book-page="quests" aria-label="Open the grimoire to your quests">OPEN QUESTS <span aria-hidden="true">➜</span></button></div>
-    <footer><span><i style="background:${GOLD}"></i>LANDMARK</span><span><i style="background:#ff8a2a"></i>EMBER</span>
-      <span><i style="background:#ff4a3a"></i>HOUND</span><span><i style="background:#2f9bff"></i>ROUTE</span>
-      <span><i style="background:#fff"></i>YOU</span><span>⌂ GATE</span></footer></section>
-    <section class="quest-page" data-book-panel="quests" aria-labelledby="grimoireQuestHeading" aria-hidden="true" inert><button type="button" class="page-turn" data-book-page="atlas" aria-label="Return to the world map"><span aria-hidden="true">←</span> WORLD MAP</button><p class="page-kicker">II · YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p><div class="quest-list"></div><p class="quest-colophon">Every fulfilled oath leaves its seal upon the grimoire.</p></section>
-    <section class="satchel-page" data-book-panel="satchel" aria-labelledby="satchelHeading" aria-hidden="true" inert><button type="button" class="page-turn" data-book-page="quests"><span aria-hidden="true">←</span> QUEST LOG</button><p class="page-kicker">III · WHAT YOU CARRY</p><h3 id="satchelHeading">Satchel</h3><p class="quest-intro">The sigils and tools gathered along your journey.</p><p class="satchel-summary" role="status"></p><ul class="satchel-items"></ul><p class="satchel-empty">Nothing carried yet. Sigils and tools you earn are kept here.</p><p class="quest-colophon">Every treasure carries a memory.</p></section></div>
-    <div class="book-bottom"><span>THE FOURFOLD GRIMOIRE</span><span>M / ESC · CLOSE THE BOOK</span></div>
+  // The grimoire, closed on the reveal's cover (views/grimoireReveal.js). OPEN swings the cover over; then
+  // PREV / NEXT turn one leaf at a time. Spreads: the atlas across both pages, the quest log, one spread per
+  // returned grimoire page (drawn exactly as the page reveal draws it), the inventory.
+  overlay.innerHTML = `<div class="atlas" data-state="closed">
+    <button type="button" class="map-close" aria-label="Close the grimoire">✕</button>
+    <div class="book"><div class="spreads">
+      <section class="spread map-spread" data-spread="atlas" aria-label="World atlas"><canvas class="map" aria-label="Map of the four kingdoms"></canvas><p class="map-loading" role="status">The atlas is tracing the land…</p></section>
+      <section class="spread paper-spread quest-spread" data-spread="quests" aria-labelledby="grimoireQuestHeading"><div class="page-col"><p class="page-kicker">YOUR UNWRITTEN STORY</p><h3 id="grimoireQuestHeading">Oaths &amp; Echoes</h3><p class="quest-intro">Explore in stillness. Discover in chaos.</p><p class="journal-summary" role="status"></p></div><div class="page-col"></div></section>
+      <section class="spread paper-spread quest-spread inventory-spread" data-spread="inventory" aria-labelledby="inventoryHeading"><div class="page-col"><p class="page-kicker">WHAT YOU CAN USE</p><h3 id="inventoryHeading">Inventory</h3><p class="quest-intro">Your sigils, tools, spells and blade.</p><p class="satchel-summary" role="status"></p></div><div class="page-col"></div></section>
+    </div><div class="atlas-cover" aria-hidden="true"><canvas></canvas></div></div>
+    <nav class="book-controls" aria-label="Turn the pages"><button type="button" class="book-open">OPEN</button>
+      <button type="button" class="book-prev"></button><span class="book-folio" aria-live="polite"></span><button type="button" class="book-next"></button></nav>
     </div>`;
-  overlay.dataset.page='atlas';
   document.body.appendChild(overlay);
   const resumeHint = document.createElement('button');
   resumeHint.id = 'resumeHint';
@@ -172,32 +155,90 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
   document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) resumeHint.classList.remove('on'); });
   const canvas = overlay.querySelector('canvas.map');
   const ctx = canvas.getContext('2d');
-  const sealCanvas = overlay.querySelector('canvas.seal');
-  drawClover(sealCanvas.getContext('2d'), 22, 24, 21, '#0b0a07', GOLD);
+  const atlas = overlay.querySelector('.atlas'), spreads = overlay.querySelector('.spreads'), coverCanvas = overlay.querySelector('.atlas-cover canvas');
 
-  let open = false, relief = null, size = 0, lastDraw = 0, reliefBuilding=false;
-  let closeTimer=null,returnFocus=button,questSignature='';
+  let open = false, relief = null, w = 0, h = 0, lastDraw = 0, reliefBuilding=false;
+  let closeTimer=null,returnFocus=button,questSignature='',current='atlas',turning=null;
   const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
-  const questList=overlay.querySelector('.quest-list'),questCards=new Map();
-  const satchelList=overlay.querySelector('.satchel-items'),satchelEmpty=overlay.querySelector('.satchel-empty');
-  function updateSatchel(items){
-    satchelEmpty.hidden=items.length>0;
-    overlay.querySelector('.satchel-summary').textContent=`${items.length} ${items.length===1?'ITEM':'ITEMS'} CARRIED`;
-    satchelList.replaceChildren(...items.map(item=>{
-      const row=document.createElement('li');row.className='satchel-item';
-      row.innerHTML=`${ITEM_ICONS[item.icon]??''}<div><span class="satchel-kind"></span><strong></strong><p></p></div>`;
-      row.querySelector('.satchel-kind').textContent=item.kind;
-      row.querySelector('strong').textContent=item.name;
-      row.querySelector('p').textContent=item.text;
-      return row;
-    }));
+  const questCards=new Map(),colophon=document.createElement('p');
+  colophon.className='quest-colophon';colophon.textContent='Every fulfilled oath leaves its seal upon the grimoire.';
+  // The inventory: everything the traveller can use. Carried items (models/inventory.js), the spells of every
+  // returned grimoire page, and the sigil-blade once Morcant falls.
+  const spellIcon=(path,fill)=>`<svg class="satchel-icon" viewBox="0 0 24 24" aria-hidden="true" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`;
+  const BLADE_ICON=spellIcon('M19 3l-9 9 M19 3h-3 M19 3v3 M10 12l-3 3 M5 13l6 6 M6.5 17.5L3 21');
+  // Every sigil, tool and spell the story can give, in three groups; what isn't earned yet is listed UNCLAIMED.
+  const title=t=>t.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
+  function inventoryGroups(){
+    const item=(id,def)=>({icon:ITEM_ICONS[def.icon]??'',kind:def.kind,name:def.name,text:def.text,has:!!inventory?.has(id)});
+    const entries=Object.entries(ITEMS);
+    return [
+      ['Sigils',entries.filter(([,d])=>d.kind==='Sigil').map(([id,d])=>item(id,d))],
+      ['Tools',[...entries.filter(([,d])=>d.kind!=='Sigil').map(([id,d])=>item(id,d)),
+        {icon:BLADE_ICON,kind:'Weapon',name:'Sigil-Blade',text:'Forged from the grimoire’s void when Morcant fell. It rides on your back.',has:hasBlade()}]],
+      ['Spells',PAGES.map(page=>{const spell=SPELLS.find(s=>s.id===page.spell);
+        return {icon:spellIcon(spell?.icon??'M12 3l7 9-7 9-7-9z M5 12h14',spell?.fill),kind:spell?`Spell · page ${page.numeral} · ${spell.input}`:`Spell · page ${page.numeral} · in chaos`,
+          name:title(spell?.name??page.name),text:spell?.about??page.about,has:earned(page)};})],
+    ];
+  }
+  // One page per group: the heading and Sigils on the left page, Tools on the right, Spells on the next spread
+  // (its right page keeps the colophon). The type is sized so every page fits with everything claimed (the longest
+  // case), so claiming an item never pushes the page over.
+  function updateSatchel(){
+    const groups=inventoryGroups(),all=groups.flatMap(([,rows])=>rows);
+    overlay.querySelector('.satchel-summary').textContent=`${all.filter(r=>r.has).length} / ${all.length} CLAIMED`;
+    const first=spreadOf('inventory');
+    let second=spreadOf('inventory-2');
+    if(!second){
+      second=document.createElement('section');second.className=first.className;second.dataset.spread='inventory-2';
+      second.setAttribute('aria-label','Inventory, spells');second.hidden=second.inert=true;
+      second.innerHTML='<div class="page-col"></div><div class="page-col inventory-end"></div>';first.after(second);
+    }
+    const cols=[...first.children,...second.children];
+    first.querySelectorAll('.satchel-item, .inventory-group').forEach(el=>el.remove());cols.slice(1).forEach(c=>c.replaceChildren());
+    const rows=[];
+    groups.forEach(([name,items],i)=>{
+      cols[i].append(Object.assign(document.createElement('h4'),{className:'inventory-group',textContent:name}));
+      for(const item of items){
+        const row=document.createElement('div');row.className='satchel-item';row.dataset.has=String(item.has);
+        row.innerHTML=`${item.icon}<div><span class="satchel-kind"></span><strong></strong><p></p><span class="quest-state">UNCLAIMED</span></div>`;
+        row.querySelector('.satchel-kind').textContent=item.kind;
+        row.querySelector('strong').textContent=item.name;
+        row.querySelector('p').textContent=item.text;
+        cols[i].append(row);rows.push(row);
+      }
+    });
+    cols[3].append(Object.assign(document.createElement('p'),{className:'quest-colophon',textContent:'Every treasure carries a memory.'}));
+    // Fit: measure every page as if all were claimed, shrinking the type until none overflows.
+    const claimed=rows.map(r=>r.dataset.has);rows.forEach(r=>{r.dataset.has='true';});
+    first.classList.add('measuring');second.classList.add('measuring');
+    let scale=1;
+    const fit=()=>{for(const sp of [first,second])sp.style.setProperty('--inv',scale);return cols.every(c=>c.scrollHeight<=c.clientHeight+1);};
+    while(!fit()&&scale>.5)scale-=.04; // ponytail: below half size the window is too small for the book anyway
+    rows.forEach((r,i)=>{r.dataset.has=claimed[i];});
+    first.classList.remove('measuring');second.classList.remove('measuring');
+    if(atlas.dataset.state==='open'&&!turning)show(current);
+  }
+  // Grimoire pages: page I returns with the cure, the rest with their sigils. Each gets its spread once, painted
+  // by the reveal's own drawing, and sits in story order before the inventory.
+  const earned=page=>page.source==='ember'?quest.stage==='cured':!!inventory?.has(`${page.source}-sigil`);
+  function updatePages(){
+    PAGES.forEach((page,i)=>{
+      if(!earned(page)||spreads.querySelector(`[data-spread="page-${i}"]`))return;
+      const spread=document.createElement('section');spread.className='spread grimoire-spread';spread.dataset.spread=`page-${i}`;
+      spread.setAttribute('aria-label',`Page ${page.numeral}: ${page.name??page.spell}`);spread.hidden=true;spread.inert=true;
+      spread.innerHTML='<canvas></canvas><canvas></canvas>';drawPageSpread(...spread.children,i);
+      const later=[...spreads.children].find(s=>s.dataset.spread.startsWith('page-')&&+s.dataset.spread.slice(5)>i);
+      spreads.insertBefore(spread,later??null); // the grimoire pages come last, after the inventory, in story order
+    });
+    drawCover(coverCanvas,['lantern','root','tide','prism'].filter(kind=>inventory?.has(`${kind}-sigil`)));
   }
   function updateQuests(){
     const tasks=grimoireQuests(quest,spade,clover,diamond,heart),items=inventory?.items??[];
-    const signature=JSON.stringify([tasks,items.map(i=>i.id)]);
+    const signature=JSON.stringify([tasks,items.map(i=>i.id),quest.stage,hasBlade()]);
     if(signature===questSignature)return;
     questSignature=signature;
-    updateSatchel(items);
+    updateSatchel();
+    updatePages();
     overlay.querySelector('.journal-summary').textContent=`${tasks.filter(t=>t.done).length} / ${tasks.length} OATHS SEALED`;
     for(const task of tasks){
       let card=questCards.get(task.id);
@@ -205,7 +246,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
         card=document.createElement('article');card.className='quest-card';card.dataset.quest=task.id;
         card.innerHTML='<span class="quest-chapter"></span><h4></h4><p class="quest-progress"></p><p class="quest-hint"></p><button type="button" class="quest-route"></button><span class="quest-state"></span><span class="completion-seal"><canvas width="72" height="72" aria-hidden="true"></canvas><span></span></span>';
         drawClover(card.querySelector('canvas').getContext('2d'),36,37,28,'#829052','#315d43');
-        questCards.set(task.id,card);questList.appendChild(card);
+        questCards.set(task.id,card);
       }
       card.dataset.status=task.done?'complete':task.locked?'locked':'active';
       card.querySelector('.quest-chapter').textContent=task.chapter;
@@ -219,51 +260,86 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
         :task.destination==='clover-archive'?'FIND IVEN · ROOTKEEPER ARCHIVE':task.destination==='clover-scar'?'MARK THE STORMLEAF SCAR':task.destination==='clover-sky-chest'?'MARK THE SKY GARDEN CHEST'
         :task.destination==='diamond-row'?'FIND FRAGMENTS · ARTIFICERS’ ROW':task.destination==='diamond-quarry'?'FIND ORIN · SHATTERGLASS RELAY':'MARK CASTLE ENTRANCE';
     }
+    flow('quests',[...questCards.values(),colophon]);
   }
-  function setPage(page){
-    if(!['atlas','quests','satchel'].includes(page))return;
-    overlay.dataset.page=page;
-    overlay.querySelectorAll('[data-book-panel]').forEach(panel=>{
-      const active=panel.dataset.bookPanel===page;
-      panel.inert=!active;panel.setAttribute('aria-hidden',String(!active));
-    });
-    overlay.querySelectorAll('.book-tabs [data-book-page]').forEach(button=>{
-      if(button.dataset.bookPage===page)button.setAttribute('aria-current','page');
-      else button.removeAttribute('aria-current');
-    });
-    if(page==='atlas'){resize();draw(performance.now()/1000);}
-    overlay.querySelector(`.book-tabs [data-book-page="${page}"]`).focus({preventScroll:true});
-  }
-  overlay.addEventListener('click',event=>{
-    const tab=event.target.closest('[data-book-page]');if(tab)setPage(tab.dataset.bookPage);
-  });
-  questList.addEventListener('click',event=>{
-    const route=event.target.closest('[data-journal-route]');if(!route)return;
-    const target=route.dataset.journalRoute==='quest'?overlay.querySelector('[data-quest-route]')
-      :overlay.querySelector(`[data-spade="${route.dataset.journalRoute}"]`);
-    target?.click();setPage('atlas');
-  });
-  let selected=null;
-  const locationDetail=overlay.querySelector('.map-location-detail');
-  const destinations = overlay.querySelector('.spade-destinations');
-  destinations.setAttribute('aria-label', 'Story destinations');
-  for (const location of [...CLOVER_MAP_LOCATIONS, ...diamondLocations]) {
-    const button = document.createElement('button'); button.type = 'button';
-    button.dataset.spade = location.id; button.setAttribute('aria-pressed', 'false'); button.textContent = location.name;
-    destinations.append(button);
-  }
-  locationDetail.textContent = 'Choose a story location to read its approach directions. Elevated root crossings are found by exploring, not ground A*.';
-  overlay.querySelector('.spade-destinations').addEventListener('click',event=>{
-    const target=event.target.closest('button');if(!target)return;
-    if(target.hasAttribute('data-quest-route')){
-      selected=null;navigation.clearDestination?.();locationDetail.textContent='Quest navigation restored.';
-    }else{
-      selected=STORY_LOCATIONS.find(p=>p.id===target.dataset.spade);if(!selected)return;
-      navigation.setDestination?.({...selected.destination,id:selected.id});
-      locationDetail.textContent=`${selected.name} · X ${Math.round(selected.x)} / Z ${selected.z}. ${selected.directions}`;
+  // Long lists flow like a book: entry after entry down the left page, then the right, then onto the next
+  // spread (`${id}-2`, ...) as many as it takes. Measured on the real page size, so they re-flow on resize.
+  function flow(id,entries){
+    spreads.querySelectorAll(`:scope > [data-spread^="${id}-"]`).forEach(s=>s.remove());
+    const first=spreadOf(id),cols=[...first.querySelectorAll('.page-col')],measuring=[first],head=cols[0].children.length-entries.filter(e=>e.parentNode===cols[0]).length;
+    cols[1].replaceChildren();entries.forEach(el=>el.remove());
+    first.classList.add('measuring');
+    let ci=0,last=first;
+    for(const el of entries){
+      cols[ci].append(el);
+      if(cols[ci].scrollHeight<=cols[ci].clientHeight+1||cols[ci].children.length<=(ci===0?head+1:1))continue;
+      if(++ci>=cols.length){
+        const more=document.createElement('section');more.className=`${first.className} measuring`;
+        more.dataset.spread=`${id}-${cols.length/2+1}`;more.setAttribute('aria-label','Continued');more.hidden=more.inert=true;
+        more.innerHTML='<div class="page-col"></div><div class="page-col"></div>';last.after(more);last=more;measuring.push(more);cols.push(...more.children);
+      }
+      cols[ci].append(el);
     }
-    overlay.querySelectorAll('[data-spade]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.spade===selected?.id)));
-    draw(performance.now()/1000);
+    measuring.forEach(s=>s.classList.remove('measuring'));
+    if(!spreadOf(current))current=id;
+    if(atlas.dataset.state==='open'&&!turning)show(current);
+  }
+
+  // ---- the book: closed / open, and turning leaves ----
+  const order=()=>[...spreads.querySelectorAll(':scope > .spread')].map(s=>s.dataset.spread);
+  const spreadOf=id=>spreads.querySelector(`:scope > [data-spread="${id}"]`);
+  function show(id){
+    current=id;
+    for(const s of spreads.querySelectorAll(':scope > .spread')){const on=s.dataset.spread===id;s.hidden=!on;s.inert=!on;}
+    const ids=order(),i=ids.indexOf(id);
+    // The turn buttons name where they lead: MAP, QUESTS, INVENTORY, SPELLS (the inventory's second spread), PAGE I…V.
+    const name=id=>!id?'':id==='atlas'?'MAP':id==='inventory-2'?'SPELLS':id.startsWith('page-')?`PAGE ${PAGES[+id.slice(5)].numeral}`:id.split('-')[0].toUpperCase();
+    const prev=overlay.querySelector('.book-prev'),next=overlay.querySelector('.book-next');
+    prev.disabled=i<=0;next.disabled=i>=ids.length-1;
+    prev.innerHTML=prev.disabled?'':`<span aria-hidden="true">←</span> ${name(ids[i-1])}`;next.innerHTML=next.disabled?'':`${name(ids[i+1])} <span aria-hidden="true">→</span>`;
+    prev.setAttribute('aria-label',prev.disabled?'No earlier page':`Turn back to ${name(ids[i-1]).toLowerCase()}`);next.setAttribute('aria-label',next.disabled?'No later page':`Turn to ${name(ids[i+1]).toLowerCase()}`);
+    overlay.querySelector('.book-folio').textContent=name(id);
+    if(id==='atlas'){resize();draw(performance.now()/1000);}
+  }
+  // A still copy of a spread, cut to one page (canvases copied pixel for pixel), for the turning leaf.
+  function still(id,half){
+    const src=spreadOf(id),copy=src.cloneNode(true);
+    copy.hidden=false;copy.inert=true;copy.setAttribute('aria-hidden','true');copy.classList.add('still',half);
+    copy.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
+    const from=src.querySelectorAll('canvas'),to=copy.querySelectorAll('canvas');
+    from.forEach((c,i)=>{to[i].width=c.width;to[i].height=c.height;if(c.width&&c.height)to[i].getContext('2d').drawImage(c,0,0);});
+    return copy;
+  }
+  // Turn to spread `to`: the leaf on the side we leave lifts at the spine and lands on the other side, carrying
+  // the old page on its front and the new page on its back. The opposite page of the old spread waits under it.
+  function turnTo(to){
+    const ids=order(),from=current,dir=Math.sign(ids.indexOf(to)-ids.indexOf(from));
+    if(!dir||turning)return;
+    if(reducedMotion.matches){show(to);return;}
+    const next=dir>0,stay=still(from,next?'left':'right'),leaf=document.createElement('div');
+    leaf.className='leaf';leaf.append(still(from,next?'right':'left'));
+    show(to);
+    const back=still(to,next?'left':'right');back.classList.add('back');leaf.append(back);
+    spreads.append(stay,leaf);
+    turning=leaf.animate([{transform:'rotateY(0)'},{transform:`rotateY(${next?-180:180}deg)`}],{duration:750,easing:'cubic-bezier(.45,.05,.3,1)'});
+    turning.finished.catch(()=>{}).then(()=>{stay.remove();leaf.remove();turning=null;});
+  }
+  function setBook(state){
+    atlas.dataset.state=state;
+    if(state==='open'){show(current);overlay.querySelector('.book-next').focus({preventScroll:true});}
+    else overlay.querySelector('.book-open').focus({preventScroll:true});
+  }
+  overlay.querySelector('.book-open').addEventListener('click',()=>setBook('open'));
+  overlay.querySelector('.book-prev').addEventListener('click',()=>{const ids=order();turnTo(ids[ids.indexOf(current)-1]);});
+  overlay.querySelector('.book-next').addEventListener('click',()=>{const ids=order();turnTo(ids[ids.indexOf(current)+1]);});
+
+  // A quest's route marks its destination and turns back to the atlas.
+  let selected=null;
+  spreads.addEventListener('click',event=>{
+    const route=event.target.closest('[data-journal-route]');if(!route)return;
+    if(route.dataset.journalRoute==='quest'){selected=null;navigation.clearDestination?.();}
+    else{selected=STORY_LOCATIONS.find(p=>p.id===route.dataset.journalRoute)??null;if(selected)navigation.setDestination?.({...selected.destination,id:selected.id});}
+    turnTo('atlas');
   });
 
   // Relief layer: generated once from the calm height field
@@ -274,34 +350,34 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
     await nextFrame();
     let deadline=performance.now()+3;
     const cell = (HALF * 2) / RES;
-    const heights = new Float32Array(RES * RES);
+    const heights = new Float32Array(RESX * RES), W = RESX;
     for (let j = 0; j < RES; j++) {
-      for (let i = 0; i < RES; i++) {
-      heights[j * RES + i] = world.heightAt(CENTER.x - HALF + (i + 0.5) * cell, CENTER.z - HALF + (j + 0.5) * cell, CALM);
+      for (let i = 0; i < W; i++) {
+      heights[j * W + i] = world.heightAt(CENTER.x - HALF * ASPECT + (i + 0.5) * cell, CENTER.z - HALF + (j + 0.5) * cell, CALM);
       }
       if(performance.now()>=deadline){await nextFrame();deadline=performance.now()+3;}
     }
-    const image = new ImageData(RES, RES);
+    const image = new ImageData(W, RES);
     const light = [-0.55, 0.7, -0.45]; // from the north-west, above (x, y, z)
     const ll = Math.hypot(...light);
     const tint = new THREE.Color(), paper = new THREE.Color(0x2b2416);
     for (let j = 0; j < RES; j++) {
-      for (let i = 0; i < RES; i++) {
-      const h = heights[j * RES + i];
-      const hx = heights[j * RES + Math.min(RES - 1, i + 1)] - heights[j * RES + Math.max(0, i - 1)];
-      const hz = heights[Math.min(RES - 1, j + 1) * RES + i] - heights[Math.max(0, j - 1) * RES + i];
+      for (let i = 0; i < W; i++) {
+      const h = heights[j * W + i];
+      const hx = heights[j * W + Math.min(W - 1, i + 1)] - heights[j * W + Math.max(0, i - 1)];
+      const hz = heights[Math.min(RES - 1, j + 1) * W + i] - heights[Math.max(0, j - 1) * W + i];
       // Normal of a height field: (-dh/dx, 1, -dh/dz), with differences over 2 cells.
       const nx = -hx / (2 * cell), nz = -hz / (2 * cell), nl = Math.hypot(nx, 1, nz);
       const lambert = Math.max(0, (nx * light[0] + light[1] + nz * light[2]) / (nl * ll));
-      const x = CENTER.x - HALF + (i + 0.5) * cell, z = CENTER.z - HALF + (j + 0.5) * cell;
+      const x = CENTER.x - HALF * ASPECT + (i + 0.5) * cell, z = CENTER.z - HALF + (j + 0.5) * cell;
       tint.set(world.biomeAt(x, z).ground).lerp(paper, 0.35);
       const shade = 0.45 + 0.75 * lambert + Math.max(0, h) * 0.012;
       // Contour every 2.5 m: darken where the band index changes toward the right or bottom neighbour.
       const band = Math.floor(h / 2.5);
-      const contour = (i < RES - 1 && Math.floor(heights[j * RES + i + 1] / 2.5) !== band) ||
-        (j < RES - 1 && Math.floor(heights[(j + 1) * RES + i] / 2.5) !== band);
+      const contour = (i < W - 1 && Math.floor(heights[j * W + i + 1] / 2.5) !== band) ||
+        (j < RES - 1 && Math.floor(heights[(j + 1) * W + i] / 2.5) !== band);
       const k = shade * (contour ? 0.72 : 1);
-      const o = (j * RES + i) * 4;
+      const o = (j * W + i) * 4;
       image.data[o] = Math.min(255, tint.r * 255 * k);
       image.data[o + 1] = Math.min(255, tint.g * 255 * k);
       image.data[o + 2] = Math.min(255, tint.b * 255 * k);
@@ -310,7 +386,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
       if(performance.now()>=deadline){await nextFrame();deadline=performance.now()+3;}
     }
     relief = document.createElement('canvas');
-    relief.width = relief.height = RES;
+    relief.width = W; relief.height = RES;
     relief.getContext('2d').putImageData(image, 0, 0);
     reliefBuilding=false;
     overlay.querySelector('.map-loading').hidden=true;
@@ -318,48 +394,52 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
   }
 
   // Drawing
-  const toMap = (x, z) => [((x - CENTER.x + HALF) / (2 * HALF)) * size, ((z - CENTER.z + HALF) / (2 * HALF)) * size];
+  const toMap = (x, z) => [((x - CENTER.x + HALF * ASPECT) / (2 * HALF * ASPECT)) * w, ((z - CENTER.z + HALF) / (2 * HALF)) * h];
 
   function resize() {
-    const frame=overlay.querySelector('.map-frame');
-    // Keep the atlas scale from dc3b219, independently of journal controls.
-    overlay.style.setProperty('--map-size', `${Math.max(1, Math.floor(Math.min(innerHeight - 210, innerWidth - 120, 860)))}px`);
-    const css=Math.max(1,Math.floor(Math.min(frame.clientWidth,frame.clientHeight)));
+    // The book is as tall as the window allows, two grimoire pages wide; the map canvas fills a whole spread.
+    const bookH=Math.max(1,Math.floor(Math.min(innerHeight-120,(innerWidth-60)/ASPECT,780)));
+    overlay.style.setProperty('--book-h',`${bookH}px`);overlay.style.setProperty('--book-w',`${Math.round(bookH*ASPECT)}px`);
+    const cssW=Math.round(bookH*ASPECT),cssH=bookH;
     const dpr = Math.min(devicePixelRatio, 2);
-    if(canvas.width===Math.round(css*dpr)&&canvas.style.width===`${css}px`)return;
-    canvas.style.width = canvas.style.height = `${css}px`;
-    canvas.width = canvas.height = Math.round(css * dpr);
-    size = canvas.width;
+    if(canvas.width===Math.round(cssW*dpr)&&canvas.height===Math.round(cssH*dpr))return;
+    canvas.width=w=Math.round(cssW*dpr);canvas.height=h=Math.round(cssH*dpr);
   }
 
-  function label(text, x, y, { font, color, align = 'center', stroke = 'rgba(8,6,3,.85)' }) {
+  function label(text, x, y, { font, color, align = 'center', stroke = 'rgba(8,6,3,.85)', fit }) {
     ctx.font = font;
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = size * 0.006;
+    ctx.lineWidth = h * 0.006;
     ctx.strokeStyle = stroke;
-    ctx.strokeText(text, x, y);
+    ctx.strokeText(text, x, y, fit);
     ctx.fillStyle = color;
-    ctx.fillText(text, x, y);
+    ctx.fillText(text, x, y, fit);
   }
 
   function draw(time) {
-    const u = size / 1000; // drawing unit
-    ctx.clearRect(0, 0, size, size);
+    const u = h / 1000; // drawing unit
+    ctx.clearRect(0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
-    if(relief)ctx.drawImage(relief, 0, 0, size, size);
-    else {ctx.fillStyle='#211d13';ctx.fillRect(0,0,size,size);}
+    if(relief)ctx.drawImage(relief, 0, 0, w, h);
+    else {ctx.fillStyle='#211d13';ctx.fillRect(0,0,w,h);}
 
-    // Vignette: the page darkens toward its edges.
-    const vignette = ctx.createRadialGradient(size / 2, size / 2, size * 0.3, size / 2, size / 2, size * 0.75);
+    // Vignette: the pages darken toward their edges.
+    const vignette = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.6);
     vignette.addColorStop(0, 'rgba(0,0,0,0)');
     vignette.addColorStop(1, 'rgba(8,5,2,.65)');
     ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, w, h);
+    // Outer margins: a darker band on each page edge where the story locations are written.
+    for (const [x0, x1] of [[0, MARGIN * w], [w, (1 - MARGIN) * w]]) {
+      const band = ctx.createLinearGradient(x0, 0, x1, 0);
+      band.addColorStop(0, 'rgba(10,8,4,.82)'); band.addColorStop(.75, 'rgba(10,8,4,.6)'); band.addColorStop(1, 'rgba(10,8,4,0)');
+      ctx.fillStyle = band; ctx.fillRect(Math.min(x0, x1), 0, Math.abs(x1 - x0), h);
+    }
 
     // Kingdom border (350 m ring) and the diagonal frontiers beyond it.
     const [cx, cy] = toMap(0, 0);
-    const ring = (world.kingdomStart / (2 * HALF)) * size;
+    const ring = (world.kingdomStart / (2 * HALF)) * h;
     ctx.save();
     ctx.strokeStyle = 'rgba(216,178,90,.85)';
     ctx.lineWidth = 2.2 * u;
@@ -372,7 +452,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
     for (const a of [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4]) {
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(a) * ring, cy + Math.sin(a) * ring);
-      ctx.lineTo(cx + Math.cos(a) * size, cy + Math.sin(a) * size);
+      ctx.lineTo(cx + Math.cos(a) * w, cy + Math.sin(a) * w);
       ctx.stroke();
     }
     ctx.restore();
@@ -381,7 +461,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
     for (const k of KINGDOMS) {
       const r = ring + 95 * u;
       const x = cx + Math.cos(k.angle) * r, y = cy + Math.sin(k.angle) * r;
-      if (x < 40 * u || x > size - 40 * u || y < 30 * u || y > size - 30 * u) continue;
+      if (x < 40 * u || x > w - 40 * u || y < 30 * u || y > h - 30 * u) continue;
       label(k.suit, x, y - 24 * u, { font: `${46 * u}px Georgia, serif`, color: k.color });
       label(k.name, x, y + 14 * u, { font: `bold ${21 * u}px Georgia, serif`, color: k.color });
     }
@@ -443,14 +523,12 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
       ctx.arc(x, y, 3 * u, 0, Math.PI * 2);
       ctx.fillStyle = l.color||GOLD;
       ctx.fill();
-      const lx = l.callout?size*.04:x+l.side*16*u,ly=l.callout?size*l.labelY:y,align=l.callout?'left':l.side>0?'left':'right';
-      if(l.callout){
-        ctx.strokeStyle=l.color;ctx.lineWidth=u;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,ly+24*u);ctx.lineTo(lx,ly+24*u);ctx.stroke();
-        if(selected?.id===l.id){ctx.beginPath();ctx.arc(x,y,14*u,0,Math.PI*2);ctx.stroke();}
-      }
-      label(l.name, lx, ly - (l.note ? 6 * u : 0), { font: `bold ${17 * u}px Georgia, serif`, color: l.color||'#f3e3b5', align });
-      if (l.note) label(l.note, lx, ly + 13 * u, { font: `italic ${13 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align });
+      if (l.callout) continue; // written in the page margins (drawMargins)
+      const lx = x + l.side * 16 * u, align = l.side > 0 ? 'left' : 'right';
+      label(l.name, lx, y - (l.note ? 6 * u : 0), { font: `bold ${17 * u}px Georgia, serif`, color: l.color||'#f3e3b5', align });
+      if (l.note) label(l.note, lx, y + 13 * u, { font: `italic ${13 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align });
     }
+    drawMargins(u);
 
     // Embers, the hound / dog.
     const cursed = quest.stage === 'cursed' || quest.stage === 'return';
@@ -510,15 +588,43 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
     ctx.restore();
 
     // Compass and scale bar.
-    const ox = size - 60 * u, oy = 64 * u;
+    const ox = w * (1 - MARGIN) - 50 * u, oy = 64 * u;
     drawClover(ctx, ox, oy, 26 * u, 'rgba(11,10,7,.85)', GOLD);
     label('N', ox, oy - 44 * u, { font: `bold ${20 * u}px Georgia, serif`, color: GOLD });
-    const bar = (100 / (2 * HALF)) * size;
+    const bar = (100 / (2 * HALF)) * h, bx = w * MARGIN + 20 * u;
     ctx.fillStyle = '#f3e3b5';
-    ctx.fillRect(40 * u, size - 46 * u, bar, 4 * u);
-    ctx.fillRect(40 * u, size - 52 * u, 2 * u, 16 * u);
-    ctx.fillRect(40 * u + bar - 2 * u, size - 52 * u, 2 * u, 16 * u);
-    label('100 m', 40 * u + bar / 2, size - 26 * u, { font: `${14 * u}px 'DM Mono', monospace`, color: '#f3e3b5' });
+    ctx.fillRect(bx, h - 46 * u, bar, 4 * u);
+    ctx.fillRect(bx, h - 52 * u, 2 * u, 16 * u);
+    ctx.fillRect(bx + bar - 2 * u, h - 52 * u, 2 * u, 16 * u);
+    label('100 m', bx + bar / 2, h - 26 * u, { font: `${14 * u}px 'DM Mono', monospace`, color: '#f3e3b5' });
+    // The spine: a soft crease down the middle where the two pages meet.
+    const spine = ctx.createLinearGradient(w * .485, 0, w * .515, 0);
+    spine.addColorStop(0, 'rgba(0,0,0,0)'); spine.addColorStop(.5, 'rgba(0,0,0,.38)'); spine.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = spine; ctx.fillRect(w * .485, 0, w * .03, h);
+  }
+
+  // Story locations are written in the outer margin of the page they sit on (west of the spine: left
+  // page, east: right), in map order top to bottom, each with a thin leader to its pin. Rows push apart
+  // to keep one gap between labels.
+  function drawMargins(u) {
+    const gap = 40 * u, top = 34 * u, bottom = h - 80 * u;
+    for (const left of [true, false]) {
+      const rows = LANDMARKS.filter(l => l.callout).map(l => { const [x, y] = toMap(l.x, l.z); return { l, x, y }; })
+        .filter(r => (r.x < w / 2) === left).sort((a, b) => a.y - b.y);
+      let next = top;
+      for (const r of rows) { r.ly = Math.max(r.y, next); next = r.ly + gap; }
+      let limit = bottom; // ponytail: more than (bottom - top) / gap labels on one page would overlap at the top
+      for (const r of rows.slice().reverse()) { r.ly = Math.min(r.ly, limit); limit = r.ly - gap; }
+      const edge = left ? w * MARGIN : w * (1 - MARGIN), tx = left ? edge - 10 * u : edge + 10 * u, align = left ? 'right' : 'left', fit = w * MARGIN - 26 * u;
+      for (const { l, x, y, ly } of rows) {
+        const on = selected?.id === l.id;
+        ctx.strokeStyle = l.color; ctx.globalAlpha = on ? 1 : .55; ctx.lineWidth = (on ? 2 : 1) * u;
+        ctx.beginPath(); ctx.moveTo(tx + (left ? 4 : -4) * u, ly); ctx.lineTo(x, y); ctx.stroke(); ctx.globalAlpha = 1;
+        if (on) { ctx.beginPath(); ctx.arc(x, y, 14 * u, 0, Math.PI * 2); ctx.stroke(); }
+        label(l.name, tx, ly - 7 * u, { font: `bold ${15 * u}px Georgia, serif`, color: l.color, align, fit });
+        if (l.note) label(l.note, tx, ly + 9 * u, { font: `italic ${11 * u}px Georgia, serif`, color: 'rgba(243,227,181,.75)', align, fit });
+      }
+    }
   }
 
   // viaGesture: closed by M, ✕ or a click, which may recapture the mouse. Escape can't: browsers
@@ -548,7 +654,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
     overlay.inert=false;overlay.setAttribute('aria-hidden','false');
     document.body.classList.add('grimoire-open');
     overlay.classList.remove('closing');overlay.classList.add('open');
-    setPage('atlas');
+    current='atlas';atlas.dataset.state='closed';
     if (state.locked) { // opened while playing: free the mouse for the map, stay in play mode
       state.awaitResume = true;
       document.exitPointerLock();
@@ -557,10 +663,10 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
       reliefBuilding=false;overlay.querySelector('.map-loading').textContent='Terrain shading unavailable. Landmarks and quest hints remain available.';
       console.error('Could not shade the atlas.',error);
     });
-    updateQuests();
     resize();
+    updateQuests();
     draw(performance.now() / 1000);
-    overlay.querySelector('.map-close').focus({ preventScroll: true });
+    show('atlas');overlay.querySelector('.book-open').focus({ preventScroll: true });
   }
 
   button.addEventListener('click', () => setOpen(!open));
@@ -570,15 +676,16 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
     if(event.ctrlKey||event.metaKey||event.altKey||/INPUT|TEXTAREA|SELECT/.test(event.target.tagName)||event.target.isContentEditable)return;
     if (event.code === 'KeyM' && !event.repeat) {event.preventDefault();setOpen(!open);}
     else if (event.code === 'Escape' && open) {event.preventDefault();setOpen(false, false);}
+    else if(open&&atlas.dataset.state==='open'&&(event.code==='ArrowRight'||event.code==='ArrowLeft')){event.preventDefault();overlay.querySelector(event.code==='ArrowRight'?'.book-next':'.book-prev').click();}
+    else if(open&&atlas.dataset.state==='closed'&&(event.code==='Enter'||event.code==='Space')&&document.activeElement!==overlay.querySelector('.map-close')){event.preventDefault();setBook('open');}
     else if(event.code==='Tab'&&open){
-      const focusable=[...overlay.querySelectorAll('button:not(:disabled), summary')].filter(b=>!b.closest('[inert]')&&b.getClientRects().length);
+      const focusable=[...overlay.querySelectorAll('button:not(:disabled)')].filter(b=>!b.closest('[inert]')&&b.getClientRects().length);
       const first=focusable[0],last=focusable.at(-1);
       if(event.shiftKey&&(document.activeElement===first||!overlay.contains(document.activeElement))){event.preventDefault();last?.focus();}
       else if(!event.shiftKey&&(document.activeElement===last||!overlay.contains(document.activeElement))){event.preventDefault();first?.focus();}
     }
   });
-  addEventListener('resize', () => { if (open) resize(); });
-  new ResizeObserver(()=>{if(open){resize();draw(performance.now()/1000);}}).observe(overlay.querySelector('.map-frame'));
+  addEventListener('resize', () => { if (open) { resize(); draw(performance.now() / 1000); questSignature = ''; updateQuests(); } });
 
   return {
     get open() { return open; },
@@ -589,7 +696,7 @@ export function createWorldMap({ world, player, state, quest, spade, clover, hea
       if (now - lastDraw < 66) return; // ~15 fps is plenty for a map
       lastDraw = now;
       updateQuests();
-      if(overlay.dataset.page==='atlas')draw(now / 1000);
+      if(current==='atlas'&&!turning)draw(now / 1000);
     }
   };
 }

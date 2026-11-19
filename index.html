@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="styles/loading.css" />
     <link rel="stylesheet" href="styles/grimoire.css" />
     <link rel="stylesheet" href="styles/grimoireReveal.css" />
+    <link rel="stylesheet" href="styles/arena.css" />
   </head>
   <body>
     <main id="app">
@@ -67,6 +68,12 @@
         </footer>
       </section>
     </main>
+    <!-- Boss arenas (src/controllers/bossFights.js): the same HUD as the movement lab, styled by styles/arena.css. -->
+    <div id="chaosVeil"></div><div id="arenaFlash"></div>
+    <section id="arenaHud" hidden aria-label="Boss fight"><div id="bossBar"><span>SILE THE HARVESTER</span><div class="bar"><i id="bossHp"></i></div></div>
+      <div id="youBar"><div class="bar"><i id="youHp"></i></div><div id="chargePips" aria-label="Chaos charge"><b></b><b></b><b></b></div><span id="chaosState">CALM</span></div>
+      <p id="fightHint"></p></section>
+    <div id="subtitle" hidden><b></b><span></span></div>
     <script src="src/views/loadingScreen.js"></script>
     <noscript>Enable JavaScript to play Dreamscape.</noscript>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

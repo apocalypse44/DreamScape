@@ -29,6 +29,7 @@ export function createGrimoirePages({ scene, camera, state, keys, player, canvas
 
   return {
     get active() { return playing; },
+    get pending() { return queue.length > 0; }, // pages still to play (a boss fight waits for them)
     /** i: PAGES index. Ignored if that page already played this run. */
     queue(i) { if (!played.has(i) && !queue.includes(i)) queue.push(i); },
     /** ready: nothing else owns the camera and the player is free. */

@@ -294,7 +294,7 @@ function drawRight(g, page, k, glow = 0) {
   if (spell) { g.font = '600 15px Georgia'; g.fillText(`CAST · ${spell.input}`, PW / 2, PH - 72); }
   g.globalAlpha = 1;
 }
-function coverTexture() {
+function coverCanvas() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 712; const g = c.getContext('2d');
   const grad = g.createLinearGradient(0, 0, 512, 712); grad.addColorStop(0, '#5a2232'); grad.addColorStop(1, '#2e0f18'); g.fillStyle = grad; g.fillRect(0, 0, 512, 712);
   let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -303,7 +303,34 @@ function coverTexture() {
   g.fillStyle = '#c9a24a'; for (const [x, y] of [[36, 36], [476, 36], [36, 676], [476, 676]]) { g.save(); g.translate(x, y); g.rotate(Math.PI / 4); g.fillRect(-9, -9, 18, 18); g.restore(); }
   g.textAlign = 'center'; g.font = '600 30px Georgia'; g.fillText('THE FOURFOLD', 256, 600); g.fillText('ACCORD', 256, 638);
   g.font = '22px Georgia'; g.fillText('ᛉ   ᛟ   ᚷ   ᛜ', 256, 100);
-  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+  return c;
+}
+function coverTexture() { const t = new THREE.CanvasTexture(coverCanvas()); t.encoding = THREE.sRGBEncoding; return t; }
+
+// ---- the same book in 2D, for the Grimoire Atlas (views/worldMap.js) ----
+export const PAGE_SIZE = { w: PW, h: PH };
+/** The closed book's front: the tooled cover, its gold ring and the four sigil sockets; lit: sigil kinds set in place. */
+export function drawCover(c, lit = []) {
+  c.width = 512; c.height = 712; const g = c.getContext('2d'), px = 512 / (W + .03), hex = n => `#${n.toString(16).padStart(6, '0')}`;
+  g.drawImage(coverCanvas(), 0, 0);
+  const at = ([x, y]) => [256 + x * px, 356 - y * px];
+  g.strokeStyle = '#c9a24a'; g.lineWidth = 12; g.beginPath(); g.arc(256, 356, .17 * px, 0, Math.PI * 2); g.stroke();
+  for (const kind of Object.keys(SOCKET)) {
+    const [x, y] = at(SOCKET[kind]), on = lit.includes(kind);
+    g.lineWidth = 9; g.beginPath(); g.arc(x, y, .062 * px, 0, Math.PI * 2); g.fillStyle = '#1c0a10'; g.fill(); g.stroke();
+    const shapes = sigilShapes(kind).map(sh => sh.getPoints(40)), ys = shapes.flat().map(p => p.y), xs = shapes.flat().map(p => p.x);
+    const k = .085 * px / (Math.max(...ys) - Math.min(...ys)), mx = (Math.max(...xs) + Math.min(...xs)) / 2, my = (Math.max(...ys) + Math.min(...ys)) / 2;
+    g.save(); g.fillStyle = on ? hex(SIGILS[kind].glow) : '#2a1a12'; g.strokeStyle = on ? '#fff8e0' : '#7a5a2a'; g.lineWidth = 2;
+    if (on) { g.shadowColor = hex(SIGILS[kind].glow); g.shadowBlur = 28; }
+    for (const pts of shapes) { g.beginPath(); pts.forEach((p, i) => g[i ? 'lineTo' : 'moveTo'](x + (p.x - mx) * k, y - (p.y - my) * k)); g.closePath(); g.fill(); g.stroke(); }
+    g.restore();
+  }
+}
+/** Page i of PAGES fully written, as in the reveal: the giver on the left canvas, the spell on the right. */
+export function drawPageSpread(left, right, i) {
+  for (const [c, draw] of [[left, g => drawLeft(g, PAGES[i], 1)], [right, g => drawRight(g, PAGES[i], 1, 0)]]) {
+    c.width = PW; c.height = PH; const g = c.getContext('2d'); g.drawImage(paper(), 0, 0); draw(g);
+  }
 }
 let dot = null;
 function glowDot() {

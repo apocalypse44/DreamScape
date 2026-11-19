@@ -68,6 +68,7 @@ import { buildHeartTown } from '../rendering/heartTown.js';
 import { createHeartPetals } from '../rendering/heartPetals.js';
 import { applyTestStart, getTestStart } from '../models/testStarts.js';
 import { createGrimoirePages, PAGE_FOR_SIGIL } from './grimoirePages.js';
+import { createBossFights } from './bossFights.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
@@ -114,7 +115,10 @@ export function startGame(ui, { testStartId = null } = {}) {
   const gates = createKingdomGates({ scene, world, onReady: root => atmosphere?.prepare?.(root) });
   let doorScene = null, cloverScenes = null; // created below, with the camera controls
   let pages = null; // the grimoire page reveals, made once the scene and camera exist
-  const inventory = createInventory({ onAdd: (id, item) => { toast(`SATCHEL · ${item.name.toUpperCase()} ADDED`, 3500); if (id in PAGE_FOR_SIGIL) pages?.queue(PAGE_FOR_SIGIL[id]); } });
+  let bosses = null; // Morcant and Sile (bossFights.js), made once the traveller exists
+  // Each sigil returns a page; Heart's Tide Sigil (page IV) and Diamond's Prism Sigil (page V) then open a boss fight.
+  const inventory = createInventory({ onAdd: (id, item) => { toast(`INVENTORY · ${item.name.toUpperCase()} ADDED`, 3500); if (id in PAGE_FOR_SIGIL) pages?.queue(PAGE_FOR_SIGIL[id]);
+    if (id === 'tide-sigil') bosses?.queue('morcant'); if (id === 'prism-sigil') bosses?.queue('sile'); } });
   // Nim, Sera's scout, waits beside the Clover gate on the way out (shown once the Tide Hook is carried).
   const cloverGate = gates.gates.find(g => /clover/i.test(g.name));
   const scout = cloverGate ? { x: cloverGate.x + 7, z: cloverGate.z + 6 } : null;
@@ -187,7 +191,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   const navigation = createNavigation({ scene, camera, player, quest, companion, terrainHeight,
     obstacles: groundObstacles, version: () => world.terrainVersion, shrine: SHRINE });
   const worldMap = createWorldMap({ world, player, state, quest, spade, clover: livingRoad.model, heart: heart.model, diamond: diamond.model, inventory, companion, navigation, gates: gates.gates, canvas: renderer.domElement,
-    diamondLocations: diamondMapLocations(world.diamond) });
+    diamondLocations: diamondMapLocations(world.diamond), hasBlade: () => !!bosses?.won.has('morcant') }); // the sigil-blade, forged when Morcant falls
   const help = createHelpPanel({ quest, spade, clover: livingRoad.model, heart: heart.model, diamond: diamond.model, state });
   const houndScene = createHoundCutscene({ camera, state, player, companion, keys, pointerButtons, terrainHeight, onReset: reset, canvas: renderer.domElement,
     getKeeper: () => encounters?.keeper,
@@ -228,14 +232,17 @@ export function startGame(ui, { testStartId = null } = {}) {
   npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight: world.surfaceHeight, staticColliders: shrine.colliders,
     platforms,
-    locomotion: { drive: () => heart.grapple.drive }, // after a Tide Hook swing, the controller keeps its momentum
+    // After a Tide Hook swing, the controller keeps its momentum; in a boss arena the lab's pace and combat drive apply.
+    locomotion: { drive: () => bosses?.drive ?? heart.grapple.drive,
+      get walkSpeed() { return bosses?.pace?.walkSpeed; }, get sprintSpeed() { return bosses?.pace?.sprintSpeed; },
+      get crouchSpeed() { return bosses?.pace?.crouchSpeed; }, get smooth() { return bosses?.pace?.smooth; }, get variableJump() { return bosses?.pace?.variableJump; } },
     isMovementBlocked: () => skyIsland.journey.blocked || houndScene.active || doorScene.active || cloverScenes.active,
     colliderFilter: collider => !skyIsland.journey.visiting || collider.minY !== undefined,
     // Long falls are fine in the castle and over Heart's crater (coming down off the islands is allowed).
     allowFallRecovery: player => !spade.isInsideCastle(player.position) && !world.heart.ownsArea(player.position, 8),
-    courseRecovery: player => skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
+    courseRecovery: player => bosses?.recovery(player) ?? (skyIsland.journey.visiting ? skyIsland.journey.recovery(player)
       : livingRoad.model.ownsArea(player.position) ? livingRoad.recovery(player)
-      : waterfall.courseRecovery(player) || clover.courseRecovery(player) });
+      : waterfall.courseRecovery(player) || clover.courseRecovery(player)) });
 
   // Stick and look in world space for the Tide Hook (as in the movement lab).
   function hookInput() {
@@ -252,6 +259,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     doorScene.reset();
     cloverScenes.reset();
     pages.reset();
+    bosses?.reset();
     inventory.reset();
     music.reset();
     Object.assign(state, START);
@@ -314,11 +322,16 @@ export function startGame(ui, { testStartId = null } = {}) {
   atmosphere.prepare?.(diamondSiege.root);
   atmosphere.prepare?.(livingRoad.root); // Clover chapter
   const grass = createGrass({ hash, chunks });
-  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles, tidewell.obstacles] });
-  const character = createTravelerCharacter({ scene, state, player, surfaceAt, terrainAt: world.surfaceHeight }); // the sigil-blade wanderer (src/assets/traveler.glb)
+  const arenaObstacles = new THREE.Group(); scene.add(arenaObstacles); // the boss arenas' walls and spires, for the camera
+  const viewCamera = createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles: [arenaObstacles, waterfall.obstacles, wayfinding.root, ridge.root, plaza.root, clover.root, livingRoad.obstacles, skyIsland.root, spade.obstacles, diamondRow.obstacles, tidewell.obstacles] });
+  const character = createTravelerCharacter({ scene, state, player, surfaceAt, terrainAt: world.surfaceHeight, // the sigil-blade wanderer (src/assets/traveler.glb)
+    walkSpeed: () => bosses?.pace?.walkSpeed ?? 9 });
+  bosses = createBossFights({ scene, camera, state, keys, pointerButtons, player, movement, character, viewCamera,
+    kamui: { pulse: (...args) => kamui.pulse(...args) }, // the warp in and out (kamui is made further down)
+    platforms, colliders: shrine.colliders, obstacles: arenaObstacles, surfaceAt, toast });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
-    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !skyIsland.journey.atDoor(player.position) &&
+    isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !bosses.busy && !skyIsland.journey.atDoor(player.position) &&
       !world.heart.ownsArea(player.position) && !livingRoad.model.ownsArea(player.position) && !livingRoad.atInteraction(player.position),
     // NPCs keep out of landmarks and anything the player collides with (shrine tower, trees, rocks).
     blocked: (x, z) => world.isLandmarkArea(x, z) ||
@@ -380,6 +393,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   }
   window.dreamscape.scenes = cloverScenes; window.dreamscape.severing = severing; window.dreamscape.mark = mark; // e.g. dreamscape.scenes.queue('severing')
   window.dreamscape.pages = pages; // e.g. dreamscape.pages.queue(2) plays the Stone Wall page
+  window.dreamscape.bosses = bosses; // e.g. dreamscape.bosses.queue('morcant')
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
   const demoSpawns = createDemoSpawns({
@@ -461,7 +475,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     const playDt = houndScene.active ? 0 : dt;
     if (startup.ready) state.elapsed += playDt;
     // Terrain and props stream around the player, or around a cutscene's destination while it is away.
-    const streamFocus = cloverScenes.focus ?? player.position;
+    const streamFocus = bosses.focus ?? cloverScenes.focus ?? player.position;
     updateChunks(streamFocus);
     world.updateTerrain(playDt);
     const inHeart = biomeAt(player.position.x, player.position.z).kind === 'crystals';
@@ -472,14 +486,15 @@ export function startGame(ui, { testStartId = null } = {}) {
     const moveBlocked = skyIsland.journey.blocked || houndScene.active;
     const moveDt = startup.ready ? dt : 0;
     // Heart's Tide Hook (hold Q at a floating crystal): while the rope holds the body, it replaces the controller.
-    const hook = !moveBlocked && moveDt && (inHeart || heart.grapple.phase !== 'idle')
+    const hook = bosses.busy ? { owns: true } : !moveBlocked && moveDt && (inHeart || heart.grapple.phase !== 'idle')
       ? heart.step(moveDt, hookInput(), player, surfaceAt) : { owns: false };
     if (!moveBlocked && !hook.owns) movement.update(moveDt);
+    if (bosses.busy) bosses.update(moveDt); // a boss arena runs the traveller's movement and combat itself
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
     if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
       !skyIsland.journey.blocked && player.grounded);
-    companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation);
+    if (!bosses.busy) companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation); // the dog never follows into an arena
     if (!houndScene.active) quest.updateHoundEmber(companion.position);
     kingdomBorder.update(playDt);
     gates.update(playDt);
@@ -517,19 +532,22 @@ export function startGame(ui, { testStartId = null } = {}) {
     // A page reveal waits for every story scene (and any queued after it) and any chest reveal to finish.
     pages.observe(!spade.reachAt && !livingRoad.reachAt && !houndScene.active && !doorScene.active && !cloverScenes.active && !cloverScenes.pending && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
     pages.update(dt);
+    // A boss fight opens once its page has been read and nothing else owns the camera.
+    bosses.observe(!pages.active && !pages.pending && !houndScene.active && !doorScene.active && !cloverScenes.active && !cloverScenes.pending && state.locked && !state.mapOpen && !skyIsland.journey.blocked && player.grounded);
     let cameraDistance;
     if (pages.active) cameraDistance = camera.position.distanceTo(player.position); // as in the movement lab: the traveller stays drawn until the book's camera passes through him
     else if (houndScene.active) cameraDistance = houndScene.update(dt);
     else if (doorScene.active) cameraDistance = doorScene.update(dt);
     else if (cloverScenes.active) cameraDistance = cloverScenes.update(dt);
     else if (skyIsland.journey.blocked) cameraDistance = skyIsland.updateTravelCamera(camera, player);
+    else if (bosses.focus) cameraDistance = bosses.camera(dt); // in a boss arena
     else { skyIsland.restoreTravelCamera(camera); cameraDistance = viewCamera.update(dt); }
     // A chest reveal (Spade's archive, Clover's sky chest): both hands reach for the rising item.
     const reach = spade.reachAt ?? livingRoad.reachAt;
     if (reach) state.swarmGesture = 'grab';
     const rope = heart.grapple;
-    character.update(dt, cameraDistance, houndScene.active ? null : reach ?? swarmCast, null,
-      { anchor: rope.anchor, reach: rope.reach, phase: rope.phase, flip: rope.flip });
+    character.update(dt, cameraDistance, houndScene.active ? null : bosses.castAt ?? reach ?? swarmCast, bosses.shown,
+      bosses.rope ?? { anchor: rope.anchor, reach: rope.reach, phase: rope.phase, flip: rope.flip });
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     if (startup.ready) help.update(dt);
@@ -546,7 +564,7 @@ export function startGame(ui, { testStartId = null } = {}) {
       : castleNext ? `SPADE CASTLE · ${spade.castle.discovery.objective.toUpperCase()}` : spade.campaign.goal);
     encounters.update(dt, state.elapsed);
     ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
-    if (!houndScene.active) updateSwarm(dt);
+    if (!houndScene.active && !bosses.busy) updateSwarm(dt);
     updateMotes(dt);
     animateEnvironment();
     const currentBiome = biomeAt(player.position.x, player.position.z);
@@ -577,6 +595,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     const chaosScore = chaosLook.update(houndScene.active ? 0 : dt, state);
     indoors += ((!doorScene.active && (spade.isInsideCastle(player.position) || diamondRow.isInsideHall(player.position)) ? 1 : 0) - indoors) * (1 - Math.exp(-3 * dt));
     atmosphere.finish(dt, chaosScore, camera, { rift: riftPreview ?? riftOpenness(quest, spade), indoors, heartRestored: heart.model.sigil });
+    bosses.render(dt, performance.now()); // after the atmosphere: an arena paints its own void, fog and light
     darkenCastle();
     updateShortcuts();
     music.update(dt);
@@ -615,6 +634,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   else if (sceneParam === 'hound-cure') quest.debugStage('cured');  // the cure, then the memory, the keeper's lead and page I
   else if (sceneParam === 'door') doorScene.queue(0);               // Spade's castle doors
   else if (/^page-[0-4]$/.test(sceneParam ?? '')) pages.queue(Number(sceneParam.slice(5)));
+  else if (sceneParam === 'morcant' || sceneParam === 'sile') bosses.queue(sceneParam); // a boss fight, straight away
   else if (sceneParam) {
     cloverScenes.queue(sceneParam);
     const page = { mark: 0, sigil: 2, 'diamond-lead': 4 }[sceneParam]; // the page each of these scenes leads into in the campaign

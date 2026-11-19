@@ -13,14 +13,15 @@ export const CITADEL = { x: 0, z: -110, radius: 21, floor: 0 };
 // Material colours are converted to linear like the rest of the lab (it renders with sRGB output).
 const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
 const ICE = lin(0xdff4ff), VIOLET = lin(0x6a12ff), CRIMSON = 0xff3355, CRIMSON_L = lin(CRIMSON), WHITE_L = lin(0xe8f6ff), FED_L = lin(0xff1030);
-const SKY = new THREE.Color(0x4a3a63), SKY_CHAOS = new THREE.Color(0x6a1828), LAB_SKY = new THREE.Color(0xdce7de);
+const SKY = new THREE.Color(0x4a3a63), SKY_CHAOS = new THREE.Color(0x6a1828);
 
 export const inCitadel = (x, z) => Math.hypot(x - CITADEL.x, z - CITADEL.z) < CITADEL.radius;
 // The lab's ground beyond its own clearing: the mesa top, else a drop into cloud.
 export const citadelGround = (x, z) => z < -52 ? (inCitadel(x, z) ? CITADEL.floor : -30) : null;
 
-export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }) {
-  const T = THREE, C = CITADEL, group = new T.Group(); group.visible = false; scene.add(group);
+// center: where the mesa stands ({ x, z, radius, floor }); the game hangs it high above the world (bossFights.js).
+export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, center = CITADEL }) {
+  const T = THREE, C = center, group = new T.Group(); group.visible = false; scene.add(group);
   const at = (a, r) => ({ x: C.x + Math.sin(a) * r, z: C.z + Math.cos(a) * r }); // angle 0 faces the entry (+z)
   const entry = { x: C.x, z: C.z + 14, top: C.floor };
   const inversionAt = [at(.95, 9.5), at(-.95, 9.5), at(Math.PI, 9.5)];
@@ -29,6 +30,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
   let built = false, sile = null, scythe = null, prismMat = null, prismLight = null, crown = null;
   const spireAnchors = [], spireTips = [], inversion = [], darts = [], shardViews = [];
   const waveRings = [], lanceViews = []; let wardMesh = null, wallMesh = null, galeMesh = null, waveCharge = null, fleeCam = null, fleeCut = false, flash = null;
+  let saved = null; // the sky and fog it found, put back on exit
   let sweepMesh, slash, aura, shieldMesh, tetherBeam, rift, bursts, voice = null, lastPose = '', shake = 0, camPos = new T.Vector3(), camLook = new T.Vector3(), haveShot = false;
 
   function build() {
@@ -212,9 +214,14 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
     get runes() { const s = fight.snapshot(); return { cooldown: s.cooldown, max: s.cooldownMax, chaos: s.chaos }; },
     enter() {
       build(); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(); lastPose = ''; haveShot = false;
+      saved = { fog: scene.fog.color.clone(), background: scene.background?.isColor ? scene.background.clone() : null };
       hud.show(true);
     },
-    exit() { fight.stop(); group.visible = false; for (const [light, base] of daylight) light.intensity = base; hud.show(false); window.speechSynthesis?.cancel(); scene.background.copy(LAB_SKY); scene.fog.color.copy(LAB_SKY); },
+    exit() {
+      fight.stop(); group.visible = false; for (const [light, base] of daylight) light.intensity = base; hud.show(false); window.speechSynthesis?.cancel();
+      if (!saved) return;
+      scene.fog.color.copy(saved.fog); if (saved.background && scene.background?.isColor) scene.background.copy(saved.background); saved = null;
+    },
     skip() { fight.skip(); window.speechSynthesis?.cancel(); },
     /** io: { player, feet, grounded, chaosPress, attackPress, invulnerable, swordHit, hurt, push, onDown, onImpact } */
     step(dt, io) { if (!fight.active) return; fight.update(dt, io); handle(fight.takeEvents(), io); },
@@ -223,7 +230,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud }
       if (!built || !group.visible) return;
       const s = fight.snapshot();
       // Sky and prism.
-      scene.background.lerp(s.chaos ? SKY_CHAOS : SKY, Math.min(1, dt * 3)); scene.fog.color.copy(scene.background);
+      scene.fog.color.lerp(s.chaos ? SKY_CHAOS : SKY, Math.min(1, dt * 3)); if (scene.background?.isColor) scene.background.copy(scene.fog.color);
       const tint = ICE.clone().lerp(VIOLET, s.purple); prismMat.color.copy(tint); prismMat.emissive.copy(tint); prismLight.color.copy(tint); crown.material.color.copy(tint);
       prismMat.emissiveIntensity = .55 + s.purple * .7 + (s.chaos ? .3 * Math.sin(now * .01) : 0); prismLight.intensity = .7 + s.purple * .6;
       for (const [light, base] of daylight) light.intensity = base * .5;

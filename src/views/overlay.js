@@ -2,7 +2,7 @@
 // The elements live in game.html (#overlay); styles in styles/main.css.
 
 // Story text (anything with a sentence in it, e.g. 'NERIS · They scatter…') goes to the dialogue box;
-// short all-caps notices ('SATCHEL · TIDE HOOK ADDED') stay toasts.
+// short all-caps notices ('INVENTORY · TIDE HOOK ADDED') stay toasts.
 export function toast(text, ms = 2000) {
   if (/[a-z]/.test(text)) {
     const at = text.search(/ · [^·]*[a-z]/); // speaker: the all-caps part before the first sentence

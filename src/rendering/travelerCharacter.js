@@ -7,7 +7,8 @@ import { createTravelerFace } from './travelerFace.js';
 // Combat clips are sampled at the clip time chosen by travelerCombat, so what is
 // drawn matches the simulated hit frames. No reference game's assets or code are used.
 const ONE_SHOTS = ['jumpStart', 'land', 'interact', 'castShoot'];
-// walkSpeed: this place's normal walking speed (kingdoms 9 m/s, movement lab 4.2), to tell a sprint apart.
+// walkSpeed: this place's normal walking speed (kingdoms 9 m/s, movement lab and boss arenas 4.2), to tell a sprint apart;
+// a number, or a function when it changes (the game's arenas).
 // terrainAt(x, z): the natural ground only (no platforms). Slides happen on natural slopes, never on stairs or ramps.
 export function createTravelerCharacter({ scene, state, player, surfaceAt, terrainAt = null, status = document.querySelector('#characterStatus'), walkSpeed = 9, reactiveFace = false }) {
   const root = new THREE.Group(); root.name = 'DreamScape traveller'; scene.add(root);
@@ -267,7 +268,7 @@ export function createTravelerCharacter({ scene, state, player, surfaceAt, terra
       if ((faceOverrideTime -= dt) <= 0) faceOverride = null;
       const speaking = Boolean(state.cinematic && /^(YOU|TRAVELL?ER)$/i.test(state.cinematicSpeaker || ''));
       expression = pickExpression({ reactive: reactiveFace, override: faceOverride || (speaking ? state.cinematicFace : null), combat: combat?.clip, casting: Boolean(castAt), grounded: player.grounded,
-        verticalSpeed: player.velocity.y, speed, sprinting: speed > walkSpeed * 1.25, chaos: state.chaos, petting: (state.interactionLock || 0) > 0 });
+        verticalSpeed: player.velocity.y, speed, sprinting: speed > (typeof walkSpeed === 'function' ? walkSpeed() : walkSpeed) * 1.25, chaos: state.chaos, petting: (state.interactionLock || 0) > 0 });
       face?.update(dt, expression, speaking);
       if (pose.takeoff) actions.get('jumpStart')?.reset().play();
       if (pose.landed && !acting) actions.get('land')?.reset().play();
