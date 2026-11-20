@@ -3,7 +3,7 @@
 // (the MVP's playable kingdom) gets a grand carved arch with banners; Heart, Diamond and Spade get
 // minimal obelisk gates. Emblems are extruded 2D suit shapes. Everything is lit by emissive materials
 // only (no extra lights), so the gates cost a handful of draw calls.
-import { CLOVER_ENTRANCE } from '../models/cloverTerrain.js';
+import { CLOVER_GATE } from '../models/cloverTerrain.js';
 import { SPADE_GATE } from '../models/spade.js';
 import { trailPoint } from './props.js';
 import { fitText } from './canvasText.js';
@@ -174,7 +174,7 @@ export function createKingdomGates({ scene, world, onReady }) {
     threshold.position.y = -0.05;
     gate.add(threshold);
     for (const object of gate.children) object.castShadow = true;
-    const at = { x: CLOVER_ENTRANCE.x, z: CLOVER_ENTRANCE.z + 18 }; // on the approach path, before the terraces rise
+    const at = CLOVER_GATE; // on the approach path, before the terraces rise; it stands on a level pad (cloverGround)
     place(gate, 'CLOVER KINGDOM', at.x, at.z, span, 1.1);
   }
 

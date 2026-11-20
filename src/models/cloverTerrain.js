@@ -1,4 +1,6 @@
 export const CLOVER_ENTRANCE = Object.freeze({ x: 0, z: -336 });
+// The kingdom arch on the approach path, before the terraces rise (rendering/kingdomGates.js places it here).
+export const CLOVER_GATE = Object.freeze({ x: 0, z: CLOVER_ENTRANCE.z + 18 });
 export const CLOVER_SUMMIT_CHECKPOINT = Object.freeze({ x: 2, z: -534, top: 24 });
 function landform(p) {
   const w = p.width / 2, d = p.depth / 2;
@@ -83,10 +85,16 @@ export function cloverGround(x, z, original) {
     const target = 1.5 - 8.5 * (1 - smooth(-352, -340, z));
     height += (target - height) * edge;
   }
-  if (cloverApproach(x, z)) {
-    const weight = (1 - smooth(3, 6, Math.abs(x))) * (1 - smooth(-35, -24, z));
+  // The north trail: level along the walking line (|x| < 3), easing back to the land by 14 m. A 6 m cut left
+  // near-vertical 4 m walls on hilly seeds; this is a gentle valley instead. (cloverApproach stays the path area.)
+  const across = Math.abs(x);
+  if (across < 14 && z < -24 && z > -336) {
+    const weight = (1 - smooth(3, 14, across)) * (1 - smooth(-35, -24, z));
     height += (1.5 - height) * weight;
   }
+  // The kingdom arch stands on a level pad: flat within 9 m of its centre (pillars, threshold), back to the land by 22 m.
+  const pad = 1 - smooth(9, 22, Math.hypot(x - CLOVER_GATE.x, z - CLOVER_GATE.z));
+  if (pad > 0) height += (1.5 - height) * pad;
   return height;
 }
 export function createCloverRecovery() {

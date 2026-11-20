@@ -7,7 +7,10 @@ import { warmEverything } from '../rendering/warmup.js';
 import { createEnvironment } from '../rendering/environment.js';
 import { createAtmosphere } from '../rendering/atmosphere.js';
 import { createGrass } from '../rendering/grass.js';
-import { updateHUD, updateQuestHUD } from '../views/hud.js';
+import { updateHUD, updateQuestHUD, updateSeal } from '../views/hud.js';
+import { createMana, MANA } from '../models/mana.js';
+import { createMoteField, createMilestones } from '../models/manaMotes.js';
+import { createManaMoteView } from '../rendering/manaMotes.js';
 import { bindInput } from './input.js';
 import { createPlayerController, createSurfaceAt } from './player.js';
 import { createCameraController } from './camera.js';
@@ -88,7 +91,6 @@ export function startGame(ui, { testStartId = null } = {}) {
   let props = null;
   const world = createWorld({ scene, state, player, onChunk: chunk => { props?.decorate(chunk); atmosphere?.prepare?.(chunk); } });
   const { chunks, hash, biomeAt, terrainHeight, updateChunks } = world;
-  ui.seedEl.textContent = `DS-${world.seed}`;
   const { moteMat, updateMotes, animateEnvironment } = createEnvironment({ scene, state, player, chunks });
   const swarm = new DreamSwarm(scene, terrainHeight);
   const { swarmPanelEl, swarmStatusEl } = ui;
@@ -98,7 +100,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     state,
     player,
     demoCured: unlockAll && testStart?.id !== 'ember-hound',
-    onEmberPickup: (index, count, total) => encounters.pickupEmber(index, count, total),
+    onEmberPickup: (index, count, total) => { encounters.pickupEmber(index, count, total); questStep('embers', count); },
     onEmberPosition: (index, position) => encounters.setEmberPosition(index, position),
     onOfferEmbers: onDone => encounters.startOffering(onDone),
     onHoundDrop: () => toast('THE HOUND DROPS ITS EMBER — PICK IT UP', 3000),
@@ -116,8 +118,15 @@ export function startGame(ui, { testStartId = null } = {}) {
   let doorScene = null, cloverScenes = null; // created below, with the camera controls
   let pages = null; // the grimoire page reveals, made once the scene and camera exist
   let bosses = null; // Morcant and Sile (bossFights.js), made once the traveller exists
+  const mana = createMana(); // G surges into Chaos (MANA_PLAN.md)
+  const motes = createMoteField({ groundAt: (x, z) => world.surfaceHeight(x, z), canSpawnAt: (x, z) => !world.isLandmarkArea(x, z) });
+  const moteView = createManaMoteView(scene);
+  // Quest progress refills the bar: a step (ember, lantern, fragment, arch) +10%, a new inventory item +25%.
+  const milestones = createMilestones();
+  const earn = (amount, label) => { mana.add(amount); toast(`MANA +${Math.round(amount * 100)}% · ${label}`, 2000); };
+  const questStep = (key, count) => { const n = milestones.reach(key, count); if (n) earn(n * 0.1, 'QUEST PROGRESS'); };
   // Each sigil returns a page; Heart's Tide Sigil (page IV) and Diamond's Prism Sigil (page V) then open a boss fight.
-  const inventory = createInventory({ onAdd: (id, item) => { toast(`INVENTORY · ${item.name.toUpperCase()} ADDED`, 3500); if (id in PAGE_FOR_SIGIL) pages?.queue(PAGE_FOR_SIGIL[id]);
+  const inventory = createInventory({ onAdd: (id, item) => { toast(`INVENTORY · ${item.name.toUpperCase()} ADDED`, 3500); if (milestones.reach(`item:${id}`, 1)) mana.add(0.25); if (id in PAGE_FOR_SIGIL) pages?.queue(PAGE_FOR_SIGIL[id]);
     if (id === 'tide-sigil') bosses?.queue('morcant'); if (id === 'prism-sigil') bosses?.queue('sile'); } });
   // Nim, Sera's scout, waits beside the Clover gate on the way out (shown once the Tide Hook is carried).
   const cloverGate = gates.gates.find(g => /clover/i.test(g.name));
@@ -274,6 +283,9 @@ export function startGame(ui, { testStartId = null } = {}) {
     quest.reset();
     encounters.reset();
     chaosLook.reset();
+    mana.reset();
+    motes.reset();
+    milestones.reset();
     atmosphere.reset();
     companion.reset();
     navigation.reset();
@@ -328,7 +340,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     walkSpeed: () => bosses?.pace?.walkSpeed ?? 9 });
   bosses = createBossFights({ scene, camera, state, keys, pointerButtons, player, movement, character, viewCamera,
     kamui: { pulse: (...args) => kamui.pulse(...args) }, // the warp in and out (kamui is made further down)
-    platforms, colliders: shrine.colliders, obstacles: arenaObstacles, surfaceAt, toast });
+    platforms, colliders: shrine.colliders, obstacles: arenaObstacles, surfaceAt, toast, mana });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !bosses.busy && !skyIsland.journey.atDoor(player.position) &&
@@ -369,12 +381,18 @@ export function startGame(ui, { testStartId = null } = {}) {
   const pressed = new Set(); // edge detection for one-shot keys
   const tapped = code => { const down = keys.has(code), fresh = down && !pressed.has(code); if (down) pressed.add(code); else pressed.delete(code); return fresh; };
   function updateShortcuts() {
-    if (tapped('KeyG')) toast(navigation.toggle() ? 'ROUTE ON' : 'ROUTE HIDDEN · ARROW STAYS', 2000);
+    if (tapped('KeyT')) toast(navigation.toggle() ? 'ROUTE ON' : 'ROUTE HIDDEN · ARROW STAYS', 2000);
+    // In an arena G is the fight's own Chaos key (bossFights.js); out here it spends mana on a surge.
+    if (tapped('KeyG') && state.locked && !state.cinematic && !state.interactionLock && !bosses.busy && !houndScene.active) {
+      const why = mana.blocked(state.mode);
+      if (why) toast(why, 1500);
+      else { mana.surge(state.mode); state.chaos = MANA.surgeLevel; chaosLook.snap(); toast('CHAOS SURGE', 1500); }
+    }
   }
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters, npcs };
+  window.dreamscape = { mana, motes, kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters, npcs };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
   // Diamond's shots are laid out from its gate. The flyover and the power-up stream terrain along the camera.
   for (const [name, shot] of Object.entries(DIAMOND_SHOTS)) {
@@ -396,7 +414,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   window.dreamscape.bosses = bosses; // e.g. dreamscape.bosses.queue('morcant')
 
   // Demo travel (keys 1-5): the tower, or 8 m in front of a kingdom gate facing in.
-  const demoSpawns = createDemoSpawns({
+  createDemoSpawns({
     isAvailable: () => !houndScene.active,
     spawn(index) {
       let x = 0, z = 0, yaw = 0;
@@ -468,8 +486,9 @@ export function startGame(ui, { testStartId = null } = {}) {
     fpsFrames++;
     fpsTime += rawDt;
     if (fpsTime >= 0.5) {
-      ui.fpsEl.textContent = `${Math.round(fpsFrames / fpsTime)} · ${(fpsTime / fpsFrames * 1000).toFixed(1)} MS · ${resolution.ratio.toFixed(2)}×`;
-      ui.loadEl.textContent = `R${world.viewRadius} · ${chunks.size} CHUNKS`;
+      const fps = Math.round(fpsFrames / fpsTime); // top bar, Valorant style: green, amber under 50, red under 30
+      ui.fpsEl.textContent = `${fps} FPS · ${(fpsTime / fpsFrames * 1000).toFixed(1)} MS`;
+      ui.fpsEl.className = `perf${fps < 30 ? ' bad' : fps < 50 ? ' slow' : ''}`;
       fpsFrames = fpsTime = 0;
     }
     const playDt = houndScene.active ? 0 : dt;
@@ -490,6 +509,17 @@ export function startGame(ui, { testStartId = null } = {}) {
       ? heart.step(moveDt, hookInput(), player, surfaceAt) : { owns: false };
     if (!moveBlocked && !hook.owns) movement.update(moveDt);
     if (bosses.busy) bosses.update(moveDt); // a boss arena runs the traveller's movement and combat itself
+    mana.tick(state.cinematic || houndScene.active ? 0 : moveDt); // a cutscene (e.g. the Hound waking at the surge) pauses the hold
+    // Motes appear only while the world is calm and nothing else owns play; touching one is always allowed.
+    const roaming = state.locked && !state.cinematic && !bosses.busy && !houndScene.active && !doorScene.active && !cloverScenes.active &&
+      !skyIsland.journey.blocked && !spade.isInsideCastle(player.position) && !diamondRow.isInsideHall(player.position);
+    const moteMana = motes.update(moveDt, player.position, roaming && state.mode === 'calm');
+    if (moteMana) { mana.add(moteMana); toast(`MANA +${Math.round(moteMana * 100)}%`, 1200); }
+    moteView.update(dt, state.elapsed, motes.motes, player, moteMana > 0);
+    questStep('lanterns', spade.campaign.lit);
+    questStep('fragments', diamond.model.fitted);
+    questStep('arches', spade.echo.progress);
+    if (mana.holding && !bosses.busy) state.chaos = Math.max(state.chaos, MANA.surgeLevel); // the surge's hold; then movement decides
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
     if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
@@ -551,19 +581,10 @@ export function startGame(ui, { testStartId = null } = {}) {
     navigation.update(dt, houndScene.active); // after the camera, so the arrow matches this frame's view
     worldMap.update();
     if (startup.ready) help.update(dt);
-    demoSpawns.update();
     cullLandmarks();
     updateHUD(ui, state, player, biomeAt);
-    // After the cure: the Spade chapter's objective, then the castle's next step once the sigil is earned.
-    const castleNext = spade.campaign.sigil && !spade.castle.discovery.complete, chestNext = spade.campaign.sigil && !inventory.has('lantern-sigil');
-    updateQuestHUD(ui, quest, quest.stage !== 'cured' ? quest.goal
-      : heart.model.available && !heart.model.complete ? heart.model.goal // Heart chapter, once the Clover tools are carried
-      : diamond.model.available ? diamond.model.goal // Diamond chapter, once the Tide Sigil is held
-      : livingRoad.model.available ? livingRoad.model.goal // Clover chapter, after the Spade discoveries
-      : chestNext ? 'SPADE CASTLE · OPEN THE CHEST IN THE ARCHIVE UPSTAIRS · TAKE THE LANTERN SIGIL'
-      : castleNext ? `SPADE CASTLE · ${spade.castle.discovery.objective.toUpperCase()}` : spade.campaign.goal);
+    updateQuestHUD(ui, quest);
     encounters.update(dt, state.elapsed);
-    ui.chunksEl.textContent = String(world.formed).padStart(2, "0");
     if (!houndScene.active && !bosses.busy) updateSwarm(dt);
     updateMotes(dt);
     animateEnvironment();
@@ -598,6 +619,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     bosses.render(dt, performance.now()); // after the atmosphere: an arena paints its own void, fog and light
     darkenCastle();
     updateShortcuts();
+    updateSeal({ chaos: state.chaos, mode: state.mode, mana: mana.value, hold: mana.holdLeft, holdMax: MANA.hold, ready: !mana.blocked(state.mode) });
     music.update(dt);
     lamps.update(camera.position);
     kamui.render(scene, camera, dt);

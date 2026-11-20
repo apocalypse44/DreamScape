@@ -22,7 +22,7 @@ function close() { if (box) box.hidden = true; }
 export function say(speaker, text) {
   if (!box) {
     box = document.createElement('aside');
-    box.className = 'dialogue-box'; box.hidden = true;
+    box.className = 'dialogue-box leaf'; box.hidden = true;
     box.innerHTML = '<strong></strong><p aria-live="polite"></p><small>SPACE · CONTINUE</small>';
     box.addEventListener('click', close);
     document.body.append(box);

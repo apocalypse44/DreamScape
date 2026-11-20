@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 const source = readFileSync(new URL('../src/models/cloverTerrain.js', import.meta.url), 'utf8');
-const { cloverGround, cloverArea, CLOVER_PLATEAUS, createCloverRecovery, CLOVER_ENTRANCE, CLOVER_SUMMIT_CHECKPOINT } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const { cloverGround, cloverArea, CLOVER_PLATEAUS, createCloverRecovery, CLOVER_ENTRANCE, CLOVER_SUMMIT_CHECKPOINT, CLOVER_GATE } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 test('irregular landforms reject their cut-off bounding-box corners', () => {
   for (const p of CLOVER_PLATEAUS) {
     assert.equal(p.contains(p.x, p.z, 0), true);
@@ -43,4 +43,23 @@ test('Clover shaping blends continuously at course and approach boundaries', () 
     assert.ok(Math.abs(h - cloverGround(x + 0.001, z, 10)) < 0.02);
     assert.ok(Math.abs(h - cloverGround(x, z + 0.001, 10)) < 0.02);
   }
+});
+
+// On hilly seeds the hills reached the arch: the trail was cut only 6 m wide, so its pillars stood buried ~4 m
+// in a trench. The gate needs a level pad, and the trail cut gentle banks rather than walls.
+test('the Clover gate stands on a level pad and the trail cut has gentle banks', () => {
+  for (const hill of [5.8, 7.5, 12]) {
+    for (let r = 0; r <= 9; r += 1.5) for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+      const x = CLOVER_GATE.x + Math.cos(a) * r, z = CLOVER_GATE.z + Math.sin(a) * r;
+      assert.ok(Math.abs(cloverGround(x, z, hill) - 1.5) < 1e-6, `pad not level at ${x.toFixed(1)}, ${z.toFixed(1)} (hill ${hill})`);
+    }
+  }
+  // Banks on the open trail, 6 m of hill above it: steepest slope under ~40 degrees (it was ~70).
+  for (const z of [-120, -200, -280]) {
+    let steepest = 0;
+    for (let x = 0; x < 20; x += .05) steepest = Math.max(steepest, Math.abs(cloverGround(x + .05, z, 7.5) - cloverGround(x, z, 7.5)) / .05);
+    assert.ok(steepest < .85, `bank too steep at z ${z}: ${steepest.toFixed(2)}`);
+  }
+  assert.equal(cloverGround(0, -200, 7.5), 1.5); // the walking line itself stays at grass level
+  assert.equal(cloverGround(40, -200, 7.5), 7.5); // and the hills beyond the banks are untouched
 });

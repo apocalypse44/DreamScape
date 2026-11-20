@@ -32,7 +32,7 @@ export function createGrass({ hash, chunks }) {
     update() {
       updateGround();
       const text = 'Grass: ground texture';
-      if (status.textContent !== text) status.textContent = text;
+      if (status && status.textContent !== text) status.textContent = text;
     }
   };
 }

@@ -14,6 +14,7 @@ import { createGatehall } from '../views/gatehallArena.js';
 import { createSpellBar } from '../views/spellBar.js';
 import { spellForKey } from '../models/grimoireSpells.js';
 import { createSigilBlade, createSigilSheath } from '../rendering/sigilBlade.js';
+import { MANA } from '../models/mana.js';
 
 const POCKET_Y = 1000;
 export const GATEHALL_AT = { x: 4000, z: 0 };
@@ -24,7 +25,7 @@ export const FIGHT_PACE = { walkSpeed: 4.2, sprintSpeed: 7.8, crouchSpeed: 2, sm
 const AIR = { dash: .14, total: .5 }; // Sile's air strike: a short lunge, the slash in mid-air, a bounce back
 
 export function createBossFights({ scene, camera, state, keys, pointerButtons, player, movement, character, kamui,
-  viewCamera, platforms, colliders, obstacles, surfaceAt, toast }) {
+  viewCamera, platforms, colliders, obstacles, surfaceAt, toast, mana = null }) {
   const T = THREE;
   const say = text => toast(text, 1600);
   const hud = createArenaHud(); hud.toast = say;
@@ -36,6 +37,7 @@ export function createBossFights({ scene, camera, state, keys, pointerButtons, p
     contains: (x, z, pad = 0) => current === 'sile' && Math.hypot(x - CITADEL_AT.x, z - CITADEL_AT.z) < CITADEL_AT.radius + pad });
   const spellBar = createSpellBar();
 
+  let manaRest = 0; // the part of the bar under one charge, kept aside while a fight counts whole charges
   let combat = null, combatState = null, current = null, arena = null, phase = 'idle', warp = 0, back = null, savedFov = null;
   let hitstop = 0, airStrike = null, pendingRune = null, castPose = 0, barOn = null, dome = null;
   const queue = [], won = new Set(), pressed = { attack: false, dodge: false, sheathe: false, chaos: false };
@@ -120,7 +122,10 @@ export function createBossFights({ scene, camera, state, keys, pointerButtons, p
   function arrive() { // in the middle of the vortex: into the arena
     savedFov = camera.fov;
     movement.teleport({ ...arena.entry, yaw: 0 }); grapple.reset(); combat?.reset(); airStrike = null; combatState = null;
-    if (current === 'morcant') gatehall.begin(); else citadel.enter();
+    // The mana bar comes in capped at one charge (MANA_PLAN.md: a full bar must not open with three Chaos strikes).
+    let charge = 0;
+    if (mana) { mana.cap(MANA.fightCap); charge = Math.floor(mana.value / MANA.surgeCost + 1e-6); manaRest = mana.value - charge * MANA.surgeCost; }
+    if (current === 'morcant') gatehall.begin(charge); else citadel.enter(charge);
     fog.copy(scene.fog.color); phase = 'fight';
   }
   function leave() { // won: the arena closes, the vortex carries the traveller back
@@ -183,6 +188,7 @@ export function createBossFights({ scene, camera, state, keys, pointerButtons, p
         if (!hook.owns) movement.update(step);
         if (state.locked) { io.swordHit = combatState?.hit || null; io.invulnerable = Boolean(combatState?.invulnerable); arena.step(step, io); }
       }
+      mana?.set(arena.fight.charge * MANA.surgeCost + manaRest); // one charge = one third of the bar, both ways
       if (!arena.active) { won.add(current); kamui.pulse(null, 1.4, { full: true }); phase = 'out'; warp = WARP; } // 'done': the ending has played
     },
     /** The camera while fighting: the arena's own shots, else the follow camera. Returns the camera distance, or null when not fighting. */

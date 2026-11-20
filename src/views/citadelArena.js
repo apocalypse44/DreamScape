@@ -212,8 +212,8 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
     get targets() { return fight.active && fight.phase !== 'sky' ? [fight.sile] : []; },
     /** Spell cooldowns for the spell bar. */
     get runes() { const s = fight.snapshot(); return { cooldown: s.cooldown, max: s.cooldownMax, chaos: s.chaos }; },
-    enter() {
-      build(); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(); lastPose = ''; haveShot = false;
+    enter(charge = 0) {
+      build(); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(charge); lastPose = ''; haveShot = false;
       saved = { fog: scene.fog.color.clone(), background: scene.background?.isColor ? scene.background.clone() : null };
       hud.show(true);
     },

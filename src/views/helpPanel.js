@@ -10,7 +10,8 @@ const withKeys = text => escape(text).replace(KEY, '<kbd>$1</kbd>');
 const CONTROLS = [
   ['W A S D', 'Move'], ['Shift', 'Run (stirs chaos)'], ['Space', 'Jump'],
   ['E', 'Call the wisps · talk · use'], ['Q', 'Push the wisps away (stirs chaos)'], ['F', 'Call the wisps back'],
-  ['M', 'Map and journal'], ['G', 'Show or hide the route'], ['I', 'Hide side panels'],
+  ['G', 'Mana surge into Chaos'], ['M', 'Map and journal'], ['T', 'Show or hide the route'], ['N', 'Music on or off'],
+  ['1–5', 'Demo: jump to the tower or a kingdom gate'], ['I', 'Hide side panels'],
 ];
 
 export function createHelpPanel({ quest, spade, clover, heart, diamond, state }) {
@@ -19,10 +20,11 @@ export function createHelpPanel({ quest, spade, clover, heart, diamond, state })
   button.setAttribute('aria-label', 'What to do next (H)'); button.setAttribute('aria-expanded', 'false');
   button.innerHTML = '<span aria-hidden="true">i</span><kbd>H</kbd>';
   const panel = document.createElement('aside');
-  panel.id = 'helpPanel'; panel.hidden = true; panel.setAttribute('aria-label', 'What to do next');
+  panel.id = 'helpPanel'; panel.className = 'leaf'; panel.hidden = true; panel.setAttribute('aria-label', 'What to do next');
   panel.innerHTML = `<small class="help-chapter"></small><h3></h3><p class="help-progress"></p><p class="help-hint" aria-live="polite"></p>
     <details><summary>CONTROLS</summary><dl>${CONTROLS.map(([k, v]) => `<dt><kbd>${k}</kbd></dt><dd>${v}</dd>`).join('')}</dl></details>
-    <small class="help-foot">CALM: walk gently · CHAOS: run or push the wisps · H closes</small>`;
+    <details><summary>MUSIC CREDITS</summary><p>“Reverie”, “Legionnaire” and “Anabasis I” by <a href="https://www.scottbuckley.com.au/library/" target="_blank" rel="noopener">Scott Buckley</a>, licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Playback uses fades, loops and excerpts.</p></details>
+    <small class="help-foot">CALM · WALK GENTLY &nbsp;✧&nbsp; CHAOS · RUN OR G &nbsp;✧&nbsp; H CLOSES</small>`;
   document.body.append(button, panel);
 
   let pinned = false, peek = 0, last = null, poll = 0;
@@ -41,7 +43,13 @@ export function createHelpPanel({ quest, spade, clover, heart, diamond, state })
     const tasks = grimoireQuests(quest, spade, clover, diamond, heart);
     return tasks.find(t => !t.done && !t.locked) ?? tasks.at(-1);
   }
+  const tracker = document.querySelector('#questGoal'); // the objective under the world clock: same step, short form
   function render(task) {
+    if (tracker) {
+      tracker.querySelector('.qg-chapter').textContent = task.chapter;
+      tracker.querySelector('.qg-title').textContent = task.title;
+      tracker.querySelector('.qg-progress').textContent = task.done ? 'Done' : task.progress;
+    }
     panel.querySelector('.help-chapter').textContent = task.chapter;
     panel.querySelector('h3').textContent = task.title;
     panel.querySelector('.help-progress').textContent = task.done ? 'Done' : task.progress;

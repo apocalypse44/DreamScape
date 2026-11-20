@@ -302,8 +302,9 @@ export function createMorcantFight({ center, floor = 0, radius = 16, pylons = []
       return [{ x: morcant.x, y: morcant.y + 1.9, z: morcant.z, kind: 'morcant' }, ...spiders.map(s => ({ x: s.x, y: floor + .6, z: s.z, kind: 'spider' })),
         ...(phase === 'seal' && shield ? pillars.filter(c => c.hp > 0).map(c => ({ x: c.x, y: floor + 3, z: c.z, kind: 'pillar' })) : [])];
     },
-    start() {
-      phase = 'intro'; time = 0; hp = F.hp; playerHp = F.playerHp; charge = 0; chaos = false; order = 0;
+    /** startCharge: the charges the traveller's mana bar brings in (bossFights.js caps it at one). */
+    start(startCharge = 0) {
+      phase = 'intro'; time = 0; hp = F.hp; playerHp = F.playerHp; charge = Math.min(F.maxCharge, startCharge); chaos = false; order = 0;
       shield = false; exposed = false; exposeLeft = 0; cracked = false; subtitle = null; riseFrom = null; tauntIn = 0; tauntTurn = 0; clearAttacks();
       spiders = []; lances = []; walls = []; ward = 0; gale = null; cooldown = { wind: 0, flame: 0, tide: 0, earth: 0 };
       pillars.forEach(c => { c.hp = F.pillar.hp; });

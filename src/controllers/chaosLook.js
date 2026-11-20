@@ -1,6 +1,5 @@
 // Movement-score pacing only. Atmosphere rendering belongs to rendering/atmosphere.js.
 import { CONFIG } from '../models/chaosLookConfig.js';
-import { updateChaosReadout } from '../views/hud.js';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -34,9 +33,10 @@ export function createChaosLook() {
       if (dt > 0) govern(state, dt);
       const score = state.chaos;
       visual += (score - visual) * (1 - Math.exp(-3 * dt));
-      if (CONFIG.showHud) updateChaosReadout(score >= 0.65 ? 'CHAOS' : 'CALM', score, trend);
       return visual;
     },
+    /** A mana surge: let the next jump through unslowed, even when it is smaller than passThroughJump. */
+    snap() { gov.last = null; gov.pending = 0; },
     reset() {
       gov.last = null;
       gov.pending = 0;

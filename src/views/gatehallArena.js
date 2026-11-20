@@ -397,8 +397,8 @@ export function createGatehall({ scene, center, floor, toast = () => {}, obstacl
     get forgeShow() { if (!fight.active) return { sword: true, sheath: 1 }; const k = forgeK(); return { sword: k >= F2.fly[1], sheath: k < 0 ? 0 : Math.min(1, Math.max(0, (k - F2.sheath[0]) / (F2.sheath[1] - F2.sheath[0]))) }; }, get targets() { return fight.targets; },
     /** Seconds of cooldown left per rune, and each rune's full cooldown, for the rune bar. */
     get runes() { const s = fight.snapshot(); return { cooldown: s.cooldown, max: s.cooldownMax, chaos: s.chaos }; },
-    begin() {
-      build(); hud ||= createArenaHud(document); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(); lastPose = ''; haveShot = false;
+    begin(charge = 0) {
+      build(); hud ||= createArenaHud(document); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(charge); lastPose = ''; haveShot = false;
       const label = document.querySelector('#bossBar span');
       saved = { fog: scene.fog.color.clone(), background: scene.background?.isColor ? scene.background.clone() : null, label: label?.textContent };
       if (label) label.textContent = 'MORCANT THE GATEKEEPER';

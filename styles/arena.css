@@ -17,4 +17,4 @@
 @media(max-width:800px){#spellBar{right:12px;bottom:150px;gap:6px}#spellBar .spell{width:56px}}
 #spellBar[hidden]{display:none}
 /* In the game: the arena HUD replaces the world HUD (the pause menu stays). */
-body.arena :is(.hud-top,.hud-right,.swarm-panel,.compass,.movement-hint,#mapButton,#overlay,#chaosReadout,#helpButton,#helpPanel,.dialogue-box) { visibility:hidden; }
+body.arena :is(.hud-top,.quest-goal,.swarm-panel,.compass,.movement-hint,#mapButton,#overlay,#chaosReadout,#helpButton,#helpPanel,.dialogue-box) { visibility:hidden; }

@@ -204,8 +204,9 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
     get phase() { return phase; }, get hp() { return hp; }, get charge() { return charge; }, get chaos() { return chaos; },
     get playerHp() { return playerHp; }, get sile() { return sile; }, get active() { return phase !== 'idle' && phase !== 'done'; },
     get cinematic() { return phase === 'intro' || phase === 'ending'; }, get time() { return time; },
-    start() {
-      phase = 'intro'; time = 0; hp = F.hp; playerHp = F.playerHp; charge = 0; chaos = false; order = 0; airHits = 0; lastSwing = -1;
+    /** startCharge: the charges the traveller's mana bar brings in (bossFights.js caps it at one). */
+    start(startCharge = 0) {
+      phase = 'intro'; time = 0; hp = F.hp; playerHp = F.playerHp; charge = Math.min(F.maxCharge, startCharge); chaos = false; order = 0; airHits = 0; lastSwing = -1;
       shield = true; exposed = false; subtitle = null; firstWave = true; exposeLeft = 0; clearAttacks();
       walls = []; ward = 0; gale = null; fed = 0; tasted = false; cooldown = { wind: 0, flame: 0, tide: 0, earth: 0 }; inversion.forEach(a => { a.progress = 0; a.inverted = false; });
       Object.assign(sile, { x: cx, y: floor - 14, z: cz - 20, yaw: 0 }); events = []; emit('prism');
