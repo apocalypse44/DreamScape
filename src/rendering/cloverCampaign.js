@@ -1,7 +1,7 @@
 import { createCloverCampaign, CLOVER_STORY, ROOT_APPROACH, ARCHIVE_HALL, ARCHIVE_WALLS } from '../models/cloverCampaign.js';
 import { CLOVER_PLATEAUS } from '../models/cloverTerrain.js';
 import { ROOT_START, ROOT_LANDINGS, ROOT_OBSTACLES, ROOT_HEADINGS, ROOT_LIMITS, growRoots, rootConnects } from '../models/cloverGrowth.js';
-import { fitText } from './canvasText.js';
+import { drawGrimoirePlaque } from './canvasText.js';
 import { cloverGroundTexture } from './cloverDressing.js';
 import { guideYaw, visibleRoadSegments } from './cloverRoadLayout.js';
 import { SKY, SKY_ARRIVAL, SKY_JUMPS, SUMMIT_DOOR } from '../models/skyIsland.js';
@@ -44,10 +44,7 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
   }
   function plaque(title, subtitle, x, y, z, width = 5, yaw = 0, bothSides = true) {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 256;
-    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#173e2a'; ctx.fillRect(0, 0, 1024, 256);
-    ctx.strokeStyle = '#8eab64'; ctx.lineWidth = 9; ctx.strokeRect(8, 8, 1008, 240);
-    ctx.fillStyle = '#edf0c6'; ctx.textAlign = 'center'; ctx.font = 'bold 60px sans-serif'; fitText(ctx, title, 512, 95, 956);
-    ctx.font = '35px sans-serif'; fitText(ctx, subtitle, 512, 183, 956);
+    drawGrimoirePlaque(canvas.getContext('2d'), title, subtitle);
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
     const face = new THREE.Mesh(new THREE.PlaneGeometry(width, width / 4), new THREE.MeshBasicMaterial({ map: texture }));
     face.position.set(x, y, z); face.rotation.y = yaw; root.add(face);

@@ -1,10 +1,14 @@
 const SHOULDER = 0.85; // metres right of the head
+// Only solid meshes stop the camera. A ray "hits" a Points cloud anywhere within 1 m of a particle (the Sky Garden's
+// motes pulled it into the traveller's head over the Clover summit), and lines and sprites are never walls.
+const solid = hits => hits.find(hit => hit.object.isMesh && !hit.object.isSprite);
 
 export function createCameraController({ camera, state, player, chunks, terrainHeight, staticObstacles = [] }) {
   const target = new THREE.Vector3();
   const direction = new THREE.Vector3();
   const candidate = new THREE.Vector3();
   const raycaster = new THREE.Raycaster();
+  raycaster.camera = camera; // a Sprite in an obstacle root throws on a ray without one (then solid() skips it)
   const obstacles = [], hits = [];
   let boomDistance = null;
   return {
@@ -27,7 +31,7 @@ export function createCameraController({ camera, state, player, chunks, terrainH
       raycaster.near = 0;
       raycaster.far = SHOULDER + 0.3;
       hits.length = 0;
-      const wall = raycaster.intersectObjects(obstacles, true, hits)[0];
+      const wall = solid(raycaster.intersectObjects(obstacles, true, hits));
       const shoulder = wall ? Math.max(0, wall.distance - 0.3) : SHOULDER;
       target.copy(player.position).addScaledVector(direction, shoulder);
       target.y += 0.1;
@@ -37,7 +41,7 @@ export function createCameraController({ camera, state, player, chunks, terrainH
       raycaster.near = 0;
       raycaster.far = distance + 0.25;
       hits.length = 0;
-      const hit = raycaster.intersectObjects(obstacles, true, hits)[0];
+      const hit = solid(raycaster.intersectObjects(obstacles, true, hits));
       if (hit) distance = Math.max(0.1, hit.distance - 0.3);
       // Keep the camera boom above the ground even on back-facing slopes.
       for (let step = 0.15; step <= distance; step += 0.15) {

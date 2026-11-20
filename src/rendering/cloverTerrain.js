@@ -4,7 +4,7 @@ import { loadModel } from './models.js';
 import { createWaterSurface } from './waterfall.js';
 import { createCloverDressing, cloverGroundTexture } from './cloverDressing.js';
 import { createCloverSanctuary } from './cloverSanctuary.js';
-import { fitText } from './canvasText.js';
+import { drawGrimoirePlaque } from './canvasText.js';
 
 let capLayer = 0;
 // Natural cliff faces: push side vertices in/out along the outward direction with layered
@@ -177,9 +177,7 @@ export function createCloverTerrain({ scene, world, onReady }) {
   lintel.position.set(0, last.top + 4, last.z - 3); root.add(lintel);
   function label(text, x, y, z, width = 5, readableBothSides = false) {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 256;
-    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#304b37'; ctx.fillRect(0, 0, 1024, 256);
-    ctx.fillStyle = '#e0eeb8'; ctx.textAlign = 'center'; ctx.font = 'bold 58px sans-serif';
-    fitText(ctx, text[0], 512, 93, 960); ctx.font = '36px sans-serif'; fitText(ctx, text[1], 512, 176, 960);
+    drawGrimoirePlaque(canvas.getContext('2d'), text[0], text[1]);
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
     const material = new THREE.MeshBasicMaterial({ map: texture, side: readableBothSides ? THREE.FrontSide : THREE.DoubleSide });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, width / 4), material);

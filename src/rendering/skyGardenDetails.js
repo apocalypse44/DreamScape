@@ -1,5 +1,6 @@
-import { SKY, SKY_MAIN, SKY_SHRINE, SUMMIT_DOOR } from '../models/skyIsland.js';
+import { SKY, SKY_MAIN, SKY_SHRINE } from '../models/skyIsland.js';
 import { loadModel } from './models.js';
+import { stoneMaterial, MOSS } from './stonework.js';
 
 export function createStarlightTexture() {
   const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
@@ -11,42 +12,45 @@ export function createStarlightTexture() {
 
 export function createSkyGardenDetails({root,world,onReady}) {
   const colliders=[],runes=[],orbitals=[];
-  const masonry=new THREE.MeshStandardMaterial({color:0x61746b,roughness:1,flatShading:true});
-  const paving=new THREE.MeshStandardMaterial({color:0x4b605a,roughness:1,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  const masonry=stoneMaterial(0x5f6b59,1,2); // weathered grey-green ruin stone with block joints (stonework.js)
+  const moss=MOSS();
   const gold=new THREE.MeshStandardMaterial({color:0xb3aa73,roughness:.7});
   const runeMaterial=new THREE.MeshBasicMaterial({color:0x8aeacc,transparent:true,opacity:.55,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4});
   function add(g,m,x,y,z){const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return mesh;}
   function ring(x,y,z,radius,material=runeMaterial){const m=add(new THREE.RingGeometry(radius-.035,radius+.035,64),material,x,y,z);m.rotation.x=-Math.PI/2;return m;}
   function rune(x,y,z,size=.3){const m=add(new THREE.RingGeometry(size*.5,size,4),runeMaterial,x,y,z);m.rotation.x=-Math.PI/2;runes.push(m);return m;}
-  // An inset stone courtyard in front of the summit gateway.
-  const courtyard=add(new THREE.CircleGeometry(5.5,24),paving,SUMMIT_DOOR.x,24.08,SUMMIT_DOOR.z);
-  courtyard.rotation.x=-Math.PI/2;
-  for(let i=0;i<16;i++){
-    const mat=paving.clone();mat.color.multiplyScalar(i%2?.9:1.12);
-    const tile=add(new THREE.RingGeometry(4.1,5.6,1,1,i*Math.PI/8+.015,Math.PI/8-.03),mat,2,24.095,-499);tile.rotation.x=-Math.PI/2;
-    const a=i*Math.PI/8;rune(2+Math.cos(a)*4.7,24.115,-499+Math.sin(a)*4.7,.23);
-  }
-  ring(2,24.12,-499,3.65);ring(2,24.12,-499,4.05);
-  // Glyphs follow the arch rather than obscuring its opening.
-  for(let i=0;i<11;i++){
-    const a=i*Math.PI/10;
-    const m=add(new THREE.RingGeometry(.10,.19,4),runeMaterial,2+Math.cos(a)*4.5,27.2+Math.sin(a)*4.5,-498.54);
-    m.rotation.z=a;runes.push(m);
-  }
-  for(const x of [-2.5,6.5]) for(let i=0;i<4;i++){
-    const m=add(new THREE.RingGeometry(.07,.15,4),runeMaterial,x,24.6+i*.6,-498.34);runes.push(m);
-  }
+  // The summit side of the gateway (courtyard, glyphs, beds) is the Clover sanctum now: rendering/cloverSanctuary.js.
   function pillar(x,z,height,y=64){
     add(new THREE.BoxGeometry(.8,height,.9),masonry,x,y+height/2,z);
     add(new THREE.BoxGeometry(1.1,.2,1.2),gold,x,y+height-.1,z);
     colliders.push({x,z,radius:.65,minY:y,maxY:y+height});
   }
-  // Broken archways frame the eastern garden and the waterfall resting place.
-  for(const [cx,cz,r] of [[SKY.x+10,SKY.z-4,2.7],[SKY.x-14,SKY.z+10,2.2]]){
-    for(const side of [-1,1])pillar(cx+side*r,cz,3.2);
-    const arch=add(new THREE.TorusGeometry(r,.35,6,16,Math.PI*.8),masonry,cx,67.2,cz);arch.rotation.z=.1;
-    for(let i=0;i<4;i++)add(new THREE.DodecahedronGeometry(.3),masonry,cx+r+i*.35,64.2,cz+1.2);
+  // Broken archways frame the eastern garden and the waterfall resting place: an arch of wedge stones on stepped piers,
+  // two stones fallen out of the curve and lying at its foot, moss in the joints.
+  function ruinArch(cx,cz,r,broken){
+    for(const side of [-1,1]){
+      const x=cx+side*r;
+      add(new THREE.BoxGeometry(1.3,.45,1.3),masonry,x,64.22,cz);
+      add(new THREE.BoxGeometry(.95,2.8,.95),masonry,x,65.85,cz);
+      add(new THREE.BoxGeometry(1.2,.3,1.2),masonry,x,67.35,cz);
+      const band=add(new THREE.BoxGeometry(1,.12,1),moss,x,65.1,cz); band.castShadow=false;
+      colliders.push({x,z:cz,radius:.75,minY:64,maxY:67.5});
+    }
+    const N=11, inner=r-.42, outer=r+.42;
+    for(let k=0;k<N;k++){
+      if(broken.includes(k))continue;
+      const a0=k/N*Math.PI, a1=(k+1)/N*Math.PI, gap=.025;
+      const shape=new THREE.Shape(); // one wedge, in the arch's own plane
+      shape.moveTo(Math.cos(a0+gap)*inner,Math.sin(a0+gap)*inner); shape.lineTo(Math.cos(a0+gap)*outer,Math.sin(a0+gap)*outer);
+      shape.lineTo(Math.cos(a1-gap)*outer,Math.sin(a1-gap)*outer); shape.lineTo(Math.cos(a1-gap)*inner,Math.sin(a1-gap)*inner); shape.closePath();
+      add(new THREE.ExtrudeGeometry(shape,{depth:.9,bevelEnabled:false}).translate(0,0,-.45),masonry,cx,67.5,cz);
+      if(k===5){const key=add(new THREE.BoxGeometry(.5,.5,.95),moss,cx,67.5+outer-.1,cz);key.rotation.z=Math.PI/4;}
+    }
+    broken.forEach((k,i)=>{ // the fallen stones
+      const fallen=add(new THREE.BoxGeometry(.85,.42,.9),masonry,cx+r*.55+i*.9,64.21,cz+1.1+i*.4); fallen.rotation.set(0,.5+i,.12);
+    });
   }
+  ruinArch(SKY.x+10,SKY.z-4,2.7,[7,8]); ruinArch(SKY.x-14,SKY.z+10,2.2,[2]);
   // Rings and satellite crystals give the high shrine a distinct silhouette.
   ring(SKY_SHRINE.x,68.1,SKY_SHRINE.z,4.9);ring(SKY_SHRINE.x,68.11,SKY_SHRINE.z,3.7);
   const orbitMat=new THREE.MeshBasicMaterial({color:0xc1f9e8,transparent:true,opacity:.65});
@@ -63,7 +67,7 @@ export function createSkyGardenDetails({root,world,onReady}) {
   add(new THREE.BoxGeometry(3,.25,1),masonry,SKY.x-11,64.7,SKY.z+8);
   for(const side of [-1,1])add(new THREE.BoxGeometry(.35,.65,.8),masonry,SKY.x-11+side,64.325,SKY.z+8);
   const plants=[];
-  for(const [cx,cz,floor,isSummit] of [[-6,-494,24,true],[10,-496,24,true],[-7,-515,24,true],
+  for(const [cx,cz,floor,isSummit] of [
     [SKY.x-10,SKY.z+13,64,false],[SKY.x+13,SKY.z+10,64,false],[SKY.x-17,SKY.z+5,64,false],[SKY.x+12,SKY.z-10,64,false]]){
     for(let i=0;i<12;i++){
       const a=i*2.4,r=1+world.hash(i,cz)*1.8,x=cx+Math.cos(a)*r,z=cz+Math.sin(a)*r;
