@@ -22,6 +22,12 @@ const MODELS = [
   ...range('RockPath_Round_Small', 3), ...range('RockPath_Square_Small', 3)
 ];
 const SHADOW = /Tree|Pine|Rock_Medium/;
+// The sun's shadow map only covers ±90 m around the player, yet trees are drawn to FAR (170 m). Only the
+// nearest instances cast: a shadow-only twin (same geometry, material and instance buffer, nearest-first
+// order) is drawn on a layer only the shadow camera sees, with count = instances within SHADOW_NEAR.
+const SHADOW_NEAR = 75;
+const SHADOW_LAYER = 1;
+const CELL = 128; // metres per tree/rock square (2×2 terrain chunks)
 const ALIGNED = /Rock|Pebble/; // stones lie flush on the surface normal; plants grow straight up
 const DRESSED = new Set(['hub', 'trees']); // Grimoire Tower + Clover Kingdom
 
@@ -99,7 +105,11 @@ if (vDissolve > 0.001) {
 export function createProps({ scene, world, blockers, onReady }) {
   const { hash, noise, heightAt, biomeAt, terrainHeight, chunks } = world;
   const smooth = THREE.MathUtils.smoothstep;
-  const parts = {}; // model name -> [{ mesh, capacity }]
+  // Trees and rocks are split into one instanced mesh per CELL-sized square, so whole squares behind the
+  // camera (or outside the sun's shadow box) are frustum-culled. Small props stay one mesh per model.
+  const templates = {}; // model name -> [{ geometry, material, shadow, reach }] from the glTF
+  const groups = new Map(); // group key -> { name, parts: [{ mesh, shadow, capacity }] }
+  const idle = {}; // model name -> groups no longer in range, reused before making new ones
   const heights = {}; // model name -> top of the model above its origin, at scale 1
   const root = new THREE.Group();
   scene.add(root);
@@ -221,19 +231,58 @@ export function createProps({ scene, world, blockers, onReady }) {
   function setDissolveCapacity(part) {
     part.mesh.geometry.setAttribute(DISSOLVE_ATTRIBUTE, new THREE.InstancedBufferAttribute(new Float32Array(part.capacity), 1));
   }
+  // A geometry that shares the template's GPU buffers but has its own dissolve attribute and bounds.
+  function view(source) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setIndex(source.index);
+    for (const [name, attribute] of Object.entries(source.attributes)) geometry.setAttribute(name, attribute);
+    for (const group of source.groups) geometry.addGroup(group.start, group.count, group.materialIndex);
+    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 0);
+    return geometry;
+  }
+  function instanced(geometry, material, capacity, culled) {
+    const mesh = new THREE.InstancedMesh(geometry, material, capacity);
+    mesh.count = 0;
+    mesh.castShadow = false; // shadows come from the near-only twin
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = culled; // per-square bounds; global small-prop meshes span the whole view
+    return mesh;
+  }
+  function acquire(name, culled) {
+    const reused = idle[name]?.pop();
+    if (reused) return reused;
+    return { name, parts: templates[name].map(t => {
+      const part = { mesh: instanced(view(t.geometry), t.material, 16, culled), capacity: 16 };
+      setDissolveCapacity(part);
+      root.add(part.mesh);
+      onReady?.(part.mesh); // atmosphere.prepare: swap in the environment-lit material, as for the rest of root
+      if (t.shadow) part.shadow = shadowTwin(part.mesh);
+      return part;
+    }) };
+  }
   function ensure(part, count) {
     if (count <= part.capacity) return;
     part.capacity = Math.max(count, part.capacity * 2);
     const old = part.mesh;
-    part.mesh = new THREE.InstancedMesh(old.geometry, old.material, part.capacity);
-    part.mesh.castShadow = old.castShadow;
-    part.mesh.receiveShadow = true;
-    part.mesh.frustumCulled = false; // instances span the whole view
+    part.mesh = instanced(old.geometry, old.material, part.capacity, old.frustumCulled);
     setDissolveCapacity(part);
     root.remove(old);
     old.dispose?.();
     root.add(part.mesh);
+    if (part.shadow) { root.remove(part.shadow); part.shadow = shadowTwin(part.mesh); }
   }
+  function shadowTwin(mesh) {
+    const twin = new THREE.InstancedMesh(mesh.geometry, mesh.material, 1);
+    twin.instanceMatrix = mesh.instanceMatrix; // shared: dissolve and rebuild writes reach both
+    twin.count = 0;
+    twin.castShadow = true;
+    twin.frustumCulled = mesh.frustumCulled; // same bounds, tested against the shadow camera
+    twin.layers.set(SHADOW_LAYER);
+    root.add(twin);
+    return twin;
+  }
+  const groupKey = p => p.far ? `${p.model}|${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}` : p.model;
+  const box = new THREE.Box3();
 
   // Strain-driven target per prop: 0 on calm ground, 1 where chaos folded the ground under it.
   // Re-measured only when the terrain has reshaped since this prop was last analysed.
@@ -250,20 +299,29 @@ export function createProps({ scene, world, blockers, onReady }) {
     return now;
   }
 
-  let shown = {}; // model name -> props currently drawn, in instance order
+  let shown = {}; // group key -> props currently drawn, in instance order
   function* rebuild(position) {
-    const buckets = {};
+    const buckets = new Map();
     for (const chunk of chunks.values()) {
       for (const p of chunk.userData.props || []) {
-        if (Math.hypot(p.x - position.x, p.z - position.z) > (p.far ? FAR : NEAR)) continue;
-        (buckets[p.model] ||= []).push(p);
+        if (!templates[p.model] || Math.hypot(p.x - position.x, p.z - position.z) > (p.far ? FAR : NEAR)) continue;
+        const key = groupKey(p);
+        (buckets.get(key) || buckets.set(key, []).get(key)).push(p);
       }
       yield;
     }
-    for (const [name, modelParts] of Object.entries(parts)) {
-      rebuildingName = name;
-      const list = buckets[name] || [];
+    for (const [key, list] of buckets) {
+      rebuildingName = key;
+      const name = list[0].model;
+      if (!groups.has(key)) groups.set(key, acquire(name, list[0].far));
+      const group = groups.get(key);
+      const away = q => Math.hypot(q.x - position.x, q.z - position.z);
+      list.sort((a, b) => away(a) - away(b)); // nearest first, so the shadow twin draws a prefix
+      let near = 0;
+      while (near < list.length && away(list[near]) <= SHADOW_NEAR) near++;
       const aligned = ALIGNED.test(name);
+      box.makeEmpty();
+      let maxScale = 0;
       for (let i = 0; i < list.length; i++) {
         const p = list[i];
         const ground = chaosResponse(p);
@@ -275,22 +333,32 @@ export function createProps({ scene, world, blockers, onReady }) {
         dummy.scale.setScalar(p.scale);
         dummy.updateMatrix();
         p.matrix = (p.matrix || new THREE.Matrix4()).copy(dummy.matrix);
+        box.expandByPoint(dummy.position);
+        maxScale = Math.max(maxScale, p.scale);
         if (i % 16 === 15) yield;
       }
-      for (const part of modelParts) {
+      group.parts.forEach((part, t) => {
         ensure(part, list.length);
-        for (let k = 0; k < list.length; k++) {
-          part.mesh.setMatrixAt(k, list[k].matrix);
-          if (k % 64 === 63) yield;
-        }
+        for (let k = 0; k < list.length; k++) part.mesh.setMatrixAt(k, list[k].matrix);
         part.mesh.count = list.length;
         part.mesh.instanceMatrix.needsUpdate = true;
-      }
-      shown[name] = list;
+        if (part.shadow) part.shadow.count = near;
+        // Bounds of the whole square: instance positions plus the model's own reach at the largest scale.
+        box.getBoundingSphere(part.mesh.geometry.boundingSphere).radius += templates[name][t].reach * maxScale;
+      });
+      shown[key] = list;
       for (const p of list) p.hidden = false;
-      writeDissolve(0, [[name, list]]);
+      writeDissolve(0, [[key, list]]);
       rebuildingName = null;
       yield;
+    }
+    // Squares out of range go back to the pool (only now, so nothing blinks out mid-rebuild).
+    for (const [key, group] of groups) {
+      if (buckets.has(key)) continue;
+      for (const part of group.parts) { part.mesh.count = 0; if (part.shadow) part.shadow.count = 0; }
+      groups.delete(key);
+      delete shown[key];
+      (idle[group.name] ||= []).push(group);
     }
   }
 
@@ -301,11 +369,12 @@ export function createProps({ scene, world, blockers, onReady }) {
   function writeDissolve(ease, entries = Object.entries(shown)) {
     for (const [name, list] of entries) {
       if (ease > 0 && name === rebuildingName) continue;
-      if (!parts[name]) continue;
+      const group = groups.get(name); // name is a group key here
+      if (!group) continue;
       // Settled models need no upload (ease 0 means a rebuild just reordered instances).
       if (ease > 0 && list.every(p => Math.abs(p.target - p.dissolve) < 1e-4)) continue;
       for (const p of list) p.dissolve += (p.target - p.dissolve) * ease;
-      for (const part of parts[name]) {
+      for (const part of group.parts) {
         const attribute = part.mesh.geometry.getAttribute(DISSOLVE_ATTRIBUTE);
         let matricesChanged = false;
         list.forEach((p, k) => {
@@ -332,29 +401,28 @@ export function createProps({ scene, world, blockers, onReady }) {
         const gltf = await loadModelAsset(`${DIR}${name}.gltf`);
         gltf.scene.updateMatrixWorld(true);
         heights[name] = new THREE.Box3().setFromObject(gltf.scene).max.y;
-        parts[name] = [];
         const meshes = [];
         gltf.scene.traverse(object => { if (object.isMesh) meshes.push(object); });
+        const list = [];
         for (const object of meshes) await new Promise((resolve, reject) => preparation.push(() => {
           try {
-            const mesh = new THREE.InstancedMesh(object.geometry.clone().applyMatrix4(object.matrixWorld), object.material, 16);
-            mesh.count = 0;
-            mesh.castShadow = SHADOW.test(name);
-            mesh.receiveShadow = true;
-            mesh.frustumCulled = false;
+            const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld);
+            geometry.computeBoundingSphere();
             (Array.isArray(object.material) ? object.material : [object.material]).forEach(addDissolve);
-            root.add(mesh);
-            const part = { mesh, capacity: 16 };
-            setDissolveCapacity(part);
-            parts[name].push(part);
+            list.push({ geometry, material: object.material, shadow: SHADOW.test(name),
+              reach: geometry.boundingSphere.center.length() + geometry.boundingSphere.radius });
             resolve();
           } catch (error) { reject(error); }
         }));
+        templates[name] = list;
       } catch (error) { console.warn(`Prop ${name} could not load.`, error); }
     }
   }
   Promise.all(Array.from({ length: 3 }, loadNext))
-    .then(() => { ready = true; builtKey = ''; onReady?.(root); });
+    .then(() => {
+      scene.traverse(light => { if (light.isLight && light.castShadow) light.shadow.camera.layers.enable(SHADOW_LAYER); });
+      ready = true; builtKey = ''; onReady?.(root);
+    });
 
   let lastFrame = performance.now();
   return {

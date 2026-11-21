@@ -72,6 +72,7 @@ import { createHeartPetals } from '../rendering/heartPetals.js';
 import { applyTestStart, getTestStart } from '../models/testStarts.js';
 import { createGrimoirePages, PAGE_FOR_SIGIL } from './grimoirePages.js';
 import { createBossFights } from './bossFights.js';
+import { createFogCull } from '../rendering/fogCull.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
@@ -375,6 +376,7 @@ export function startGame(ui, { testStartId = null } = {}) {
 
   // Screen warp is reserved for demo spawns (keys 1–5 and their buttons).
   const kamui = createKamui(renderer);
+  const fogCull = createFogCull(scene, camera);
   // ?rift=0.6 previews the sky rift at a fixed openness (0–1) without playing the story to that point.
   const riftParam = new URLSearchParams(location.search).get('rift');
   const riftPreview = riftParam === null || !Number.isFinite(+riftParam) ? null : Math.min(1, Math.max(0, +riftParam));
@@ -392,7 +394,7 @@ export function startGame(ui, { testStartId = null } = {}) {
 
   // Console handles for demos and report screenshots, e.g. dreamscape.kamui.pulse(), dreamscape.navigation.toggle().
   // player/movement allow e.g. dreamscape.movement.teleport({ x: -480, z: 0, top: 16.12 }) for screenshots.
-  window.dreamscape = { camera, mana, motes, kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters, npcs };
+  window.dreamscape = { fogCull, renderer, scene, camera, mana, motes, kamui, navigation, state, quest, clock: atmosphere.clock, spade, clover: livingRoad, startup, music, player, movement, inventory, character, companion, encounters, npcs };
   window.dreamscape.diamond = diamond; // Diamond chapter: e.g. dreamscape.diamond.model.relay.snapshotView()
   // Diamond's shots are laid out from its gate. The flyover and the power-up stream terrain along the camera.
   for (const [name, shot] of Object.entries(DIAMOND_SHOTS)) {
@@ -624,7 +626,11 @@ export function startGame(ui, { testStartId = null } = {}) {
     lamps.update(camera.position);
     // Behind the opaque intro, draw only every 4th frame: enough to keep compiling shaders and uploading
     // textures as things arrive, while the other frames stay short so queued model loads advance faster.
-    if (startup.ready || ++introFrames % 4 === 0) kamui.render(scene, camera, dt);
+    if (startup.ready || ++introFrames % 4 === 0) {
+      if (startup.ready) fogCull.hide(); // skip scenery the fog already hides, for this draw only
+      kamui.render(scene, camera, dt);
+      fogCull.restore();
+    }
     memory.apply(dt); // flashback memory look over the rendered frame (off unless a flashback plays)
     if (!startup.ready) {
       const phase = startup.update({ now: performance.now(), frameMs: rawDt * 1000,
@@ -646,6 +652,7 @@ export function startGame(ui, { testStartId = null } = {}) {
         enterLabel.textContent = 'ENTER THE DREAM';
         ui.enterButton.disabled = false;
         fpsFrames = fpsTime = 0;
+        fogCull.rebuild();
       }
     }
   }
