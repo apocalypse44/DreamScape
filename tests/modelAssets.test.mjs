@@ -7,7 +7,7 @@ const { createModelAssetStore } = await import(`data:text/javascript;base64,${Bu
 function harness(prepareTexture) {
   const pending = new Set(), loaders = [], frames = [];
   const store = createModelAssetStore({
-    prepareTexture,
+    prepareTexture, concurrency: 2,
     manager: { itemStart: t => pending.add(t), itemEnd: t => pending.delete(t) },
     resolveURL: (uri, path) => new URL(uri, `https://game.test/${path}`).href,
     nextFrame: () => new Promise(resolve => frames.push(resolve)),

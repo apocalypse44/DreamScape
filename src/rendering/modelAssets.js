@@ -1,7 +1,7 @@
 // Static kit models often reference the same large texture sheets. GLTFLoader's
 // cache belongs to one parse, so loading separate props otherwise decodes and
 // uploads those sheets again. Share compatible textures across model files.
-export function createModelAssetStore({ createLoader, manager, resolveURL, nextFrame, prepareTexture = texture => texture, concurrency = 2 }) {
+export function createModelAssetStore({ createLoader, manager, resolveURL, nextFrame, prepareTexture = texture => texture, concurrency = 4 }) {
   const models = new Map(), textures = new Map(), queue = [];
   let active = 0, ticket = 0;
 

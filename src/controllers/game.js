@@ -475,7 +475,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   // spends its time on uploads, not pixels nobody sees. Full resolution returns at warmup.
   renderer.setPixelRatio(0.5);
   const clock = new THREE.Clock();
-  let fpsFrames = 0;
+  let fpsFrames = 0, introFrames = 0;
   let fpsTime = 0;
   function frame() {
     requestAnimationFrame(frame);
@@ -622,7 +622,9 @@ export function startGame(ui, { testStartId = null } = {}) {
     updateSeal({ chaos: state.chaos, mode: state.mode, mana: mana.value, hold: mana.holdLeft, holdMax: MANA.hold, ready: !mana.blocked(state.mode) });
     music.update(dt);
     lamps.update(camera.position);
-    kamui.render(scene, camera, dt);
+    // Behind the opaque intro, draw only every 4th frame: enough to keep compiling shaders and uploading
+    // textures as things arrive, while the other frames stay short so queued model loads advance faster.
+    if (startup.ready || ++introFrames % 4 === 0) kamui.render(scene, camera, dt);
     memory.apply(dt); // flashback memory look over the rendered frame (off unless a flashback plays)
     if (!startup.ready) {
       const phase = startup.update({ now: performance.now(), frameMs: rawDt * 1000,

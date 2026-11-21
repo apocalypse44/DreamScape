@@ -12,7 +12,8 @@ export function bindInput({ state, keys, pointerButtons, player, renderer, camer
     if (document.hidden) clearInput();
   });
   enterButton.addEventListener("click", () => {
-    if (!enterButton.disabled) renderer.domElement.requestPointerLock();
+    // Firefox rejects when the window isn't focused; the next click simply retries.
+    if (!enterButton.disabled) try { renderer.domElement.requestPointerLock()?.catch?.(() => {}); } catch { /* next click */ }
   });
   document.addEventListener("pointerlockchange", () => {
     state.locked = document.pointerLockElement === renderer.domElement;

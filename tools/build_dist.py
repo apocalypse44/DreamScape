@@ -163,6 +163,13 @@ for png, ok in verdict.items():
     saved += before - png.stat().st_size
 print(f'Kit textures capped at {KIT_TEXTURE_SIZE} px: {saved / 1e6:.1f} MB smaller')
 
+# Cloudflare's default is max-age=0, so every return visit re-asks for each of ~170 startup files before using
+# it. Models, textures and audio rarely change: cache them a day, as serve.py does locally. Code and pages keep
+# the default (revalidate), so edits show on the next load.
+# ponytail: a replaced asset under the same name can stay stale up to a day; rename it (or add ?v=2) to bust.
+(DIST / '_headers').write_text('\n'.join(f'{path}\n  Cache-Control: public, max-age=86400\n'
+                                         for path in ['/assets/*', '/src/assets/*']), encoding='utf-8')
+
 files = [p for p in DIST.rglob('*') if p.is_file()]
 too_big = [p for p in files if p.stat().st_size > MAX_FILE]
 total = sum(p.stat().st_size for p in files)
