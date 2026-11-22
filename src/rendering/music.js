@@ -7,7 +7,8 @@ export const MUSIC_TRACKS = {
 
 // Stream recordings instead of decoding the three long tracks into memory.
 // preload 'none': six media streams would pin all six HTTP/1.1 sockets for ~15 s during startup.
-export function createMusic({ state, mediaFactory = () => new Audio() }) {
+// speaking(): a recorded voice line is playing (views/voice.js); the music ducks under it.
+export function createMusic({ state, mediaFactory = () => new Audio(), speaking = () => false }) {
   const tracks = Object.fromEntries(Object.entries(MUSIC_TRACKS).map(([id, track]) => {
     const decks = Array.from({ length: 2 }, () => {
       const audio = mediaFactory();
@@ -18,7 +19,7 @@ export function createMusic({ state, mediaFactory = () => new Audio() }) {
     return [id, { ...track, decks, active: 0, blend: null, gain: 0 }];
   }));
   let unlocked = false, muted = false, selected = null;
-  const volume = .35;
+  const volume = .35, DUCK = .35; // under a voice line the music drops to 35% of its level
   const button = document.querySelector('#musicToggle');
   function refresh() {
     if (!button) return;
@@ -88,9 +89,10 @@ export function createMusic({ state, mediaFactory = () => new Audio() }) {
     if (!allowed()) {
       silence(); return;
     }
-    const step = Math.max(0, Math.min(dt, .1)) * volume / 1.2;
+    const ducked = speaking();
+    const step = Math.max(0, Math.min(dt, .1)) * volume / 1.2 * (ducked ? 4 : 1); // duck fast (~.15 s), swell back slowly
     for (const [id, track] of Object.entries(tracks)) {
-      const target = id === selected ? volume * track.level : 0;
+      const target = id === selected ? volume * track.level * (ducked ? DUCK : 1) : 0;
       track.gain = track.gain < target ? Math.min(target, track.gain + step) : Math.max(target, track.gain - step);
       if (track.gain > 0) loop(track);
       else track.decks.forEach(pause);

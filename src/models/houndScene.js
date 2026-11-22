@@ -33,7 +33,7 @@ export function blendShot(a, b, t) {
 // Each real quest milestone gets one scene per run. Offering alone is not a cure.
 export function createHoundScene() {
   const seen = new Set();
-  let kind = 'curse', pending = false, phase = 'idle', time = 0, index = 0;
+  let kind = 'curse', pending = false, phase = 'idle', time = 0, index = 0, hold = 0; // hold: the line's recorded voice, in seconds
   const scene = {
     get kind() { return kind; },
     get active() { return phase !== 'idle'; },
@@ -61,10 +61,12 @@ export function createHoundScene() {
       if (phase === 'enter') { phase = 'transform'; time = 0; }
       else if (phase === 'transform') { phase = 'dialogue'; index = 1; time = 0; }
       else if (phase === 'dialogue') {
-        if (index < (kind === 'cure' ? HOUND_CURE_LINES : HOUND_LINES).length - 1) { index++; time = 0; }
+        if (index < (kind === 'cure' ? HOUND_CURE_LINES : HOUND_LINES).length - 1) { index++; time = 0; hold = 0; }
         else scene.skip();
       }
     },
+    /** A dialogue line stays at least this long (its voice is still speaking). */
+    hold(seconds) { hold = seconds; },
     skip() {
       if (phase === 'enter' || phase === 'transform' || phase === 'dialogue') { phase = 'exit'; time = 0; }
     },
@@ -73,11 +75,11 @@ export function createHoundScene() {
       time += Math.max(0, dt);
       if (phase === 'enter' && time >= PHASE_SECONDS.enter) { phase = 'transform'; time = 0; }
       else if (phase === 'transform' && time >= TRANSFORM_SECONDS) scene.next();
-      else if (phase === 'dialogue' && time >= scene.line.seconds) scene.next();
+      else if (phase === 'dialogue' && time >= Math.max(scene.line.seconds, hold)) scene.next();
       else if (phase === 'exit' && time >= PHASE_SECONDS.exit) { phase = 'return'; time = 0; }
       else if (phase === 'return' && time >= PHASE_SECONDS.return) { phase = 'idle'; time = 0; }
     },
-    reset() { seen.clear(); pending = false; kind = 'curse'; phase = 'idle'; time = index = 0; },
+    reset() { seen.clear(); pending = false; kind = 'curse'; phase = 'idle'; time = index = hold = 0; },
   };
   return scene;
 }

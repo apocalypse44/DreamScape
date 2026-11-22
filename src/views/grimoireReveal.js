@@ -1,4 +1,5 @@
 import { SPELLS, PAGES, SPELL_INK } from '../models/grimoireSpells.js';
+import { voice } from './voice.js';
 import { createSigil, sigilShapes, SIGILS } from '../rendering/sigil.js';
 
 // The grimoire receiving a page (GRIMOIRE_SPELLS_PLAN.md), as a short cinematic in front of the traveller:
@@ -145,7 +146,7 @@ export function createGrimoireReveal({ scene, doc = document }) {
     get handsAt() { return t >= 0 && t < tl.close[0] ? book.getWorldPosition(tmp) : null; },
     /** i: PAGES index. at: the traveller's eye position; yaw: the way they face (camera yaw, 0 = -z). */
     play(i, at, yaw) {
-      index = i; page = PAGES[i]; owned = new Set(PAGES.slice(0, i).map(p => p.source)); t = 0; cam.have = false;
+      index = i; page = PAGES[i]; voice.preload([page.lore, page.line]); owned = new Set(PAGES.slice(0, i).map(p => p.source)); t = 0; cam.have = false;
       // Opening Tide turns past the three pages before it; the first page turns past two blank leaves.
       spreads = i > 0 ? PAGES.slice(0, i + 1).map((_, j) => j) : ['blank', 'blank', 0];
       tl = timeline(spreads.length - 1); drawn = { left: null, right: null };
@@ -162,8 +163,8 @@ export function createGrimoireReveal({ scene, doc = document }) {
     /** Enter: jump to the written page (the book then waits for X). */
     skip() { if (t >= 0 && t < tl.line) t = tl.line - 1e-3; },
     /** X: close the book (any time it is open). */
-    close() { if (t >= 0 && tl.close[0] === Infinity) { tl.close = [t, t + REVEAL_T.close]; tl.end = t + REVEAL_T.close + REVEAL_T.shrink; setCaption(false); } },
-    stop() { t = -1; root.visible = false; veil.style.opacity = '0'; doc.body.classList.remove('grimoire-playing'); setCaption(false); for (const x of Object.values(sources)) x.visible = false; },
+    close() { if (t >= 0 && tl.close[0] === Infinity) { voice.stop(); tl.close = [t, t + REVEAL_T.close]; tl.end = t + REVEAL_T.close + REVEAL_T.shrink; setCaption(false); } },
+    stop() { voice.stop(); if (page) voice.release([page.lore, page.line]); t = -1; root.visible = false; veil.style.opacity = '0'; doc.body.classList.remove('grimoire-playing'); setCaption(false); for (const x of Object.values(sources)) x.visible = false; },
     update(dt) {
       for (let i = 0; i < moteCount; i++) { const s = motes[i]; if (s.life > 0) { s.life -= dt; s.p.addScaledVector(s.v, dt); s.v.multiplyScalar(1 - dt * 1.5); } else s.p.y = -99; motePos.set([s.p.x, s.p.y, s.p.z], i * 3); }
       moteGeo.attributes.position.needsUpdate = true;
@@ -215,7 +216,9 @@ export function createGrimoireReveal({ scene, doc = document }) {
         if (Math.random() < inked * (1 - glow) * .7) { rightPage.mesh.getWorldPosition(tmp); tmp.y += (Math.random() - .5) * .3; tmp.addScaledVector(side, (Math.random() - .5) * .3); spray(tmp, 1, .2, .6); }
       } else { light.intensity = 0; bloom.material.opacity = 0; }
       if (cue(R.ink[1])) { rightPage.mesh.getWorldPosition(tmp); spray(tmp, 45, 1.1); }
-      if (cue(R.caption)) setCaption(true, false); if (cue(R.line)) setCaption(true, true); caption.classList.toggle('waiting', t >= R.line);
+      if (cue(R.caption)) { setCaption(true, false); voice.say(page.lore); } // the narrator reads the lore,
+      if (cue(R.line)) { setCaption(true, true); voice.say(page.line, { next: true }); } // then the giver speaks after it
+      caption.classList.toggle('waiting', t >= R.line);
       moteMat.color.set(glowHex);
       veil.style.opacity = String(Math.min(clamp(t / .8), 1 - span(t, R.close))); doc.body.classList.toggle('grimoire-playing', t < R.close[1]);
       if (t >= R.end) { t = -1; root.visible = false; veil.style.opacity = '0'; doc.body.classList.remove('grimoire-playing'); }

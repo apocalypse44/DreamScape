@@ -1,4 +1,8 @@
-import { createHoundScene, PHASE_SECONDS, TRANSFORM_SECONDS, blendShot, smoother } from '../models/houndScene.js';
+import { createHoundScene, PHASE_SECONDS, TRANSFORM_SECONDS, blendShot, smoother, HOUND_LINES, HOUND_CURE_LINES } from '../models/houndScene.js';
+import { voice } from '../views/voice.js';
+
+const LINE_TEXTS = [...HOUND_LINES, ...HOUND_CURE_LINES].map(l => l.text);
+let warmed = false;
 
 // Shots orbit a subject. yaw is the angle (radians) from the subject's line toward the other character:
 // 0 sits between them, ~1 is a three-quarter view. The subject of each conversation takes +yaw and the
@@ -51,6 +55,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
     camera.fov = savedFov; camera.updateProjectionMatrix();
   }
   function finish(completed = true) {
+    voice.stop(); voice.release((story.kind === 'cure' ? HOUND_CURE_LINES : HOUND_LINES).map(l => l.text)); // the cure's stay loaded
     restoreCamera(); savedFov = null; state.cinematic = false;
     overlay.hidden = true; document.body.classList.remove('story-playing'); clearInput();
     state.locked = document.pointerLockElement === canvas;
@@ -127,6 +132,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       return story.active || story.pending ? { ...story.transformation, hold: story.active } : null;
     },
     observe(stage, ready) {
+      if (ready && !warmed) { warmed = true; voice.preload(LINE_TEXTS); } // the opening's voices, once play has started
       story.observe(stage, false);
       if (story.kind === 'cure' && !getKeeper?.()) return;
       if (!story.pending || !ready || !companion.prepareScene()) return;
@@ -153,12 +159,14 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
       updateCamera(step);
       if (lastLine !== story.index) {
         line.textContent = story.line.text;
+        story.hold(voice.say(story.line.text) + .3); // a recorded line holds the shot until it has been spoken
         line.classList.remove('in'); void line.offsetWidth; line.classList.add('in'); // each line fades up
         state.cinematicSpeaker = story.line.speaker ?? 'YOU';
         state.cinematicFace = story.line.face ?? null; // expression for whoever speaks this line
         overlay.querySelector('.scene-speaker').textContent = state.cinematicSpeaker;
         lastLine = story.index;
       }
+      if (story.phase === 'exit') voice.stop(); // skipped (or done): no voice over the fade
       overlay.dataset.phase = story.phase;
       overlay.dataset.fire = String(story.transformation.fire);
       overlay.dataset.wolf = String(story.transformation.wolf);

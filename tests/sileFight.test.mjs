@@ -24,7 +24,7 @@ test('the intro turns the prism purple, raises Sile laughing and speaks both lin
   assert.equal(purple, 1); assert.ok(high > 5, 'she rises above the forecourt');
   assert.ok(types.indexOf('rumble') < types.indexOf('laugh'));
   const lines = a.events.filter(e => e.type === 'line').map(e => e.text);
-  assert.ok(lines.some(l => /fun/.test(l)) && lines.length === 2);
+  assert.ok(lines.some(l => /play/.test(l)) && lines.length === 2);
   assert.equal(types.filter(t => t === 'laugh').length, 2); assert.ok(types.includes('fight'));
   const b = arena(); b.fight.start(); b.fight.skip(); b.run(1 / 60); assert.equal(b.fight.phase, 'harvest');
 });

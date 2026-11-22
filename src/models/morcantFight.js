@@ -34,7 +34,7 @@ const ORDER = ['forest', 'spears', 'spider', 'ambush', 'maw', 'spears', 'forest'
 const SEALED_ORDER = ['grove', 'spears', 'spider', 'grove', 'ambush'];
 // Morcant thinks himself a god. Heart is his by right, and this fight is beneath him.
 const LINES = {
-  arrive: ['MORCANT', 'Heart bowed. Its queen bowed. And now a stray insect wanders into my hall.'],
+  arrive: ['MORCANT', 'Heart bowed. Its queen bowed. You took Heart’s sigil, insect, so I took you.'],
   order: ['MORCANT', 'Kneel, insect. The Bone God is in a generous mood.'],
   seal: ['MORCANT', 'Enough. Behold the armour of a god!'],
   crack: ['MORCANT', 'You dare scorch the throne of bone?'],

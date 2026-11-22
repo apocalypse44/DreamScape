@@ -113,7 +113,7 @@ export const DIAMOND_SHOTS = {
     lines: [
       [0.6, 'ORIN', 'That pipe you found in Heart was ours. Now you know who scratched the message into it.'],
       [7, 'PRISM SIGIL', 'It shows where the Triad’s armour draws its power, so it can be cut.'],
-      [12, 'ORIN', 'You carry all four sigils now. Go back to Spade. The Hollow Crown is waiting.'],
+      [12, 'ORIN', 'You carry all four sigils now. Sile will come for that light. When she’s done, go back to Spade.'],
     ],
   },
 };

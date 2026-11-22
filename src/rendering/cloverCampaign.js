@@ -306,10 +306,20 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
   // Scar along it, the vines withering, crossings snapping (last first) into falling root debris, his
   // decoy marks, and Iven's green seal. memoryStage(stage) each frame; memoryStage(null) restores now.
   const fullRoad = growRoots({ seed: world.seed }), branches = fullRoad.segments.filter(s => !s.road);
-  const chainLinks = new THREE.InstancedMesh(new THREE.TorusGeometry(.17, .045, 4, 8), mat(0x9b6bff), 260);
-  chainLinks.count = 0; chainLinks.frustumCulled = false; root.add(chainLinks);
-  const chainPath = [...ROOT_LANDINGS].reverse().map(p => new THREE.Vector3(p.x, p.top + .38, p.z));
+  // Two chains coil around the road (a helix about its centre line), one turn every COIL.pitch metres.
+  const COIL = { strands: 2, radius: 1.15, pitch: 3, rise: .5, link: .3, spin: 1.2, flare: 2 };
+  const chainPath = [...ROOT_LANDINGS].reverse().map(p => new THREE.Vector3(p.x, p.top + COIL.rise, p.z));
   const chainLength = chainPath.slice(1).reduce((sum, p, i) => sum + p.distanceTo(chainPath[i]), 0);
+  const twist = Math.PI * 2 / COIL.pitch, coilStep = COIL.link / Math.hypot(1, twist * COIL.radius); // road metres per link
+  const chainLinks = new THREE.InstancedMesh(new THREE.TorusGeometry(.17, .045, 4, 8), mat(0x9b6bff),
+    COIL.strands * Math.ceil(chainLength / coilStep) + 8);
+  chainLinks.count = 0; chainLinks.frustumCulled = false; root.add(chainLinks);
+  const coilNext = new THREE.Vector3(), coilSide = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+  // A point on strand k at road distance s along the segment a->b (side: its horizontal normal), r: the coil's radius.
+  const coilPoint = (out, a, b, length, local, s, k, r) => {
+    const angle = s * twist + k * Math.PI * 2 / COIL.strands - time * COIL.spin;
+    return out.lerpVectors(a, b, local / length).addScaledVector(coilSide, Math.cos(angle) * r).addScaledVector(UP, Math.sin(angle) * r);
+  };
   const debrisMaterial = new THREE.MeshStandardMaterial({ color: 0x3b3029, roughness: .9 });
   const debris = Array.from({ length: 18 }, () => {
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(.24, .3, 1.7, 6), debrisMaterial);
@@ -347,15 +357,21 @@ export function buildCloverCampaign({ scene, world, keys, ready, notify, onSigil
       roadShown = stage.broken;
       drawSegments(roots, intact); vineRoad.draw(intact, branches); preview.count = 0;
     }
-    // Chains: links along the road from the Scar toward the Archive, as far as the binding has crawled.
-    const reach = stage.chains * chainLength, step = .42;
-    let count = 0, walked = 0;
+    // Chains: two strands coiling around the road from the Scar toward the Archive, as far as the binding has
+    // crawled. The crawling end starts tight and opens to full width over COIL.flare metres, so it winds on.
+    const reach = stage.chains * chainLength, max = chainLinks.instanceMatrix.count;
+    let count = 0, walked = 0, link = 0;
     for (let i = 1; i < chainPath.length && walked < reach; i++) {
       const a = chainPath[i - 1], b = chainPath[i], length = a.distanceTo(b);
-      for (let d = 0; d < length && walked + d < reach && count < chainLinks.instanceMatrix.count; d += step) {
-        dummy.position.lerpVectors(a, b, d / length); dummy.position.y += Math.sin((walked + d) * 1.3 + time * 3) * .05;
-        dummy.rotation.set(0, Math.atan2(b.x - a.x, b.z - a.z), count % 2 ? Math.PI / 2 : 0); dummy.scale.setScalar(1);
-        dummy.updateMatrix(); chainLinks.setMatrixAt(count++, dummy.matrix);
+      coilSide.set(b.z - a.z, 0, a.x - b.x).normalize();
+      for (let d = 0; d < length && walked + d < reach && count < max - COIL.strands; d += coilStep, link++) {
+        const s = walked + d, r = COIL.radius * Math.min(1, .25 + (reach - s) / COIL.flare);
+        for (let k = 0; k < COIL.strands; k++) {
+          coilPoint(dummy.position, a, b, length, d, s, k, r);
+          dummy.lookAt(coilPoint(coilNext, a, b, length, d + coilStep, s + coilStep, k, r)); // +z along the strand
+          dummy.rotateY(Math.PI / 2); if (link % 2) dummy.rotateX(Math.PI / 2); // ring along the strand; every other link turned
+          dummy.scale.setScalar(1); dummy.updateMatrix(); chainLinks.setMatrixAt(count++, dummy.matrix);
+        }
       }
       walked += length;
     }

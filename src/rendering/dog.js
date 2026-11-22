@@ -4,7 +4,7 @@
 // the brain controls the dog this frame (sitting, barking, being petted...) and
 // companion.js takes the brain's position; when false, companion.js movement stands.
 import { turnTowards } from './anim.js';
-import { Burst, sfx } from './fx.js';
+import { Burst } from './fx.js'; // ponytail: no dog sounds for now (VOICE_PLAN.md, Future: sound effects)
 import {
   PET_TIME, BARK_DISTANCE, BARK_COOLDOWN, SIT_DISTANCE,
 } from '../models/encounterConfig.js';
@@ -57,8 +57,6 @@ export class DogBrain {
       this.groundOffset = o.y - this.terrainHeight(o.x, o.z);
     }
     this.dog.play(next);
-    if (next === S.BARK) sfx.bark();
-    if (next === S.HOWL) sfx.howl();
   }
 
   _ground(x, z) { return this.terrainHeight(x, z) + this.groundOffset; }
@@ -71,7 +69,6 @@ export class DogBrain {
     const at = this.object.position.clone();
     at.y += 1;
     this.hearts.fire(at);
-    sfx.pet();
     return true;
   }
 
@@ -115,7 +112,6 @@ export class DogBrain {
       }
       case S.WAIT:
         turnTowards(this.object, p.x, p.z, dt, 4);
-        if (this.timer % 3 < dt) sfx.bark();
         if (!info.onCourse) this._go(S.FREE);
         break;
       case S.PET:
@@ -129,7 +125,6 @@ export class DogBrain {
         this.ring.position.set(em.x, this.terrainHeight(em.x, em.z) + 0.05, em.z);
         this.ring.material.opacity = 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(t * 4));
         turnTowards(this.object, p.x, p.z, dt, 3);
-        if (this.timer % 4 < dt && this.timer > 0.5) sfx.howl();
         if (d < 4) this._go(S.FREE);
         break;
       }

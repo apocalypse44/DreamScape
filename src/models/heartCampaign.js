@@ -373,7 +373,7 @@ export function createHeartCampaign({ layout, ready = () => true, terrainHeight 
         if (mode !== 'calm' || chaos >= CALM) return say('calm', 'The siphon is unstable. Calm down to release the current.');
         stage = 'report';
         version++;
-        return say('sigil', 'TIDE SIGIL · The siphon releases Heart’s stolen current. Its broken maker’s mark points south to Diamond. Return to Sera in calm.', 11000);
+        return say('sigil', 'TIDE SIGIL · The siphon releases Heart’s stolen current. Its broken maker’s mark points south to Diamond. Morcant will come for it. When he is beaten, return to Sera in calm.', 11000);
       }
       return null;
     },

@@ -1,4 +1,5 @@
 import { createPace } from './scenePace.js';
+import { voice } from '../views/voice.js';
 
 // Chapter II's castle reveal: once Neris's quest is done, a short letterboxed shot of Spade castle's doors
 // swinging open, introducing the next quest inside. Plays once, when the player is free to watch.
@@ -30,6 +31,7 @@ export function createDoorScene({ camera, state, keys, onOpen }) {
   const pace = createPace();
 
   function finish() {
+    pace.stop(); voice.release(LINES.map(l => l.text));
     camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation);
     if (!opened) { opened = true; onOpen?.(); } // skipped early: the doors still open
     time = -1; state.cinematic = false; overlay.hidden = true; document.body.classList.remove('story-playing');
@@ -48,7 +50,7 @@ export function createDoorScene({ camera, state, keys, onOpen }) {
   return {
     get active() { return time >= 0; },
     // delay (s): lets the message that triggered it be read first (the scene hides the HUD).
-    queue(delay = 0) { queued = true; startAt = performance.now() + delay * 1000; },
+    queue(delay = 0) { queued = true; startAt = performance.now() + delay * 1000; voice.preload(LINES.map(l => l.text)); },
     // ready: nothing else owns the camera and the player is free (no map, no other scene).
     observe(ready) {
       if (!queued || !ready || time >= 0 || performance.now() < startAt) return;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-test('audio context and samples are prepared before entry; first movement only resumes playback', async () => {
+test('the audio context is prepared before entry without downloading anything; first movement only resumes playback', async () => {
   const originalWindow = globalThis.window, originalFetch = globalThis.fetch;
   let contexts = 0, downloads = 0, decodes = 0, suspends = 0, resumes = 0;
   class AudioContext {
@@ -24,14 +24,14 @@ test('audio context and samples are prepared before entry; first movement only r
     await preparation;
     assert.equal(contexts, 1);
     assert.equal(suspends, 1);
-    assert.equal(downloads, 6);
-    assert.equal(decodes, 6);
+    assert.equal(downloads, 0); // no recorded effects at boot (they 404'd); voices load per scene
+    assert.equal(decodes, 0);
     assert.equal(resumes, 0);
     unlockAudio();
     unlockAudio();
     assert.equal(resumes, 1);
     assert.equal(contexts, 1);
-    assert.equal(downloads, 6);
+    assert.equal(downloads, 0);
   } finally {
     globalThis.window = originalWindow;
     globalThis.fetch = originalFetch;
