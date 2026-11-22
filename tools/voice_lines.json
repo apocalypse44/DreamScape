@@ -1,0 +1,1074 @@
+[
+ {
+  "id": "01-you",
+  "scene": "ember-hound-wakes",
+  "speaker": "YOU",
+  "text": "Wait—what’s happening to you?",
+  "direction": "shocked",
+  "file": "assets/voice/ember-hound-wakes/01-you.mp3"
+ },
+ {
+  "id": "02-you",
+  "scene": "ember-hound-wakes",
+  "speaker": "YOU",
+  "text": "Hey… easy, boy. Easy.",
+  "direction": "soothing, nervous",
+  "file": "assets/voice/ember-hound-wakes/02-you.mp3"
+ },
+ {
+  "id": "03-you",
+  "scene": "ember-hound-wakes",
+  "speaker": "YOU",
+  "text": "The keeper warned me about this. Embers… find the embers.",
+  "direction": "remembering, then resolved",
+  "file": "assets/voice/ember-hound-wakes/03-you.mp3"
+ },
+ {
+  "id": "01-you",
+  "scene": "the-cure",
+  "speaker": "YOU",
+  "text": "Easy… it’s over. You’re safe now.",
+  "direction": "gentle, relieved",
+  "file": "assets/voice/the-cure/01-you.mp3"
+ },
+ {
+  "id": "02-shrine-keeper",
+  "scene": "the-cure",
+  "speaker": "SHRINE KEEPER",
+  "text": "The embers are home, and the curse is broken. He’s free.",
+  "direction": "joyful",
+  "file": "assets/voice/the-cure/02-shrine-keeper.mp3"
+ },
+ {
+  "id": "03-you",
+  "scene": "the-cure",
+  "speaker": "YOU",
+  "text": "How did this even happen to him?",
+  "direction": "surprised",
+  "file": "assets/voice/the-cure/03-you.mp3"
+ },
+ {
+  "id": "04-shrine-keeper",
+  "scene": "the-cure",
+  "speaker": "SHRINE KEEPER",
+  "text": "No accident. The Triad put that curse in him years ago. The shrine saw it all. Watch.",
+  "direction": "grave",
+  "file": "assets/voice/the-cure/04-shrine-keeper.mp3"
+ },
+ {
+  "id": "01-you",
+  "scene": "meeting-iven",
+  "speaker": "YOU",
+  "text": "The bridges out there are all broken. What happened to the living road?",
+  "direction": "",
+  "file": "assets/voice/meeting-iven/01-you.mp3"
+ },
+ {
+  "id": "02-iven",
+  "scene": "meeting-iven",
+  "speaker": "IVEN",
+  "text": "The Dark Triad. They came one night and cut every crossing. By morning, Clover was split in two.",
+  "direction": "bitter",
+  "file": "assets/voice/meeting-iven/02-iven.mp3"
+ },
+ {
+  "id": "03-iven",
+  "scene": "meeting-iven",
+  "speaker": "IVEN",
+  "text": "The Stormleaf Scar saw it all. It never forgets. See for yourself.",
+  "direction": "",
+  "file": "assets/voice/meeting-iven/03-iven.mp3"
+ },
+ {
+  "id": "01-iven",
+  "scene": "iven-instructions",
+  "speaker": "IVEN",
+  "text": "Now you know. Three gaps are left, and each one has a guide.",
+  "direction": "",
+  "file": "assets/voice/iven-instructions/01-iven.mp3"
+ },
+ {
+  "id": "02-iven",
+  "scene": "iven-instructions",
+  "speaker": "IVEN",
+  "text": "While calm, turn the guide toward the gold leaf. Then stir chaos, and the roots will grow.",
+  "direction": "",
+  "file": "assets/voice/iven-instructions/02-iven.mp3"
+ },
+ {
+  "id": "03-iven",
+  "scene": "iven-instructions",
+  "speaker": "IVEN",
+  "text": "At the end is the Stormleaf Scar. It still remembers which spells are real.",
+  "direction": "",
+  "file": "assets/voice/iven-instructions/03-iven.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "the-severing",
+  "speaker": "NARRATOR",
+  "text": "Once, the living road carried all of Clover across the ravine.",
+  "direction": "",
+  "file": "assets/voice/the-severing/01-narrator.mp3"
+ },
+ {
+  "id": "02-iven",
+  "scene": "the-severing",
+  "speaker": "IVEN",
+  "text": "Grow true, little guide. They will cross you for a hundred years.",
+  "direction": "younger, tender",
+  "file": "assets/voice/the-severing/02-iven.mp3"
+ },
+ {
+  "id": "03-veyr",
+  "scene": "the-severing",
+  "speaker": "VEYR",
+  "text": "Clover’s magic runs through these roots. Cut them, and it’s ours.",
+  "direction": "cold, greedy",
+  "file": "assets/voice/the-severing/03-veyr.mp3"
+ },
+ {
+  "id": "04-sile",
+  "scene": "the-severing",
+  "speaker": "SILE",
+  "text": "Ooh, there’s so much of it!",
+  "direction": "gleeful",
+  "file": "assets/voice/the-severing/04-sile.mp3"
+ },
+ {
+  "id": "05-narrator",
+  "scene": "the-severing",
+  "speaker": "NARRATOR",
+  "text": "His chains drained the roots dry, and the leaves turned to ash.",
+  "direction": "",
+  "file": "assets/voice/the-severing/05-narrator.mp3"
+ },
+ {
+  "id": "06-iven",
+  "scene": "the-severing",
+  "speaker": "IVEN",
+  "text": "Off the road! Everyone, to the Archive!",
+  "direction": "shouting",
+  "file": "assets/voice/the-severing/06-iven.mp3"
+ },
+ {
+  "id": "07-narrator",
+  "scene": "the-severing",
+  "speaker": "NARRATOR",
+  "text": "One by one, the crossings fell.",
+  "direction": "",
+  "file": "assets/voice/the-severing/07-narrator.mp3"
+ },
+ {
+  "id": "08-veyr",
+  "scene": "the-severing",
+  "speaker": "VEYR",
+  "text": "Scatter fake spells among the real ones. Whoever comes after us will chase the wrong one.",
+  "direction": "sly",
+  "file": "assets/voice/the-severing/08-veyr.mp3"
+ },
+ {
+  "id": "09-iven",
+  "scene": "the-severing",
+  "speaker": "IVEN",
+  "text": "Then the Scar keeps the true pattern. Only a calm heart will read it.",
+  "direction": "quiet resolve",
+  "file": "assets/voice/the-severing/09-iven.mp3"
+ },
+ {
+  "id": "10-narrator",
+  "scene": "the-severing",
+  "speaker": "NARRATOR",
+  "text": "The road can grow again. The Scar still holds the true pattern.",
+  "direction": "",
+  "file": "assets/voice/the-severing/10-narrator.mp3"
+ },
+ {
+  "id": "01-iven",
+  "scene": "root-sigil",
+  "speaker": "IVEN",
+  "text": "There. That’s the road as it was, before they cut it.",
+  "direction": "quiet wonder",
+  "file": "assets/voice/root-sigil/01-iven.mp3"
+ },
+ {
+  "id": "02-you",
+  "scene": "root-sigil",
+  "speaker": "YOU",
+  "text": "And the red marks?",
+  "direction": "curious",
+  "file": "assets/voice/root-sigil/02-you.mp3"
+ },
+ {
+  "id": "03-iven",
+  "scene": "root-sigil",
+  "speaker": "IVEN",
+  "text": "Veyr’s fakes. They’re gone now. What’s left are the real spells guarding the Hollow Crown. The Root Sigil will remember them for you.",
+  "direction": "",
+  "file": "assets/voice/root-sigil/03-iven.mp3"
+ },
+ {
+  "id": "04-iven",
+  "scene": "root-sigil",
+  "speaker": "IVEN",
+  "text": "My chest is above the clouds. Climb Clover Terraces to the gateway at the top.",
+  "direction": "",
+  "file": "assets/voice/root-sigil/04-iven.mp3"
+ },
+ {
+  "id": "05-iven",
+  "scene": "root-sigil",
+  "speaker": "IVEN",
+  "text": "In the Sky Garden, follow the Starlight Ledges up to the highest one.",
+  "direction": "",
+  "file": "assets/voice/root-sigil/05-iven.mp3"
+ },
+ {
+  "id": "01-iven",
+  "scene": "sky-chest",
+  "speaker": "IVEN",
+  "text": "If you’re reading this, the Scar trusted you. This hook came from Heart, long ago.",
+  "direction": "warm, a little worn",
+  "file": "assets/voice/sky-chest/01-iven.mp3"
+ },
+ {
+  "id": "02-iven",
+  "scene": "sky-chest",
+  "speaker": "IVEN",
+  "text": "It only bites into glowing crystal. Nothing else will hold it.",
+  "direction": "",
+  "file": "assets/voice/sky-chest/02-iven.mp3"
+ },
+ {
+  "id": "03-iven",
+  "scene": "sky-chest",
+  "speaker": "IVEN",
+  "text": "Past the clouds is Heart. The Triad stole its water magic. Find Sera, she’s been fighting them alone.",
+  "direction": "graver",
+  "file": "assets/voice/sky-chest/03-iven.mp3"
+ },
+ {
+  "id": "04-you",
+  "scene": "sky-chest",
+  "speaker": "YOU",
+  "text": "Heart it is. Time to find Sera.",
+  "direction": "resolved",
+  "file": "assets/voice/sky-chest/04-you.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "mark-in-the-flame",
+  "speaker": "NARRATOR",
+  "text": "Years ago, a stray dog slept every night at the foot of the Grimoire Tower.",
+  "direction": "",
+  "file": "assets/voice/mark-in-the-flame/01-narrator.mp3"
+ },
+ {
+  "id": "02-veyr",
+  "scene": "mark-in-the-flame",
+  "speaker": "VEYR",
+  "text": "That dog goes everywhere. Curse it, and our curse goes everywhere too.",
+  "direction": "cold, matter-of-fact",
+  "file": "assets/voice/mark-in-the-flame/02-veyr.mp3"
+ },
+ {
+  "id": "03-sile",
+  "scene": "mark-in-the-flame",
+  "speaker": "SILE",
+  "text": "Ooh, a warm little shrine. Mine now.",
+  "direction": "delighted",
+  "file": "assets/voice/mark-in-the-flame/03-sile.mp3"
+ },
+ {
+  "id": "04-morcant",
+  "scene": "mark-in-the-flame",
+  "speaker": "MORCANT",
+  "text": "Split it in three. When it wakes, the pieces scatter.",
+  "direction": "booming",
+  "file": "assets/voice/mark-in-the-flame/04-morcant.mp3"
+ },
+ {
+  "id": "05-shrine-keeper",
+  "scene": "mark-in-the-flame",
+  "speaker": "SHRINE KEEPER",
+  "text": "Get away from that dog!",
+  "direction": "shout",
+  "file": "assets/voice/mark-in-the-flame/05-shrine-keeper.mp3"
+ },
+ {
+  "id": "06-veyr",
+  "scene": "mark-in-the-flame",
+  "speaker": "VEYR",
+  "text": "Too late, old woman. The first time someone runs wild beside it, it burns.",
+  "direction": "indifferent",
+  "file": "assets/voice/mark-in-the-flame/06-veyr.mp3"
+ },
+ {
+  "id": "07-narrator",
+  "scene": "mark-in-the-flame",
+  "speaker": "NARRATOR",
+  "text": "The curse slept for years. Then you came along and ran wild.",
+  "direction": "",
+  "file": "assets/voice/mark-in-the-flame/07-narrator.mp3"
+ },
+ {
+  "id": "08-narrator",
+  "scene": "mark-in-the-flame",
+  "speaker": "NARRATOR",
+  "text": "Three embers, one curse, and the Triad behind it all.",
+  "direction": "",
+  "file": "assets/voice/mark-in-the-flame/08-narrator.mp3"
+ },
+ {
+  "id": "01-you",
+  "scene": "keepers-lead",
+  "speaker": "YOU",
+  "text": "They did this to a dog. Who else have they hurt?",
+  "direction": "quiet anger",
+  "file": "assets/voice/keepers-lead/01-you.mp3"
+ },
+ {
+  "id": "02-shrine-keeper",
+  "scene": "keepers-lead",
+  "speaker": "SHRINE KEEPER",
+  "text": "Plenty. West of here is the Spade Kingdom. Veyr turned the people who stood up to him into wisps.",
+  "direction": "grave",
+  "file": "assets/voice/keepers-lead/02-shrine-keeper.mp3"
+ },
+ {
+  "id": "03-you",
+  "scene": "keepers-lead",
+  "speaker": "YOU",
+  "text": "Is anyone helping them?",
+  "direction": "",
+  "file": "assets/voice/keepers-lead/03-you.mp3"
+ },
+ {
+  "id": "04-shrine-keeper",
+  "scene": "keepers-lead",
+  "speaker": "SHRINE KEEPER",
+  "text": "A woman named Neris. Her house is the Lantern Refuge, the first one on your right past Spade’s gate.",
+  "direction": "",
+  "file": "assets/voice/keepers-lead/04-shrine-keeper.mp3"
+ },
+ {
+  "id": "05-you",
+  "scene": "keepers-lead",
+  "speaker": "YOU",
+  "text": "And him?",
+  "direction": "glancing at the pup",
+  "file": "assets/voice/keepers-lead/05-you.mp3"
+ },
+ {
+  "id": "06-shrine-keeper",
+  "scene": "keepers-lead",
+  "speaker": "SHRINE KEEPER",
+  "text": "He stays with me. The curse is gone, but he needs rest. Spade is no place for him yet.",
+  "direction": "warm",
+  "file": "assets/voice/keepers-lead/06-shrine-keeper.mp3"
+ },
+ {
+  "id": "07-you",
+  "scene": "keepers-lead",
+  "speaker": "YOU",
+  "text": "Look after him. I’ll come back when the Triad is finished.",
+  "direction": "promise",
+  "file": "assets/voice/keepers-lead/07-you.mp3"
+ },
+ {
+  "id": "01-neris",
+  "scene": "castle-doors",
+  "speaker": "NERIS",
+  "text": "The anchor is broken. The castle doors are open now.",
+  "direction": "",
+  "file": "assets/voice/castle-doors/01-neris.mp3"
+ },
+ {
+  "id": "02-narrator",
+  "scene": "castle-doors",
+  "speaker": "NARRATOR",
+  "text": "Go into the castle. Take the stairs on the left up to the archive, and read the three records while calm.",
+  "direction": "",
+  "file": "assets/voice/castle-doors/02-narrator.mp3"
+ },
+ {
+  "id": "01-nim",
+  "scene": "nims-vision",
+  "speaker": "NIM",
+  "text": "This shell shows me Heart. That’s happening right now.",
+  "direction": "hushed, urgent",
+  "file": "assets/voice/nims-vision/01-nim.mp3"
+ },
+ {
+  "id": "02-nim",
+  "scene": "nims-vision",
+  "speaker": "NIM",
+  "text": "An earthquake! The ground near Sera’s springs is tearing open.",
+  "direction": "alarmed",
+  "file": "assets/voice/nims-vision/02-nim.mp3"
+ },
+ {
+  "id": "03-nim",
+  "scene": "nims-vision",
+  "speaker": "NIM",
+  "text": "The land… it’s lifting into the sky!",
+  "direction": "shaken, low",
+  "file": "assets/voice/nims-vision/03-nim.mp3"
+ },
+ {
+  "id": "04-sera",
+  "scene": "nims-vision",
+  "speaker": "SERA",
+  "text": "Traveller, if you have the Tide Hook, come quickly. It’s the only way up there.",
+  "direction": "distant, urgent, filtered as through water",
+  "file": "assets/voice/nims-vision/04-sera.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "quake-at-the-gate",
+  "speaker": "NARRATOR",
+  "text": "The ground shudders under the gate.",
+  "direction": "",
+  "file": "assets/voice/quake-at-the-gate/01-narrator.mp3"
+ },
+ {
+  "id": "02-sera",
+  "scene": "quake-at-the-gate",
+  "speaker": "SERA",
+  "text": "Earthquake! Hold on, traveller. The springs are tearing open!",
+  "direction": "urgent, distant",
+  "file": "assets/voice/quake-at-the-gate/02-sera.mp3"
+ },
+ {
+  "id": "03-sera",
+  "scene": "quake-at-the-gate",
+  "speaker": "SERA",
+  "text": "I’m Sera, keeper of Heart’s springs. The land has lifted into the sky, and your Tide Hook is the only way up. Find me by the gate.",
+  "direction": "urgent, calm",
+  "file": "assets/voice/quake-at-the-gate/03-sera.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "quiet-springs",
+  "speaker": "NARRATOR",
+  "text": "A season ago, Heart’s water rose from three springs on the reef and filled every canal in Tidewell.",
+  "direction": "",
+  "file": "assets/voice/quiet-springs/01-narrator.mp3"
+ },
+ {
+  "id": "02-narrator",
+  "scene": "quiet-springs",
+  "speaker": "NARRATOR",
+  "text": "Sera looked after the springs. Queen Elowen looked after the town.",
+  "direction": "",
+  "file": "assets/voice/quiet-springs/02-narrator.mp3"
+ },
+ {
+  "id": "03-sile",
+  "scene": "quiet-springs",
+  "speaker": "SILE",
+  "text": "Such a generous kingdom. It won’t miss a little water.",
+  "direction": "smug, greedy",
+  "file": "assets/voice/quiet-springs/03-sile.mp3"
+ },
+ {
+  "id": "04-narrator",
+  "scene": "quiet-springs",
+  "speaker": "NARRATOR",
+  "text": "Her siphon was built in Diamond. It drained all three springs dry.",
+  "direction": "",
+  "file": "assets/voice/quiet-springs/04-narrator.mp3"
+ },
+ {
+  "id": "05-narrator",
+  "scene": "quiet-springs",
+  "speaker": "NARRATOR",
+  "text": "One by one, the canals emptied and the mills stopped turning.",
+  "direction": "",
+  "file": "assets/voice/quiet-springs/05-narrator.mp3"
+ },
+ {
+  "id": "06-sera",
+  "scene": "quiet-springs",
+  "speaker": "SERA",
+  "text": "Hide, little spirit. Sleep in the stone until someone comes to wake you.",
+  "direction": "whisper",
+  "file": "assets/voice/quiet-springs/06-sera.mp3"
+ },
+ {
+  "id": "07-queen-elowen",
+  "scene": "quiet-springs",
+  "speaker": "QUEEN ELOWEN",
+  "text": "Give back what you took from my people!",
+  "direction": "commanding",
+  "file": "assets/voice/quiet-springs/07-queen-elowen.mp3"
+ },
+ {
+  "id": "08-morcant",
+  "scene": "quiet-springs",
+  "speaker": "MORCANT",
+  "text": "The queen wants the siphon? Then she can go down with it.",
+  "direction": "mocking",
+  "file": "assets/voice/quiet-springs/08-morcant.mp3"
+ },
+ {
+  "id": "09-veyr",
+  "scene": "quiet-springs",
+  "speaker": "VEYR",
+  "text": "Chain the reef. If anyone comes for the siphon, it tears itself out of the ground and carries it into the sky.",
+  "direction": "",
+  "file": "assets/voice/quiet-springs/09-veyr.mp3"
+ },
+ {
+  "id": "10-narrator",
+  "scene": "quiet-springs",
+  "speaker": "NARRATOR",
+  "text": "The moment you took the Tide Hook, Veyr’s chains pulled. That was the earthquake you saw.",
+  "direction": "",
+  "file": "assets/voice/quiet-springs/10-narrator.mp3"
+ },
+ {
+  "id": "01-sera",
+  "scene": "stolen-current",
+  "speaker": "SERA",
+  "text": "Now you have seen it. The siphon is still down there, under the risen reef. So is our queen.",
+  "direction": "grave",
+  "file": "assets/voice/stolen-current/01-sera.mp3"
+ },
+ {
+  "id": "02-sera",
+  "scene": "stolen-current",
+  "speaker": "SERA",
+  "text": "My water spirit slept in the Listening isle. The quake woke it. Guide it from spring to spring and it will find the siphon.",
+  "direction": "",
+  "file": "assets/voice/stolen-current/02-sera.mp3"
+ },
+ {
+  "id": "03-sera",
+  "scene": "stolen-current",
+  "speaker": "SERA",
+  "text": "Hold Q at the floating crystals to swing up to the islands. Raise the crystal bridges in chaos, and guide the spirit in calm.",
+  "direction": "",
+  "file": "assets/voice/stolen-current/03-sera.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "Diamond mines the crystal that powers every kingdom’s magic.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/01-narrator.mp3"
+ },
+ {
+  "id": "02-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "The workers dig it here, in the pit, under the royals’ watchtowers.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/02-narrator.mp3"
+ },
+ {
+  "id": "03-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "They live down here, in the dust. The Triad keeps their families in a stockade.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/03-narrator.mp3"
+ },
+ {
+  "id": "04-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "Every crystal is weighed and taken, then hauled up the causeway.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/04-narrator.mp3"
+ },
+ {
+  "id": "05-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "One road leads up, over the royals’ drawbridge.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/05-narrator.mp3"
+ },
+ {
+  "id": "06-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "Up there the royals keep the Great Prism, and the Triad holds the crown.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/06-narrator.mp3"
+ },
+ {
+  "id": "07-narrator",
+  "scene": "shatterglass-march",
+  "speaker": "NARRATOR",
+  "text": "Find Artificer Orin by the relay at the bottom of the quarry.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-march/07-narrator.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "shatterglass-relay",
+  "speaker": "NARRATOR",
+  "text": "The pulse leaves the escape gate and runs along the buried conduit.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-relay/01-narrator.mp3"
+ },
+ {
+  "id": "02-narrator",
+  "scene": "shatterglass-relay",
+  "speaker": "NARRATOR",
+  "text": "The Triad’s seal breaks. The chains fall.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-relay/02-narrator.mp3"
+ },
+ {
+  "id": "03-orin",
+  "scene": "shatterglass-relay",
+  "speaker": "ORIN",
+  "text": "They’re free. Every family in that stockade is free.",
+  "direction": "overwhelmed",
+  "file": "assets/voice/shatterglass-relay/03-orin.mp3"
+ },
+ {
+  "id": "04-narrator",
+  "scene": "shatterglass-relay",
+  "speaker": "NARRATOR",
+  "text": "The core’s light reaches the Citadel. The Triad’s hold on the crown is broken.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-relay/04-narrator.mp3"
+ },
+ {
+  "id": "05-orin",
+  "scene": "shatterglass-relay",
+  "speaker": "ORIN",
+  "text": "Come back to me in the quarry.",
+  "direction": "",
+  "file": "assets/voice/shatterglass-relay/05-orin.mp3"
+ },
+ {
+  "id": "01-narrator",
+  "scene": "chain-order",
+  "speaker": "NARRATOR",
+  "text": "Before the Triad came, Diamond’s artificers built the Shatterglass Relay here.",
+  "direction": "",
+  "file": "assets/voice/chain-order/01-narrator.mp3"
+ },
+ {
+  "id": "02-morcant",
+  "scene": "chain-order",
+  "speaker": "MORCANT",
+  "text": "Chains. One for every family in the stockade.",
+  "direction": "flat, heavy",
+  "file": "assets/voice/chain-order/02-morcant.mp3"
+ },
+ {
+  "id": "03-morcant",
+  "scene": "chain-order",
+  "speaker": "MORCANT",
+  "text": "Forge them, or they wear them.",
+  "direction": "",
+  "file": "assets/voice/chain-order/03-morcant.mp3"
+ },
+ {
+  "id": "04-orin",
+  "scene": "chain-order",
+  "speaker": "ORIN",
+  "text": "…We will forge them.",
+  "direction": "younger, broken",
+  "file": "assets/voice/chain-order/04-orin.mp3"
+ },
+ {
+  "id": "05-narrator",
+  "scene": "chain-order",
+  "speaker": "NARRATOR",
+  "text": "When he had gone, a worker scratched a message into one of the relay’s pipes.",
+  "direction": "",
+  "file": "assets/voice/chain-order/05-narrator.mp3"
+ },
+ {
+  "id": "06-worker",
+  "scene": "chain-order",
+  "speaker": "WORKER",
+  "text": "“They forced us to make the chains. Don’t blame Diamond.”",
+  "direction": "whisper",
+  "file": "assets/voice/chain-order/06-worker.mp3"
+ },
+ {
+  "id": "07-orin",
+  "scene": "chain-order",
+  "speaker": "ORIN",
+  "text": "Break the relay. Hide the pieces in our workshops. The Triad will never use it.",
+  "direction": "younger, fierce, low",
+  "file": "assets/voice/chain-order/07-orin.mp3"
+ },
+ {
+  "id": "08-narrator",
+  "scene": "chain-order",
+  "speaker": "NARRATOR",
+  "text": "The relay stayed broken until someone came who could mend it.",
+  "direction": "",
+  "file": "assets/voice/chain-order/08-narrator.mp3"
+ },
+ {
+  "id": "01-orin",
+  "scene": "unbroken-pattern",
+  "speaker": "ORIN",
+  "text": "That pipe you found in Heart was ours. Now you know who scratched the message into it.",
+  "direction": "",
+  "file": "assets/voice/unbroken-pattern/01-orin.mp3"
+ },
+ {
+  "id": "02-narrator",
+  "scene": "unbroken-pattern",
+  "speaker": "NARRATOR",
+  "text": "It shows where the Triad’s armour draws its power, so it can be cut.",
+  "direction": "",
+  "file": "assets/voice/unbroken-pattern/02-narrator.mp3"
+ },
+ {
+  "id": "03-orin",
+  "scene": "unbroken-pattern",
+  "speaker": "ORIN",
+  "text": "You carry all four sigils now. Sile will come for that light. When she’s done, go back to Spade.",
+  "direction": "",
+  "file": "assets/voice/unbroken-pattern/03-orin.mp3"
+ },
+ {
+  "id": "arrive",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Heart bowed. Its queen bowed. You took Heart’s sigil, insect, so I took you.",
+  "direction": "disdain, echoing",
+  "file": "assets/voice/morcant-fight/arrive.mp3"
+ },
+ {
+  "id": "order",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Kneel, insect. The Bone God is in a generous mood.",
+  "direction": "lordly",
+  "file": "assets/voice/morcant-fight/order.mp3"
+ },
+ {
+  "id": "seal",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Enough. Behold the armour of a god!",
+  "direction": "roar",
+  "file": "assets/voice/morcant-fight/seal.mp3"
+ },
+ {
+  "id": "crack",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "You dare scorch the throne of bone?",
+  "direction": "outraged",
+  "file": "assets/voice/morcant-fight/crack.mp3"
+ },
+ {
+  "id": "reseal",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Burn all you like, insect. A god’s bones always grow back.",
+  "direction": "smug",
+  "file": "assets/voice/morcant-fight/reseal.mp3"
+ },
+ {
+  "id": "strength",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Impossible. I let you have that. Remember it.",
+  "direction": "shaken, covering",
+  "file": "assets/voice/morcant-fight/strength.mp3"
+ },
+ {
+  "id": "queen",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Keep your little kingdom, for now. Elowen stays mine, beyond the Hollow Gate.",
+  "direction": "backing away",
+  "file": "assets/voice/morcant-fight/queen.mp3"
+ },
+ {
+  "id": "retreat",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Burn me, then. Sile will drink your little fires.",
+  "direction": "spiteful",
+  "file": "assets/voice/morcant-fight/retreat.mp3"
+ },
+ {
+  "id": "forged",
+  "scene": "morcant-fight",
+  "speaker": "SERA",
+  "text": "Magic feeds them. Steel that remembers the Accord does not.",
+  "direction": "reverent",
+  "file": "assets/voice/morcant-fight/forged.mp3"
+ },
+ {
+  "id": "gloat-1",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Is this all Heart could send me?",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/gloat-1.mp3"
+ },
+ {
+  "id": "gloat-2",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Why must a god swat every fly that buzzes at his throne?",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/gloat-2.mp3"
+ },
+ {
+  "id": "gloat-3",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "I ruled Heart before your grandmother drew breath.",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/gloat-3.mp3"
+ },
+ {
+  "id": "gloat-4",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Stay down. It suits you.",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/gloat-4.mp3"
+ },
+ {
+  "id": "gloat-5",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Gods do not sweat for insects.",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/gloat-5.mp3"
+ },
+ {
+  "id": "sneer-1",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "A scratch. Gods do not bleed.",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/sneer-1.mp3"
+ },
+ {
+  "id": "sneer-2",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "You will pay for that, worm.",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/sneer-2.mp3"
+ },
+ {
+  "id": "sneer-3",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Lucky. Only lucky.",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/sneer-3.mp3"
+ },
+ {
+  "id": "sneer-4",
+  "scene": "morcant-fight",
+  "speaker": "MORCANT",
+  "text": "Do you know who I am?",
+  "direction": "",
+  "file": "assets/voice/morcant-fight/sneer-4.mp3"
+ },
+ {
+  "id": "arrive",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Ooh, the sprout that sent Morcant crawling home. Gimme that sigil. My turn!",
+  "direction": "delighted, mocking",
+  "file": "assets/voice/sile-fight/arrive.mp3"
+ },
+ {
+  "id": "fun",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Come on, little sprout. Let's play!",
+  "direction": "impatient, gleeful",
+  "file": "assets/voice/sile-fight/fun.mp3"
+ },
+ {
+  "id": "sky",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Ha! Too slow, sprout! Up here!",
+  "direction": "taunting, shouting down",
+  "file": "assets/voice/sile-fight/sky.mp3"
+ },
+ {
+  "id": "crash",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Hey! That hurt!",
+  "direction": "whiny, outraged",
+  "file": "assets/voice/sile-fight/crash.mp3"
+ },
+ {
+  "id": "shield",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "No, no, no, that's MY power!",
+  "direction": "panicked",
+  "file": "assets/voice/sile-fight/shield.mp3"
+ },
+ {
+  "id": "broken",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Ugh... you broke my toy.",
+  "direction": "sulking, pouting",
+  "file": "assets/voice/sile-fight/broken.mp3"
+ },
+ {
+  "id": "waves",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Jump, little sprout! Jump!",
+  "direction": "gleeful, mocking",
+  "file": "assets/voice/sile-fight/waves.mp3"
+ },
+ {
+  "id": "desperate",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Stop that! Those are MINE!",
+  "direction": "tantrum, shouting",
+  "file": "assets/voice/sile-fight/desperate.mp3"
+ },
+ {
+  "id": "reclaim",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Hehe... mine again.",
+  "direction": "smug giggle",
+  "file": "assets/voice/sile-fight/reclaim.mp3"
+ },
+ {
+  "id": "feed",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Ha! Your spells are mine now! Did Morcant not warn you? Keep throwing!",
+  "direction": "greedy, triumphant",
+  "file": "assets/voice/sile-fight/feed.mp3"
+ },
+ {
+  "id": "bored",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "Not fun... Next time, Veyr plays too.",
+  "direction": "sulking",
+  "file": "assets/voice/sile-fight/bored.mp3"
+ },
+ {
+  "id": "page1-lore",
+  "scene": "grimoire-pages",
+  "speaker": "NARRATOR",
+  "text": "The cured hound breathed on the book, and the first page filled with wind. Throw it, and a gale knocks enemies back.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page1-lore.mp3"
+ },
+ {
+  "id": "page1-line",
+  "scene": "grimoire-pages",
+  "speaker": "SHRINE KEEPER",
+  "text": "This is the Grimoire. The Triad tore out its pages. Every page you bring back gives you a new spell.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page1-line.mp3"
+ },
+ {
+  "id": "page2-lore",
+  "scene": "grimoire-pages",
+  "speaker": "NARRATOR",
+  "text": "Spade gave its last light freely. Light given freely burns the hottest, and now it burns for you.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page2-lore.mp3"
+ },
+ {
+  "id": "page2-line",
+  "scene": "grimoire-pages",
+  "speaker": "NERIS",
+  "text": "Our people kept this light alive for you. Burn the dark with it.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page2-line.mp3"
+ },
+ {
+  "id": "page3-lore",
+  "scene": "grimoire-pages",
+  "speaker": "NARRATOR",
+  "text": "The roots that grew the Living Road now grow for you. Call on them, and a wall of stone rises to protect you.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page3-lore.mp3"
+ },
+ {
+  "id": "page3-line",
+  "scene": "grimoire-pages",
+  "speaker": "IVEN",
+  "text": "You gave the road back its roots. Now let them stand between you and the Triad.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page3-line.mp3"
+ },
+ {
+  "id": "page4-lore",
+  "scene": "grimoire-pages",
+  "speaker": "NARRATOR",
+  "text": "Heart’s stolen current flows free again, and it wraps around you as a shield of living water.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page4-lore.mp3"
+ },
+ {
+  "id": "page4-line",
+  "scene": "grimoire-pages",
+  "speaker": "SERA",
+  "text": "The springs answer you now. Let the water guard you.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page4-line.mp3"
+ },
+ {
+  "id": "page5-lore",
+  "scene": "grimoire-pages",
+  "speaker": "NARRATOR",
+  "text": "Light that enters a prism leaves as many colours. This page teaches the four spells to do the same.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page5-lore.mp3"
+ },
+ {
+  "id": "page5-line",
+  "scene": "grimoire-pages",
+  "speaker": "ORIN",
+  "text": "Light through a prism is never only one colour. Neither is your magic now.",
+  "direction": "",
+  "file": "assets/voice/grimoire-pages/page5-line.mp3"
+ },
+ {
+  "id": "laugh-long",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "[cackles loudly] Ahahahaha! Ahaha!",
+  "direction": "",
+  "file": "assets/voice/sile-fight/laugh-long.mp3"
+ },
+ {
+  "id": "laugh-short",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "[giggles smugly] Hehe!",
+  "direction": "",
+  "file": "assets/voice/sile-fight/laugh-short.mp3"
+ },
+ {
+  "id": "laugh-sour",
+  "scene": "sile-fight",
+  "speaker": "SILE",
+  "text": "[annoyed, forced laugh] Hmph. Ha... ha.",
+  "direction": "",
+  "file": "assets/voice/sile-fight/laugh-sour.mp3"
+ }
+]

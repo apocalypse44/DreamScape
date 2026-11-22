@@ -1,6 +1,7 @@
 import { createPerson } from '../rendering/person.js';
 import { createBeam } from '../controllers/flashback.js';
 import { createSileFight } from '../models/sileFight.js';
+import { voice as recorded } from './voice.js';
 import { MORCANT_FIGHT } from '../models/morcantFight.js';
 const SPELL = MORCANT_FIGHT.spells;
 import { RIFT_VORTEX_GLSL } from '../rendering/sky.js';
@@ -134,6 +135,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
       resume() { ctx.resume?.(); },
       // A rising giggle that drops into a low, slow "ha... ha... haaa".
       laugh({ long = false, sour = false } = {}) {
+        if (recorded.say(`sile-fight/laugh-${sour ? 'sour' : long ? 'long' : 'short'}`, { next: true })) return; // her own laugh, after any line
         let t = ctx.currentTime + .05;
         const giggles = sour ? 3 : long ? 6 : 4;
         for (let i = 0; i < giggles; i++) { syllable(t, 330 + i * 18, .1, .7); t += .13; }
@@ -148,8 +150,8 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
         const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(520 * pitch, t); o.frequency.exponentialRampToValueAtTime(120 * pitch, t + .14);
         g.gain.setValueAtTime(.4, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + .18);
       },
-      say(text) { // ponytail: browser speech voice; swap for recorded lines when the cast is voiced
-        if (!window.speechSynthesis) return;
+      say(text) { // her recorded line, after any line still playing (never cut off); speech voice only without a recording
+        if (recorded.say(text, { next: true }) || !window.speechSynthesis) return;
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text), voices = speechSynthesis.getVoices();
         u.voice = voices.find(v => /zira|aria|jenny|samantha|female|susan|hazel/i.test(v.name)) || null; u.pitch = 1.35; u.rate = .88; u.volume = .95;
@@ -213,16 +215,16 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
     /** Spell cooldowns for the spell bar. */
     get runes() { const s = fight.snapshot(); return { cooldown: s.cooldown, max: s.cooldownMax, chaos: s.chaos }; },
     enter(charge = 0) {
-      build(); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(charge); lastPose = ''; haveShot = false;
+      build(); group.visible = true; voice ||= createVoice(); voice?.resume(); recorded.preload('sile-fight'); fight.start(charge); lastPose = ''; haveShot = false;
       saved = { fog: scene.fog.color.clone(), background: scene.background?.isColor ? scene.background.clone() : null };
       hud.show(true);
     },
     exit() {
-      fight.stop(); group.visible = false; for (const [light, base] of daylight) light.intensity = base; hud.show(false); window.speechSynthesis?.cancel();
+      fight.stop(); group.visible = false; for (const [light, base] of daylight) light.intensity = base; hud.show(false); window.speechSynthesis?.cancel(); recorded.stop(); recorded.release('sile-fight');
       if (!saved) return;
       scene.fog.color.copy(saved.fog); if (saved.background && scene.background?.isColor) scene.background.copy(saved.background); saved = null;
     },
-    skip() { fight.skip(); window.speechSynthesis?.cancel(); },
+    skip() { fight.skip(); window.speechSynthesis?.cancel(); recorded.stop(); },
     /** io: { player, feet, grounded, chaosPress, attackPress, invulnerable, swordHit, hurt, push, onDown, onImpact } */
     step(dt, io) { if (!fight.active) return; fight.update(dt, io); handle(fight.takeEvents(), io); },
     /** Visuals, once per rendered frame. grapple: highlight the spire anchor it would hook. */

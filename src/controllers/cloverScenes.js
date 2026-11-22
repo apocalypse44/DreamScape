@@ -4,6 +4,7 @@ import { CLOVER_STORY } from '../models/cloverCampaign.js';
 import { ROOT_LANDINGS } from '../models/cloverGrowth.js';
 import { SKY, SKY_SECRET, SUMMIT_DOOR } from '../models/skyIsland.js';
 import { createPace } from './scenePace.js';
+import { voice } from '../views/voice.js';
 import { MARK_PUP } from './emberFlashback.js';
 
 const { iven, scar, chest } = CLOVER_STORY;
@@ -149,7 +150,7 @@ function markShot(g) {
       [10.6, 'SILE · THE DARK TRIAD', 'Ooh, a warm little shrine. Mine now.'],
       [13, 'MORCANT · THE DARK TRIAD', 'Split it in three. When it wakes, the pieces scatter.'],
       [16.4, 'SHRINE KEEPER', 'Get away from that dog!'],
-      [19, 'VEYR · THE DARK TRIAD', 'Too late, old man. The first time someone runs wild beside it, it burns.'],
+      [19, 'VEYR · THE DARK TRIAD', 'Too late, old woman. The first time someone runs wild beside it, it burns.'],
       [23.6, 'THE SHRINE REMEMBERS', 'The curse slept for years. Then you came along and ran wild.'],
       [27, 'THE SHRINE REMEMBERS', 'Three embers, one curse, and the Triad behind it all.'],
     ],
@@ -222,6 +223,7 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     try { canvas.requestPointerLock()?.catch?.(paused); } catch { paused(); }
   }
   function finish() {
+    pace.stop(); voice.release(shot.lines.map(l => l[2]));
     camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation);
     shot.fx?.(Infinity, campaign);
     flashbacks[shot.flashback]?.end();
@@ -252,13 +254,16 @@ export function createCloverScenes({ camera, state, keys, campaign, canvas, hear
     // kind: 'meet' | 'sigil' | 'hook', the Clover story event that earns the shot.
     // Meeting Iven: you ask about the road, the Scar's memory plays, then Iven's instructions.
     queue(kind) {
+      const before = queue.length;
       if (kind === 'mark') { // after the cure, on today's ground: the memory, then the keeper's lead to Spade
         const g = groundAt(MARK_PUP.x, MARK_PUP.z);
         shots.mark = prepare(markShot(g)); shots.lead = prepare(leadShot(g));
-        queue.push('mark', 'lead'); return;
+        queue.push('mark', 'lead');
+      } else {
+        if (kind === 'meet') queue.push('ask', 'severing');
+        if (shots[kind]) queue.push(kind);
       }
-      if (kind === 'meet') queue.push('ask', 'severing');
-      if (shots[kind]) queue.push(kind);
+      voice.preload(queue.slice(before).flatMap(k => shots[k].lines.map(l => l[2]))); // their voices start loading now
     },
     // Register a shot built at runtime (Diamond's shots depend on where the noisy south trail put its gate).
     // shot: { keys: [[seconds, Vector3, Vector3], ...], lines, title?, chapter?, flashback?, fx?, focus? }.

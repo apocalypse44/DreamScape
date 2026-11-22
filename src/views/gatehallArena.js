@@ -5,6 +5,7 @@ import { createArenaHud, createBursts, createFlash } from './citadelArena.js';
 import { createSigilBlade } from '../rendering/sigilBlade.js';
 import { createGrimoireBook } from './grimoireReveal.js';
 import { SPELL_INK } from '../models/grimoireSpells.js';
+import { voice as recorded } from './voice.js';
 
 // The Gatehall: Morcant's own pocket hall, a sealed drum hung in the void. Not Sile's open mesa:
 // a closed charcoal drum ringed by eight bone gate-frames, gold inlay on the floor, four bone pillars
@@ -255,8 +256,8 @@ export function createGatehall({ scene, center, floor, toast = () => {}, obstacl
       crack() { tone('square', 1400, 300, .06, .25); tone('triangle', 180, 60, .18, .3, .01); },
       whoosh(f = 300) { tone('sawtooth', f, f * 3, .25, .12); },
       hit(pitch = 1) { tone('triangle', 520 * pitch, 120 * pitch, .16, .4); },
-      say(text) { // ponytail: browser speech voice, pitched low; swap for recorded lines when the cast is voiced
-        if (!window.speechSynthesis) return;
+      say(text) { // his recorded line (and Sera's), after any line still playing (never cut off); speech voice only without a recording
+        if (recorded.say(text, { next: true }) || !window.speechSynthesis) return;
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text), voices = speechSynthesis.getVoices();
         u.voice = voices.find(v => /david|guy|mark|george|daniel|male/i.test(v.name) && !/female/i.test(v.name)) || null; u.pitch = .55; u.rate = .82; u.volume = 1;
@@ -398,20 +399,20 @@ export function createGatehall({ scene, center, floor, toast = () => {}, obstacl
     /** Seconds of cooldown left per rune, and each rune's full cooldown, for the rune bar. */
     get runes() { const s = fight.snapshot(); return { cooldown: s.cooldown, max: s.cooldownMax, chaos: s.chaos }; },
     begin(charge = 0) {
-      build(); hud ||= createArenaHud(document); group.visible = true; voice ||= createVoice(); voice?.resume(); fight.start(charge); lastPose = ''; haveShot = false;
+      build(); hud ||= createArenaHud(document); group.visible = true; voice ||= createVoice(); voice?.resume(); recorded.preload('morcant-fight'); fight.start(charge); lastPose = ''; haveShot = false;
       const label = document.querySelector('#bossBar span');
       saved = { fog: scene.fog.color.clone(), background: scene.background?.isColor ? scene.background.clone() : null, label: label?.textContent };
       if (label) label.textContent = 'MORCANT THE GATEKEEPER';
       hud.show(true);
     },
     exit() {
-      fight.stop(); group.visible = false; hud?.show(false); window.speechSynthesis?.cancel();
+      fight.stop(); group.visible = false; hud?.show(false); window.speechSynthesis?.cancel(); recorded.stop(); recorded.release('morcant-fight');
       for (const [light, base] of daylight) light.intensity = base;
       if (!saved) return; // put the page's sky and the shared HUD's name back
       scene.fog.color.copy(saved.fog); if (saved.background) scene.background.copy(saved.background);
       const label = document.querySelector('#bossBar span'); if (label && saved.label) label.textContent = saved.label; saved = null;
     },
-    skip() { fight.skip(); window.speechSynthesis?.cancel(); },
+    skip() { fight.skip(); window.speechSynthesis?.cancel(); recorded.stop(); },
     /** io: { player, feet, grounded, chaosPress, invulnerable, cast, hurt, push, onDown } */
     step(dt, io) { if (!fight.active) return; fight.update(dt, io); handle(fight.takeEvents(), io); },
     /** Visuals, once per frame. */

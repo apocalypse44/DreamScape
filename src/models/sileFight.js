@@ -29,16 +29,16 @@ export const SILE_FIGHT = {
 };
 const ORDER = ['sweep', 'darts', 'sweep', 'tether', 'darts', 'sweep'];
 const LINES = {
-  arrive: ['SILE', 'Ooh, the bug that sent Morcant crawling home. My turn.'],
-  fun: ['SILE', 'Come... let\'s have some fun.'],
-  sky: ['SILE', 'Can\'t reach me down there, can you?'],
+  arrive: ['SILE', 'Ooh, the sprout that sent Morcant crawling home. Gimme that sigil. My turn!'],
+  fun: ['SILE', 'Come on, little sprout. Let\'s play!'],
+  sky: ['SILE', 'Ha! Too slow, sprout! Up here!'],
   crash: ['SILE', 'Hey! That hurt!'],
   shield: ['SILE', 'No, no, no, that\'s MY power!'],
   broken: ['SILE', 'Ugh... you broke my toy.'],
-  waves: ['SILE', 'Jump, little bug! Jump!'],
+  waves: ['SILE', 'Jump, little sprout! Jump!'],
   desperate: ['SILE', 'Stop that! Those are MINE!'],
   reclaim: ['SILE', 'Hehe... mine again.'],
-  feed: ['SILE', 'Mmm, delicious! Did Morcant not warn you? Feed me more!'],
+  feed: ['SILE', 'Ha! Your spells are mine now! Did Morcant not warn you? Keep throwing!'],
   bored: ['SILE', 'Not fun... Next time, Veyr plays too.'],
 };
 const ease = k => k * k * (3 - 2 * k);

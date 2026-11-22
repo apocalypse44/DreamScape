@@ -73,6 +73,7 @@ import { applyTestStart, getTestStart } from '../models/testStarts.js';
 import { createGrimoirePages, PAGE_FOR_SIGIL } from './grimoirePages.js';
 import { createBossFights } from './bossFights.js';
 import { createFogCull } from '../rendering/fogCull.js';
+import { voice } from '../views/voice.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
@@ -85,7 +86,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   startup.begin(performance.now());
   prepareAudio().finally(() => startup.end(performance.now()));
   const { state, keys, pointerButtons, player } = createGameState();
-  const music = createMusic({ state });
+  const music = createMusic({ state, speaking: () => voice.speaking }); // ducks under recorded dialogue
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
   const lamps = createLightPool(scene); // before anything builds a PointLight
   let atmosphere = null;

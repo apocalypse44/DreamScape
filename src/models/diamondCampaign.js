@@ -194,7 +194,7 @@ export function createDiamondCampaign({ layout = diamondLayout(), ready = () => 
       }
       if (stage === 'report' && calm && near(position, layout.orin, TALK)) {
         stage = 'complete'; version++;
-        return say('sigil', 'PRISM SIGIL · ORIN · The workers are free, and the relay remembers the pattern the Triad forbade. Its inversion circuit can strip Morcant’s armor once his supply is cut. Return to Spade with all four sigils.', 12000);
+        return say('sigil', 'PRISM SIGIL · ORIN · The workers are free, and the relay remembers the pattern the Triad forbade. Its inversion circuit can break Sile’s siphon shield. Sile will come for it. When she is beaten, return to Spade with all four sigils.', 12000);
       }
       return null;
     },

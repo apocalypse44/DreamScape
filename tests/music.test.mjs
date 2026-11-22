@@ -72,3 +72,22 @@ test('music respects user activation, crossfades game moods, prioritizes scenes 
     assert.ok(media.every(a => a.paused));
   } finally { globalThis.document = oldDocument; globalThis.window = oldWindow; }
 });
+
+test('music ducks under a recorded voice line and swells back after it', async () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window;
+  const events = new Map(), media = [];
+  globalThis.document = { hidden: false, hasFocus: () => true, querySelector: () => null, addEventListener: (n, h) => events.set(n, h) };
+  globalThis.window = { addEventListener: (n, h) => events.set(n, h) };
+  const mediaFactory = () => { const a = { paused: true, currentTime: 0, duration: 600, play() { this.paused = false; return Promise.resolve(); }, pause() { this.paused = true; } }; media.push(a); return a; };
+  let talking = false;
+  try {
+    const music = createMusic({ state: { mode: 'calm', locked: true }, mediaFactory, speaking: () => talking });
+    const frames = async (n = 120) => { for (let i = 0; i < n; i++) music.update(1 / 60); await settle(); };
+    events.get('pointerdown')(); await frames();
+    const full = media[0].volume;
+    talking = true; await frames(15);                    // a quarter second into the line
+    assert.ok(Math.abs(media[0].volume - full * .35) < 1e-9);
+    talking = false; await frames();
+    assert.ok(Math.abs(media[0].volume - full) < 1e-9);
+  } finally { globalThis.document = oldDocument; globalThis.window = oldWindow; }
+});
