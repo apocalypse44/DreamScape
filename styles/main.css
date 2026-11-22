@@ -182,3 +182,7 @@ body.right-panels-hidden .swarm-panel { display:none; }
 /* World prompts ("E · PET") */
 #worldPrompt { position:absolute; display:none; transform:translate(-50%,-100%); padding:5px 10px; border:1px solid rgba(201,162,74,.55); border-radius:2px; background:rgba(9,13,12,.84);
   color:var(--parch); font:500 9px 'DM Mono',monospace; letter-spacing:.18em; white-space:nowrap; }
+
+/* Settings · subtitles off: hide a caption only while its recording plays (a line with no recording still shows). */
+body.no-subtitles.voiced .scene-line, body.no-subtitles.voiced .scene-speaker,
+body.no-subtitles.voiced #subtitle, body.no-subtitles.voiced .grimoire-caption .speech { visibility: hidden; }

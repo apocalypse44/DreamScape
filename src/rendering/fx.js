@@ -94,6 +94,8 @@ export function applyCameraShake(camera, dt) {
 // VOICE_PLAN.md "Future: sound effects" lists what to add, and from where.
 let ac = null;
 let audioPreparation = null;
+let effectsLevel = 1; // the effects setting (game.js keeps it in step with models/settings.js)
+export function setEffectsLevel(level) { effectsLevel = level; }
 export function prepareAudio() {
   if (audioPreparation) return audioPreparation;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -122,13 +124,14 @@ function tone({ type = 'sine', f0 = 440, f1 = f0, dur = 0.4, vol = 0.2, delay = 
   // Only unlockAudio() resumes playback, in response to a user gesture.
   const a = ac;
   if (!a || a.state !== 'running') return;
+  const level = effectsLevel; if (!level) return;
   const t = a.currentTime + delay;
   const o = a.createOscillator();
   const g = a.createGain();
   o.type = type;
   o.frequency.setValueAtTime(f0, t);
   o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
-  g.gain.setValueAtTime(vol, t);
+  g.gain.setValueAtTime(vol * level, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g).connect(a.destination);
   o.start(t);

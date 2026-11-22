@@ -3,7 +3,8 @@
 // can be tried. All geometry is primitive; no extra downloads.
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
-export function createTrainingYard({ scene, ground, colliders, onImpact = () => {} }) {
+// onDefend(result): the sentinel's strike landed as 'blocked' | 'dodged' | 'hit' (the Tutorial Lab's lessons listen).
+export function createTrainingYard({ scene, ground, colliders, onImpact = () => {}, onDefend = () => {} }) {
   const T = THREE, dummies = [], sparks = [];
   const toon = hex => new T.MeshToonMaterial({ color: new T.Color(hex).convertSRGBToLinear() });
   const straw = toon(0xc9a560), wood = toon(0x6b4b30), cloth = toon(0x9a3434);
@@ -71,6 +72,7 @@ export function createTrainingYard({ scene, ground, colliders, onImpact = () => 
               const result = combat.hurt({ x: d.x, z: d.z }, player.position, { heavy: true });
               burst(at.set(player.position.x, player.position.y - .7, player.position.z), result === 'blocked' ? 0xf2d27a : result === 'dodged' ? 0x5fb8e8 : 0xe0553a, 14);
               toast?.(result === 'blocked' ? 'Blocked' : result === 'dodged' ? 'Dodged' : 'Hit!');
+              onDefend(result);
               onImpact(result !== 'dodged');
             }
           }

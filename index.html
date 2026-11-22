@@ -14,9 +14,29 @@
     <link rel="stylesheet" href="styles/grimoire.css" />
     <link rel="stylesheet" href="styles/grimoireReveal.css" />
     <link rel="stylesheet" href="styles/arena.css" />
+    <link rel="stylesheet" href="styles/home.css" />
   </head>
   <body>
     <main id="app">
+      <section id="home" aria-label="DreamScape home">
+        <div class="home-card">
+          <p class="eyebrow">A BLACK CLOVER INSPIRED WORLD</p>
+          <h1>The Fourfold Accord<span>Dreamscape</span></h1>
+          <nav class="home-menu" aria-label="Main menu">
+            <button id="homeStart" type="button">Start Game</button>
+            <button id="homeLab" type="button">Tutorial Lab</button>
+            <button id="homeSettings" type="button" aria-expanded="false" aria-controls="homeSettingsPanel">Settings</button>
+          </nav>
+          <form id="homeSettingsPanel" hidden aria-label="Settings">
+            <label>Music <input type="range" min="0" max="100" step="5" data-setting="music" /></label>
+            <label>Voices <input type="range" min="0" max="100" step="5" data-setting="voices" /></label>
+            <label>Effects <input type="range" min="0" max="100" step="5" data-setting="effects" /></label>
+            <label class="check"><input type="checkbox" data-setting="subtitles" /> Subtitles</label>
+          </form>
+          <p class="home-tip">New here? The Tutorial Lab teaches the sword, spells and the hook while the world loads.</p>
+          <div class="home-load" role="status" aria-live="polite"><div class="home-bar"><i id="homeBar"></i></div><span id="homeLoad">Gathering the world…</span></div>
+        </div>
+      </section>
       <section class="intro-screen" id="intro" data-load-phase="loading" aria-label="Welcome to Dreamscape">
         <div class="dream-stars" aria-hidden="true"></div>
         <header class="intro-masthead"><span class="intro-wordmark">D / S</span><span>A BLACK CLOVER INSPIRED WORLD</span><span class="intro-edition">THE GRIMOIRE AWAKENING</span></header>

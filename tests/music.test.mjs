@@ -91,3 +91,20 @@ test('music ducks under a recorded voice line and swells back after it', async (
     assert.ok(Math.abs(media[0].volume - full) < 1e-9);
   } finally { globalThis.document = oldDocument; globalThis.window = oldWindow; }
 });
+
+test('the music settles at its level times the player\'s music setting', async () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window;
+  const events = new Map(), media = [];
+  globalThis.document = { hidden: false, hasFocus: () => true, querySelector: () => null, addEventListener: (n, h) => events.set(n, h) };
+  globalThis.window = { addEventListener: (n, h) => events.set(n, h) };
+  const mediaFactory = () => { const a = { paused: true, currentTime: 0, duration: 600, play() { this.paused = false; return Promise.resolve(); }, pause() { this.paused = true; } }; media.push(a); return a; };
+  let level = 1;
+  try {
+    const music = createMusic({ state: { mode: 'calm', locked: true }, mediaFactory, level: () => level });
+    events.get('pointerdown')();
+    for (let i = 0; i < 200; i++) music.update(1 / 60); await settle();
+    const full = media[0].volume; level = .5;
+    for (let i = 0; i < 200; i++) music.update(1 / 60); await settle();
+    assert.ok(Math.abs(media[0].volume - full * .5) < 1e-9);
+  } finally { globalThis.document = oldDocument; globalThis.window = oldWindow; }
+});

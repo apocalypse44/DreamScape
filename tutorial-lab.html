@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DreamScape · Tutorial Lab</title><link rel="stylesheet" href="styles/arena.css"><link rel="stylesheet" href="styles/tutorial-lab.css"></head>
+<body>
+<main id="lab"><canvas id="labCanvas" tabindex="0" aria-label="Tutorial Lab"></canvas>
+<aside id="lessons" aria-label="Lessons"><span class="eyebrow">TUTORIAL LAB</span><h2>Learn to fight.</h2>
+<p id="labStatus" role="status">Preparing the traveller…</p>
+<ol id="lessonList"></ol>
+<div class="row"><button id="begin" disabled>Begin</button><button id="skip">Skip step</button></div>
+<p class="quiet">Click the world to take the mouse · Esc frees it · Esc again leaves the lab</p></aside>
+<button id="closeLab" aria-label="Leave the Tutorial Lab">✕ LEAVE</button>
+<footer><span><kbd>WASD</kbd> MOVE</span><span><kbd>SHIFT</kbd> RUN</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>LMB</kbd> SLASH</span><span><kbd>RMB</kbd> BLOCK</span><span><kbd>F</kbd> ROLL</span><span><kbd>Q</kbd> HOOK</span><span><kbd>G</kbd> CHAOS</span></footer>
+<div id="labToast" role="status" aria-live="polite"></div></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script src="vendor/GLTFLoader.js"></script>
+<script type="module" src="src/views/tutorialLab.js"></script></body></html>

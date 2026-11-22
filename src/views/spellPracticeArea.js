@@ -5,7 +5,8 @@ import { createBursts } from './citadelArena.js';
 // The spell practice ground in the movement lab: a rune circle on the grass, three crystal dummies on stakes, and a
 // bone totem whose eyes glow before it throws. Draws models/spellPractice.js and turns its events into toasts and sparks.
 const SPELL = MORCANT_FIGHT.spells;
-export function createSpellPracticeArea({ scene, center, floor = 0, toast = () => {} }) {
+// onEvent(event): every practice event (cast, blocked, wallStop, spearShattered…), for the Tutorial Lab's lessons.
+export function createSpellPracticeArea({ scene, center, floor = 0, toast = () => {}, onEvent = () => {} }) {
   const T = THREE, lin = hex => new T.Color(hex).convertSRGBToLinear(), group = new T.Group(); scene.add(group);
   const model = createSpellPractice({ center, floor });
   const std = (hex, o = {}) => new T.MeshStandardMaterial({ color: lin(hex), roughness: .8, ...o });
@@ -37,6 +38,7 @@ export function createSpellPracticeArea({ scene, center, floor = 0, toast = () =
   const at = (e, y = 1.4) => ({ x: e.x, y: e.y ?? floor + y, z: e.z });
   function handle(events, io) {
     for (const e of events) {
+      onEvent(e);
       if (e.type === 'burn') bursts.at(at(e, 1.5), 0xff8a3a, 0, 12);
       else if (e.type === 'shatter') { toast('CRYSTAL SHATTERED'); bursts.at(at(e, 1.5), 0xffb347, 0, 30); }
       else if (e.type === 'regrow') bursts.at(at(e, 1.5), 0xfff0b8, 0, 12);

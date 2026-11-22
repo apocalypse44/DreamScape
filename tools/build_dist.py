@@ -12,7 +12,7 @@ DIST = ROOT / 'dist'
 MAX_FILE = 25 * 1024 * 1024  # Cloudflare Pages per-file limit
 MAX_FILES = 1000  # Cloudflare dashboard upload / itch.io limit
 
-APP = ['index.html', 'movement-lab.html', 'src', 'styles', 'vendor']
+APP = ['index.html', 'movement-lab.html', 'tutorial-lab.html', 'src', 'styles', 'vendor']
 ASSETS = [
     # The dog and Ember Hound now ship as src/assets/dog.glb and hound.glb (tools/dogBuilder.js).
     'animals/License.txt',

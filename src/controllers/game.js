@@ -33,7 +33,7 @@ import { createKingdomGates } from '../rendering/kingdomGates.js';
 import { createSpade } from '../rendering/spade.js';
 import { createEncounters } from './encounters.js';
 import { createChaosLook } from './chaosLook.js';
-import { applyCameraShake, prepareAudio } from '../rendering/fx.js';
+import { applyCameraShake, prepareAudio, setEffectsLevel } from '../rendering/fx.js';
 import { toast } from '../views/overlay.js';
 import { createKamui } from '../rendering/kamui.js';
 import { createNavigation } from '../rendering/navigation.js';
@@ -74,6 +74,8 @@ import { createGrimoirePages, PAGE_FOR_SIGIL } from './grimoirePages.js';
 import { createBossFights } from './bossFights.js';
 import { createFogCull } from '../rendering/fogCull.js';
 import { voice } from '../views/voice.js';
+import { settings } from '../models/settings.js';
+import { askPractice, openLab } from '../views/homeScreen.js';
 
 export function startGame(ui, { testStartId = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
@@ -86,7 +88,8 @@ export function startGame(ui, { testStartId = null } = {}) {
   startup.begin(performance.now());
   prepareAudio().finally(() => startup.end(performance.now()));
   const { state, keys, pointerButtons, player } = createGameState();
-  const music = createMusic({ state, speaking: () => voice.speaking }); // ducks under recorded dialogue
+  const music = createMusic({ state, speaking: () => voice.speaking, level: () => settings.get('music') });
+  setEffectsLevel(settings.get('effects')); settings.onChange(v => setEffectsLevel(v.effects)); // ducks under recorded dialogue
   const { scene, renderer, camera, sun, hemi } = createScene(ui.worldEl);
   const lamps = createLightPool(scene); // before anything builds a PointLight
   let atmosphere = null;
@@ -342,7 +345,16 @@ export function startGame(ui, { testStartId = null } = {}) {
     walkSpeed: () => bosses?.pace?.walkSpeed ?? 9 });
   bosses = createBossFights({ scene, camera, state, keys, pointerButtons, player, movement, character, viewCamera,
     kamui: { pulse: (...args) => kamui.pulse(...args) }, // the warp in and out (kamui is made further down)
-    platforms, colliders: shrine.colliders, obstacles: arenaObstacles, surfaceAt, toast, mana });
+    platforms, colliders: shrine.colliders, obstacles: arenaObstacles, surfaceAt, toast, mana,
+    // Before each boss, once per browser: offer the Tutorial Lab. The world holds still meanwhile (cinematic).
+    beforeFight: kind => {
+      const key = `dreamscape.practiced.${kind}`;
+      try { if (new URLSearchParams(location.search).has('scene') || localStorage.getItem(key)) return null; localStorage.setItem(key, '1'); } catch { return null; }
+      state.cinematic = true; document.exitPointerLock?.();
+      return askPractice(kind === 'sile' ? 'Sile the Harvester' : 'Morcant the Gatekeeper')
+        .then(practice => practice ? openLab() : null)
+        .finally(() => { state.cinematic = false; state.awaitResume = true; });
+    } });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
     // E at a Sky Garden gateway travels instead of petting.
     isInputActive: () => state.locked && !state.cinematic && !houndScene.active && !bosses.busy && !skyIsland.journey.atDoor(player.position) &&

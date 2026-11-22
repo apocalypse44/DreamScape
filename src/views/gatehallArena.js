@@ -6,6 +6,7 @@ import { createSigilBlade } from '../rendering/sigilBlade.js';
 import { createGrimoireBook } from './grimoireReveal.js';
 import { SPELL_INK } from '../models/grimoireSpells.js';
 import { voice as recorded } from './voice.js';
+import { settings } from '../models/settings.js';
 
 // The Gatehall: Morcant's own pocket hall, a sealed drum hung in the void. Not Sile's open mesa:
 // a closed charcoal drum ringed by eight bone gate-frames, gold inlay on the floor, four bone pillars
@@ -243,14 +244,14 @@ export function createGatehall({ scene, center, floor, toast = () => {}, obstacl
   // ---- sound: a deep spoken voice, a rumble, bone cracks, a metal clang, spell sounds (Web Audio, no files) ----
   function createVoice() {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
-    const ctx = new AC();
+    const ctx = new AC(), dest = ctx.createGain(); dest.connect(ctx.destination); // dest: the effects setting
     const tone = (type, f0, f1, len, gain, delay = 0) => {
       const t = ctx.currentTime + delay, o = ctx.createOscillator(), g = ctx.createGain(); o.type = type;
       o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len);
-      g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.001, t + len); o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + len + .02);
+      g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.001, t + len); o.connect(g); g.connect(dest); o.start(t); o.stop(t + len + .02);
     };
     return {
-      resume() { ctx.resume?.(); },
+      resume() { dest.gain.value = settings.get('effects'); ctx.resume?.(); },
       rumble() { tone('sine', 46, 28, 2.8, .8); },
       clang() { for (const [f, d] of [[880, 0], [1320, .01], [520, .02]]) tone('square', f, f * .96, 1.1, .12, d); tone('sine', 70, 40, .6, .7); },
       crack() { tone('square', 1400, 300, .06, .25); tone('triangle', 180, 60, .18, .3, .01); },

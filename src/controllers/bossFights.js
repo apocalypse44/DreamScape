@@ -34,7 +34,7 @@ export const FIGHT_PACE = { walkSpeed: 4.2, sprintSpeed: 7.8, crouchSpeed: 2, sm
 const AIR = { dash: .14, total: .5 }; // Sile's air strike: a short lunge, the slash in mid-air, a bounce back
 
 export function createBossFights({ scene, camera, state, keys, pointerButtons, player, movement, character, kamui,
-  viewCamera, platforms, colliders, obstacles, surfaceAt, toast, mana = null }) {
+  viewCamera, platforms, colliders, obstacles, surfaceAt, toast, mana = null, beforeFight = null }) {
   const T = THREE;
   const say = text => toast(text, 1600);
   const hud = createArenaHud(); hud.toast = say;
@@ -49,6 +49,7 @@ export function createBossFights({ scene, camera, state, keys, pointerButtons, p
   let manaRest = 0; // the part of the bar under one charge, kept aside while a fight counts whole charges
   let combat = null, combatState = null, current = null, arena = null, phase = 'idle', warp = 0, back = null, savedFov = null;
   let hitstop = 0, airStrike = null, pendingRune = null, castPose = 0, barOn = null, dome = null;
+  const cleared = new Set(); let asking = false; // beforeFight: asked once per boss, the fight waits meanwhile
   const queue = [], won = new Set(), pressed = { attack: false, dodge: false, sheathe: false, chaos: false };
   const castPoint = new T.Vector3(), aimDir = new T.Vector3(), fog = new T.Color(), sky = new T.Color();
 
@@ -166,8 +167,18 @@ export function createBossFights({ scene, camera, state, keys, pointerButtons, p
     get rope() { return fighting() && current === 'sile' ? { anchor: grapple.anchor, reach: grapple.reach, phase: grapple.phase, flip: grapple.flip } : null; },
     /** kind: 'morcant' | 'sile'. Waits for observe(). */
     queue(kind) { if (!won.has(kind) && !queue.includes(kind) && current !== kind) queue.push(kind); },
-    /** ready: no scene, page or other cinematic owns the camera and the traveller stands free. */
-    observe(ready) { if (phase === 'idle' && queue.length && ready && combat) start(queue.shift()); },
+    /** ready: no scene, page or other cinematic owns the camera and the traveller stands free. beforeFight(kind) may
+     *  return a promise (the practice prompt); the fight waits for it, once per boss. */
+    observe(ready) {
+      if (phase !== 'idle' || !queue.length || !ready || !combat || asking) return;
+      const kind = queue[0];
+      if (beforeFight && !cleared.has(kind)) {
+        asking = true;
+        Promise.resolve(beforeFight(kind)).catch(() => {}).finally(() => { cleared.add(kind); asking = false; });
+        return;
+      }
+      start(queue.shift());
+    },
     /** Falling off the mesa (or anywhere below an arena): back to its entry. */
     recovery(p) { if (!fighting() || p.position.y > POCKET_Y - 10) return null; grapple.reset(); airStrike = null; return { ...arena.entry }; },
     /** Replaces the game's movement step while busy. */

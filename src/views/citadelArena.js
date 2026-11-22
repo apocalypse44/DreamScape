@@ -2,6 +2,7 @@ import { createPerson } from '../rendering/person.js';
 import { createBeam } from '../controllers/flashback.js';
 import { createSileFight } from '../models/sileFight.js';
 import { voice as recorded } from './voice.js';
+import { settings } from '../models/settings.js';
 import { MORCANT_FIGHT } from '../models/morcantFight.js';
 const SPELL = MORCANT_FIGHT.spells;
 import { RIFT_VORTEX_GLSL } from '../rendering/sky.js';
@@ -123,9 +124,9 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
   // ---- sound: a synthesized laugh (formant bursts through an echo), a rumble, and spoken lines ----
   function createVoice() {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
-    const ctx = new AC(), out = ctx.createGain(); out.gain.value = .55; out.connect(ctx.destination);
+    const ctx = new AC(), dest = ctx.createGain(), out = ctx.createGain(); dest.connect(ctx.destination); out.gain.value = .55; out.connect(dest); // dest: the effects setting
     const echo = ctx.createDelay(); echo.delayTime.value = .24; const feedback = ctx.createGain(); feedback.gain.value = .34;
-    out.connect(echo); echo.connect(feedback); feedback.connect(echo); echo.connect(ctx.destination);
+    out.connect(echo); echo.connect(feedback); feedback.connect(echo); echo.connect(dest);
     const noise = ctx.createBuffer(1, ctx.sampleRate * .2, ctx.sampleRate); { const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
     function syllable(t, f, len, gain) {
       const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 1.2, t); o.frequency.exponentialRampToValueAtTime(f * .78, t + len);
@@ -137,7 +138,7 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
       g.connect(out); o.start(t); vib.start(t); h.start(t - .03); o.stop(t + len + .02); vib.stop(t + len + .02); h.stop(t + .06);
     }
     return {
-      resume() { ctx.resume?.(); },
+      resume() { dest.gain.value = settings.get('effects'); ctx.resume?.(); },
       // A rising giggle that drops into a low, slow "ha... ha... haaa".
       laugh({ long = false, sour = false } = {}) {
         if (recorded.say(`sile-fight/laugh-${sour ? 'sour' : long ? 'long' : 'short'}`, { next: true })) return; // her own laugh, after any line
@@ -149,11 +150,11 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
       },
       rumble() {
         const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(48, t); o.frequency.linearRampToValueAtTime(32, t + 2.6);
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.8, t + .4); g.gain.exponentialRampToValueAtTime(.001, t + 2.8); o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 3);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.8, t + .4); g.gain.exponentialRampToValueAtTime(.001, t + 2.8); o.connect(g); g.connect(dest); o.start(t); o.stop(t + 3);
       },
       hit(pitch = 1) {
         const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(520 * pitch, t); o.frequency.exponentialRampToValueAtTime(120 * pitch, t + .14);
-        g.gain.setValueAtTime(.4, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + .18);
+        g.gain.setValueAtTime(.4, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g); g.connect(dest); o.start(t); o.stop(t + .18);
       },
       say(text) { // her recorded line, after any line still playing (never cut off); speech voice only without a recording
         if (recorded.say(text, { next: true }) || !window.speechSynthesis) return;

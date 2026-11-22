@@ -4,11 +4,16 @@
 // priority through fetch (never <audio>, which holds a connection open) and decode into fx.js's audio context.
 // A line that hasn't arrived plays as text only; nothing ever waits on the network.
 import { audio } from '../rendering/fx.js';
+import { settings } from '../models/settings.js';
 
 const ROOT = 'assets/voice/', AT_ONCE = 4;
 let map = null, mapping = null;       // caption text or 'scene/id' -> 'scene/file.mp3'
 const buffers = new Map();            // file -> AudioBuffer, or 'loading'
 const waiting = [], playing = new Set();
+let output = null; // the voices setting's gain, on the shared context
+const gainFor = ac => { if (output?.context !== ac) { output = ac.createGain(); output.connect(ac.destination); } output.gain.value = settings.get('voices'); return output; };
+// body.voiced while a line plays: with subtitles off, CSS hides the caption only then (styles/main.css).
+const voiced = on => { if (typeof document !== 'undefined') document.body?.classList?.toggle?.('voiced', on); };
 let fetching = 0, lineEnd = 0, speakingUntil = 0; // speakingUntil: performance.now() ms, for the music's duck
 
 function index() {
@@ -52,13 +57,13 @@ export const voice = {
     if (ac.state === 'suspended') ac.resume().catch(() => {});
     if (!next) voice.stop();
     const source = ac.createBufferSource(), at = Math.max(ac.currentTime, next ? lineEnd : 0);
-    source.buffer = buffer; source.connect(ac.destination); source.start(at);
-    source.onended = () => playing.delete(source); playing.add(source);
+    source.buffer = buffer; source.connect(gainFor(ac)); source.start(at);
+    source.onended = () => { playing.delete(source); if (!playing.size) voiced(false); }; playing.add(source); voiced(true);
     lineEnd = at + buffer.duration;
     speakingUntil = performance.now() + (lineEnd - ac.currentTime) * 1000;
     return lineEnd - ac.currentTime;
   },
-  stop() { for (const s of playing) { try { s.stop(); } catch { /* not started */ } } playing.clear(); lineEnd = speakingUntil = 0; },
+  stop() { for (const s of playing) { try { s.stop(); } catch { /* not started */ } } playing.clear(); lineEnd = speakingUntil = 0; voiced(false); },
   /** A line is being spoken right now (the music ducks under it). */
   get speaking() { return performance.now() < speakingUntil; },
 };

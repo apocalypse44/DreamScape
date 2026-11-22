@@ -1,0 +1,24 @@
+#home { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #1b2a26 0%, #07100f 70%); color: #f3ead2; font-family: Manrope, system-ui, sans-serif; }
+#home[hidden] { display: none; }
+.home-card { width: min(440px, calc(100% - 32px)); text-align: center; }
+#home .eyebrow { font: 500 11px 'DM Mono', monospace; letter-spacing: .16em; color: #d9b45a; margin: 0 0 10px; }
+#home h1 { margin: 0 0 28px; font: 600 clamp(32px, 6vw, 48px)/1.05 Georgia, serif; }
+#home h1 span { display: block; margin-top: 8px; font: 500 12px 'DM Mono', monospace; letter-spacing: .3em; color: #b7c5ab; }
+.home-menu { display: grid; gap: 10px; }
+.home-menu button { font: 600 14px 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: #f3ead2; background: rgba(217, 180, 90, .08); border: 1px solid #d9b45a; border-radius: 8px; padding: 14px; cursor: pointer; }
+.home-menu button:hover, .home-menu button:focus-visible { background: rgba(217, 180, 90, .2); outline: none; }
+#homeSettingsPanel { display: grid; gap: 10px; margin: 16px 0 0; padding: 14px; border: 1px solid rgba(217, 180, 90, .35); border-radius: 8px; text-align: left; font: 13px 'DM Mono', monospace; }
+#homeSettingsPanel[hidden] { display: none; }
+#homeSettingsPanel label { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 10px; }
+#homeSettingsPanel label.check { grid-template-columns: auto 1fr; }
+.home-tip { margin: 18px 0 0; font-size: 13px; color: #b7c5ab; }
+.home-load { margin-top: 22px; font: 11px 'DM Mono', monospace; letter-spacing: .1em; color: #b7c5ab; }
+.home-bar { height: 4px; margin-bottom: 8px; background: rgba(243, 234, 210, .15); border-radius: 2px; overflow: hidden; }
+.home-bar i { display: block; height: 100%; width: 10%; background: #d9b45a; transition: width .6s ease; }
+.lab-overlay { position: fixed; inset: 0; z-index: 60; background: #07100f; }
+.lab-overlay iframe { width: 100%; height: 100%; border: 0; display: block; }
+.practice-prompt { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; background: rgba(7, 16, 15, .72); color: #f3ead2; font-family: Manrope, system-ui, sans-serif; }
+.practice-prompt div { width: min(420px, calc(100% - 32px)); padding: 22px; text-align: center; background: #10181a; border: 1px solid #d9b45a; border-radius: 10px; }
+.practice-prompt p { margin: 0 0 16px; font: 600 18px Georgia, serif; }
+.practice-prompt button { margin: 0 6px; font: 600 13px 'DM Mono', monospace; letter-spacing: .1em; color: #f3ead2; background: transparent; border: 1px solid #d9b45a; border-radius: 6px; padding: 10px 16px; cursor: pointer; }
+#homeSettingsPanel input { accent-color: #d9b45a; }
