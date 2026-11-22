@@ -131,8 +131,9 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
     get presentation() {
       return story.active || story.pending ? { ...story.transformation, hold: story.active } : null;
     },
+    /** The opening's voices: call once startup is ready, so the first line has arrived before the scene can start. */
+    warm() { if (!warmed) { warmed = true; voice.preload(LINE_TEXTS); } },
     observe(stage, ready) {
-      if (ready && !warmed) { warmed = true; voice.preload(LINE_TEXTS); } // the opening's voices, once play has started
       story.observe(stage, false);
       if (story.kind === 'cure' && !getKeeper?.()) return;
       if (!story.pending || !ready || !companion.prepareScene()) return;

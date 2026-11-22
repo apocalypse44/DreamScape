@@ -10,7 +10,7 @@
 import { createTravelerCombat } from '../models/travelerCombat.js';
 import { createGrapple } from '../models/grapple.js';
 import { createCitadelArena, createArenaHud } from '../views/citadelArena.js';
-import { createGatehall } from '../views/gatehallArena.js';
+import { createGatehall, GATEHALL } from '../views/gatehallArena.js';
 import { createSpellBar } from '../views/spellBar.js';
 import { spellForKey } from '../models/grimoireSpells.js';
 import { createSigilBlade, createSigilSheath } from '../rendering/sigilBlade.js';
@@ -19,6 +19,15 @@ import { MANA } from '../models/mana.js';
 const POCKET_Y = 1000;
 export const GATEHALL_AT = { x: 4000, z: 0 };
 export const CITADEL_AT = { x: 4000, z: 400, radius: 21, floor: POCKET_Y };
+// The farthest the traveller may stand from each arena's centre: inside the Gatehall's wall ring, and inside the
+// parapet on Sile's mesa. Enforced every frame, so knockback, the air strike or a grapple swing can't carry them out.
+const BOUNDS = { morcant: [GATEHALL_AT, GATEHALL.radius - .9], sile: [CITADEL_AT, CITADEL_AT.radius - 1] };
+export function keepInside(position, [center, limit]) {
+  const dx = position.x - center.x, dz = position.z - center.z, d = Math.hypot(dx, dz);
+  if (d <= limit) return false;
+  position.x = center.x + dx / d * limit; position.z = center.z + dz / d * limit;
+  return true;
+}
 const WARP = .55;   // seconds into the Kamui vortex when the traveller is moved: the screen is swallowed by then
 // The pace the fights were tuned for in the lab (the open world walks at 9 m/s and sprints at 18).
 export const FIGHT_PACE = { walkSpeed: 4.2, sprintSpeed: 7.8, crouchSpeed: 2, smooth: true, variableJump: true };
@@ -187,6 +196,11 @@ export function createBossFights({ scene, camera, state, keys, pointerButtons, p
           yaw: state.yaw, heading: character.heading, position: player.position, targets: arena.targets });
         if (!hook.owns) movement.update(step);
         if (state.locked) { io.swordHit = combatState?.hit || null; io.invulnerable = Boolean(combatState?.invulnerable); arena.step(step, io); }
+      }
+      if (keepInside(player.position, BOUNDS[current])) { // at the border: stop moving outward
+        const [c] = BOUNDS[current], dx = player.position.x - c.x, dz = player.position.z - c.z, d = Math.hypot(dx, dz) || 1;
+        const out = (player.velocity.x * dx + player.velocity.z * dz) / d;
+        if (out > 0) { player.velocity.x -= dx / d * out; player.velocity.z -= dz / d * out; }
       }
       mana?.set(arena.fight.charge * MANA.surgeCost + manaRest); // one charge = one third of the bar, both ways
       if (!arena.active) { won.add(current); kamui.pulse(null, 1.4, { full: true }); phase = 'out'; warp = WARP; } // 'done': the ending has played

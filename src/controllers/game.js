@@ -525,6 +525,7 @@ export function startGame(ui, { testStartId = null } = {}) {
     if (mana.holding && !bosses.busy) state.chaos = Math.max(state.chaos, MANA.surgeLevel); // the surge's hold; then movement decides
     props.update(streamFocus, world.terrainVersion);
     if (!houndScene.active) quest.update();
+    if (startup.ready) houndScene.warm(); // the opening's voices load behind the "dream is ready" screen (after startup, never during it)
     if (!unlockAll || testStart?.id === 'ember-hound') houndScene.observe(quest.stage, startup.ready && state.locked && !state.mapOpen &&
       !skyIsland.journey.blocked && player.grounded);
     if (!bosses.busy) companion.update(dt, dt => encounters.updateDog(dt, state.elapsed), houndScene.presentation); // the dog never follows into an arena

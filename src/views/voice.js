@@ -47,7 +47,9 @@ export const voice = {
    */
   say(key, { next = false } = {}) {
     const buffer = map && buffers.get(map[key]), ac = buffer?.duration && audio();
-    if (!ac || ac.state !== 'running') { if (!next) voice.stop(); return 0; }
+    // Still waking from the click that entered the game: schedule anyway; it starts the moment the context runs.
+    if (!ac || ac.state === 'closed') { if (!next) voice.stop(); return 0; }
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
     if (!next) voice.stop();
     const source = ac.createBufferSource(), at = Math.max(ac.currentTime, next ? lineEnd : 0);
     source.buffer = buffer; source.connect(ac.destination); source.start(at);

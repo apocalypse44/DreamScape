@@ -83,7 +83,8 @@ export function createSileFight({ center, floor = 0, anchors = [], random = Math
   }
   function down() {
     emit('down'); playerHp = F.playerHp; chaos = false; charge = Math.max(charge, F.retryCharge);
-    phase = checkpoint.phase; hp = checkpoint.hp; airHits = checkpoint.airHits; time = phase === 'invert' ? F.crash : 0; clearAttacks();
+    // A retry in Invert resumes after the crash and after her "that's MY power!" cue (F.crash + .4), so it isn't said again.
+    phase = checkpoint.phase; hp = checkpoint.hp; airHits = checkpoint.airHits; time = phase === 'invert' ? F.crash + .5 : 0; clearAttacks();
     if (phase === 'harvest') Object.assign(sile, { x: cx, y: floor + F.hover, z: cz + 6.5 });
   }
 

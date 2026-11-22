@@ -164,3 +164,17 @@ test('Tide Ward still catches her darts, and Stone Wall still stops them, both f
   s.run(1 / 60, { cast: spell(s, 'earth', { x: sile.x, y: 2, z: sile.z }) }); s.run(2);
   assert.ok(s.events.some(e => e.type === 'wallStop' && e.kind === 'dart')); assert.ok(s.fight.charge >= 1);
 });
+
+test('going down in Invert retries there without her saying "that\'s MY power!" again', () => {
+  const a = arena({ result: 'blocked' }); const fight = a.fight;
+  fight.start(); fight.skip(); a.run(1 / 60);
+  for (let g = 0; g < 20000 && fight.phase === 'harvest'; g++) { const s = fight.snapshot(); a.io.player = { x: s.sile.x, y: 2.05, z: s.sile.z + 2.2 }; a.io.result = 'dodged'; a.run(1 / 60, s.open ? { swordHit: { id: g, reach: 2.1, arc: 1.9, facing: Math.PI }, chaosPress: !fight.chaos } : {}); }
+  for (let i = 0; i < 3 && fight.phase === 'sky'; i++) { a.run(.7); a.run(1 / 60, { attackPress: true, grounded: false, feet: 9, player: { x: fight.sile.x, y: fight.sile.y + 1, z: fight.sile.z } }); }
+  assert.equal(fight.phase, 'invert');
+  a.io.result = 'hit'; a.io.player = { x: 0, y: 2.05, z: 6 }; // stand in the waves and go down, several times
+  a.run(60);
+  const downs = a.events.filter(e => e.type === 'down').length, shields = a.events.filter(e => e.type === 'line' && e.key === 'shield').length;
+  assert.ok(downs >= 2, `went down in Invert (${downs})`);
+  assert.equal(fight.phase, 'invert');
+  assert.equal(shields, 1);
+});

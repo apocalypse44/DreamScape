@@ -42,6 +42,11 @@ export function createCitadelArena({ scene, obstacles, colliders, anchors, hud, 
     // Mesa: a flat forecourt on a tapering rock, flagstone rings, a low parapet gap at the entry.
     const mesa = new T.Mesh(new T.CylinderGeometry(C.radius, 7, 26, 28, 3), dark); mesa.position.set(C.x, C.floor - 13, C.z); mesa.receiveShadow = true; group.add(mesa);
     const top = new T.Mesh(new T.CircleGeometry(C.radius, 48), stone); top.rotation.x = -Math.PI / 2; top.position.set(C.x, C.floor + .01, C.z); top.receiveShadow = true; group.add(top);
+    // The parapet: a low wall round the rim, so the arena's border reads as one (bossFights.js keeps you inside it).
+    const parapet = new T.Mesh(new T.CylinderGeometry(C.radius - .45, C.radius - .45, .7, 64, 1, true), new T.MeshStandardMaterial({ color: 0x6f6784, roughness: .9, side: T.DoubleSide }));
+    parapet.position.set(C.x, C.floor + .35, C.z); group.add(parapet);
+    const cap = new T.Mesh(new T.RingGeometry(C.radius - .75, C.radius - .15, 64), new T.MeshBasicMaterial({ color: 0x9d86d8, side: T.DoubleSide }));
+    cap.rotation.x = -Math.PI / 2; cap.position.set(C.x, C.floor + .71, C.z); group.add(cap);
     for (const [r, w] of [[6, .25], [12.5, .3], [18.5, .35]]) {
       const ring = new T.Mesh(new T.RingGeometry(r - w, r, 64), new T.MeshBasicMaterial({ color: 0x9d86d8 })); ring.rotation.x = -Math.PI / 2; ring.position.set(C.x, C.floor + .02, C.z); group.add(ring);
     }
