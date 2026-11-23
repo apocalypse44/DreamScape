@@ -10,14 +10,14 @@ const ENDPOINT = '/api/playtest';
 const QUESTIONS = [ // [key, question, kind, required]; kind: text | scale | url | a|b|c choices
   ['confusing', 'What was the most confusing or frustrating part of the experience?', 'text', true],
   ['controls', 'On a scale of 1–10, how intuitive were the controls? (1 = I never figured them out, 10 = I never had to think about them)', 'scale', true],
-  ['controlsWhy', 'Why that number?', 'text', false],
+  ['controlsWhy', 'Why that number?', 'text', true],
   ['glitches', 'Did you notice any visual glitches or lag? If so, when?', 'text', true],
   ['goal', 'In your own words, what was the goal of the game?', 'text', true],
-  ['chaos', 'Did you notice that the way you moved changed the world? When did you first notice?', 'text', false],
-  ['best', 'What was the best moment?', 'text', false],
-  ['change', 'If you could change one thing, what would it be?', 'text', false],
-  ['again', 'On a scale of 1–10, how likely are you to play again?', 'scale', false],
-  ['experience', 'How often do you play 3D games?', 'Never|Sometimes|A lot', false],
+  ['chaos', 'Did you notice that the way you moved changed the world? When did you first notice?', 'text', true],
+  ['best', 'What was the best moment?', 'text', true],
+  ['change', 'If you could change one thing, what would it be?', 'text', true],
+  ['again', 'On a scale of 1–10, how likely are you to play again?', 'scale', true],
+  ['experience', 'How often do you play 3D games?', 'Never|Sometimes|A lot', true],
   ['recording', 'Link to your screen + voice recording, if you made one (Google Drive, OneDrive, YouTube unlisted…)', 'url', false],
 ];
 
@@ -92,12 +92,13 @@ export function startPlaytest(params = new URLSearchParams(location.search)) {
     </ol>
     <p class="pt-small">Use a laptop or desktop with a keyboard and mouse, Chrome or Edge, sound on.
       We record your frame rate, falls, quest progress and timing, your browser and graphics card, and your answers. Nothing else.</p>
-    <form class="pt-form"><label>Your name or initials (optional)<input name="tester" maxlength="40" autocomplete="off"></label>
+    <form class="pt-form"><label><span>Your name <i>*</i></span><input name="tester" maxlength="40" autocomplete="name" required></label>
       <button type="submit">Begin</button></form>`);
   welcome.querySelector('input').value = tester;
   welcome.querySelector('form').onsubmit = e => {
     e.preventDefault();
     tester = new FormData(e.target).get('tester').trim();
+    if (!tester) { e.target.tester.value = ''; e.target.reportValidity(); return; } // spaces only
     id = `${tester.replace(/[^\w-]/g, '').slice(0, 20) || 'anon'}-${id.slice(2)}`;
     log.event('begin'); welcome.remove(); document.getElementById('homeStart')?.focus();
   };
@@ -109,7 +110,7 @@ export function startPlaytest(params = new URLSearchParams(location.search)) {
   finish.onclick = () => {
     document.exitPointerLock?.(); log.event('finish-opened', where());
     const form = overlay(`<p class="pt-eyebrow">DREAMSCAPE · PLAYTEST</p><h2>A few questions</h2>
-      <p class="pt-small">Fields marked <i>*</i> are required. Be honest. Criticism helps us most.</p>
+      <p class="pt-small">Every question is required (<i>*</i>); the recording link is optional. Be honest. Criticism helps us most.</p>
       <form class="pt-form">${QUESTIONS.map(field).join('')}
         <div class="pt-actions"><button type="button" data-back>Back to the game</button><button type="submit">Send</button></div>
         <p class="pt-status" role="status"></p></form>`);

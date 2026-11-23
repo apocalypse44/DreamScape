@@ -117,6 +117,7 @@ export function createHoundCutscene({ camera, state, player, companion, keys, po
   // Capture before gameplay shortcuts so Space cannot buffer a jump or M open the atlas.
   window.addEventListener('keydown', event => {
     if (!story.active || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || event.target.isContentEditable) return; // typing in a form
     if (event.code === 'Tab' && !state.locked) return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (event.repeat) return;

@@ -36,6 +36,7 @@ export function createHelpPanel({ quest, spade, clover, heart, diamond, state })
   button.addEventListener('click', toggle);
   addEventListener('keydown', event => {
     if (event.code !== 'KeyH' || event.repeat || event.ctrlKey || event.metaKey || event.altKey || state.cinematic) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || event.target.isContentEditable) return; // typing in a form (playtest)
     event.preventDefault(); toggle();
   });
 

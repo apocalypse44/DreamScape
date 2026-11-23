@@ -29,6 +29,7 @@ export function say(speaker, text) {
     // Capture first, so the Space that closes the box doesn't also jump.
     window.addEventListener('keydown', event => {
       if (box.hidden || event.code !== 'Space' || document.body.classList.contains('story-playing')) return;
+      if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || event.target.isContentEditable) return; // typing in a form
       event.preventDefault(); event.stopImmediatePropagation(); close();
     }, true);
   }

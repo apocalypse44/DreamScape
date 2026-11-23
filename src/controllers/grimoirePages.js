@@ -20,6 +20,7 @@ export function createGrimoirePages({ scene, camera, state, keys, player, canvas
   // Enter jumps to the written page, X closes the book, Escape leaves at once.
   window.addEventListener('keydown', event => {
     if (!playing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || event.target.isContentEditable) return; // typing in a form
     event.preventDefault(); event.stopImmediatePropagation();
     if (event.repeat) return;
     if (event.code === 'Enter') reveal.skip();
