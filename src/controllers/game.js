@@ -77,7 +77,7 @@ import { voice } from '../views/voice.js';
 import { settings } from '../models/settings.js';
 import { askPractice, openLab } from '../views/homeScreen.js';
 
-export function startGame(ui, { testStartId = null } = {}) {
+export function startGame(ui, { testStartId = null, playtest = null } = {}) {
   const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
   const testStart = unlockAll && testStartId ? getTestStart(testStartId) : null;
   const startup = createStartupReadiness();
@@ -245,6 +245,7 @@ export function startGame(ui, { testStartId = null } = {}) {
   startup.begin(performance.now());
   npcs.ready.finally(() => startup.end(performance.now()));
   const movement = createPlayerController({ state, keys, player, chunks, terrainHeight: world.surfaceHeight, staticColliders: shrine.colliders,
+    onFall: () => playtest?.fall(),
     platforms,
     // After a Tide Hook swing, the controller keeps its momentum; in a boss arena the lab's pace and combat drive apply.
     locomotion: { drive: () => bosses?.drive ?? heart.grapple.drive,
@@ -352,7 +353,7 @@ export function startGame(ui, { testStartId = null } = {}) {
       try { if (new URLSearchParams(location.search).has('scene') || localStorage.getItem(key)) return null; localStorage.setItem(key, '1'); } catch { return null; }
       state.cinematic = true; document.exitPointerLock?.();
       return askPractice(kind === 'sile' ? 'Sile the Harvester' : 'Morcant the Gatekeeper')
-        .then(practice => practice ? openLab() : null)
+        .then(practice => { playtest?.note('boss-prompt', { boss: kind, practice }); return practice ? openLab() : null; })
         .finally(() => { state.cinematic = false; state.awaitResume = true; });
     } });
   encounters = createEncounters({ scene, camera, renderer, world, state, keys, player, quest, shrine, companion,
@@ -504,6 +505,7 @@ export function startGame(ui, { testStartId = null } = {}) {
       const fps = Math.round(fpsFrames / fpsTime); // top bar, Valorant style: green, amber under 50, red under 30
       ui.fpsEl.textContent = `${fps} FPS · ${(fpsTime / fpsFrames * 1000).toFixed(1)} MS`;
       ui.fpsEl.className = `perf${fps < 30 ? ' bad' : fps < 50 ? ' slow' : ''}`;
+      if (startup.ready) playtest?.sample(fps, state.chaos);
       fpsFrames = fpsTime = 0;
     }
     const playDt = houndScene.active ? 0 : dt;

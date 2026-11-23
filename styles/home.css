@@ -22,3 +22,29 @@
 .practice-prompt p { margin: 0 0 16px; font: 600 18px Georgia, serif; }
 .practice-prompt button { margin: 0 6px; font: 600 13px 'DM Mono', monospace; letter-spacing: .1em; color: #f3ead2; background: transparent; border: 1px solid #d9b45a; border-radius: 6px; padding: 10px 16px; cursor: pointer; }
 #homeSettingsPanel input { accent-color: #d9b45a; }
+.home-goal { margin: -12px 0 22px; padding: 12px 14px; text-align: left; font-size: 13px; line-height: 1.5; color: #d8ddc8; border-left: 2px solid #d9b45a; background: rgba(217, 180, 90, .06); }
+.home-goal p { margin: 0 0 6px; } .home-goal p:last-child { margin: 0; }
+.home-goal b { color: #f3ead2; }
+.home-goal kbd { font: 500 11px 'DM Mono', monospace; padding: 1px 5px; border: 1px solid #d9b45a; border-radius: 3px; }
+/* Remote playtest (src/views/playtest.js): welcome, interview and the Finish button. Only with ?playtest. */
+.pt-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; overflow-y: auto; background: rgba(7, 16, 15, .9); color: #f3ead2; font: 14px/1.55 Manrope, system-ui, sans-serif; }
+.pt-card { width: min(620px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px 26px; background: #10181a; border: 1px solid #d9b45a; border-radius: 10px; }
+.pt-card h2 { margin: 0 0 12px; font: 600 26px Georgia, serif; }
+.pt-card ol { padding-left: 20px; } .pt-card li { margin-bottom: 8px; }
+.pt-card kbd { font: 500 11px 'DM Mono', monospace; padding: 1px 5px; border: 1px solid #d9b45a; border-radius: 3px; }
+.pt-card i { color: #ff8f7d; font-style: normal; }
+.pt-eyebrow { margin: 0 0 6px; font: 500 11px 'DM Mono', monospace; letter-spacing: .16em; color: #d9b45a; }
+.pt-small { font-size: 12px; color: #b7c5ab; }
+.pt-form { display: grid; gap: 14px; margin-top: 14px; }
+.pt-form label, .pt-form legend { display: grid; gap: 6px; font-weight: 600; }
+.pt-form fieldset { margin: 0; padding: 0; border: 0; }
+.pt-form input:not([type=radio]), .pt-form textarea, .pt-form select { font: 14px Manrope, system-ui, sans-serif; color: #f3ead2; background: #0b1213; border: 1px solid rgba(217, 180, 90, .5); border-radius: 6px; padding: 8px 10px; }
+.pt-scale { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pt-scale label { display: flex; align-items: center; gap: 3px; font-weight: 500; }
+.pt-scale input { accent-color: #d9b45a; }
+.pt-form button, .pt-finish { font: 600 13px 'DM Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #f3ead2; background: rgba(217, 180, 90, .15); border: 1px solid #d9b45a; border-radius: 6px; padding: 11px 16px; cursor: pointer; }
+.pt-form button:hover, .pt-form button:focus-visible, .pt-finish:hover, .pt-finish:focus-visible { background: rgba(217, 180, 90, .32); outline: none; }
+.pt-form button:disabled { opacity: .5; cursor: wait; }
+.pt-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+.pt-finish { position: fixed; left: 12px; bottom: 12px; z-index: 58; padding: 8px 12px; font-size: 11px; background: rgba(16, 24, 26, .85); }
+

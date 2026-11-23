@@ -1,6 +1,19 @@
 // Cloudflare deploy config: serves the static build in dist/ (made by tools/build_dist.py).
+// worker.js only answers POST /api/playtest (remote playtest results, PLAYTEST.md); every other path is dist/.
 {
-  "name": "dreamscape-v1",
-  "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./dist" }
+	"name": "dreamscape-v1",
+	"compatibility_date": "2026-10-01",
+	"main": "worker.js",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	// One-time setup: run `npx wrangler kv namespace create PLAYTESTS` and paste the id it prints here.
+	"kv_namespaces": [
+		{
+			"binding": "PLAYTESTS",
+			"id": "5d54059ad6ba487bbe0461530989d783",
+			"remote": true
+		}
+	]
 }

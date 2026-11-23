@@ -2,14 +2,16 @@ import { mountView } from './views/hud.js';
 import { startGame } from './controllers/game.js';
 import { chooseTestStart } from './views/testStart.js';
 import { mountHome } from './views/homeScreen.js';
+import { startPlaytest } from './views/playtest.js';
 
 async function main() {
   try {
     mountHome(); // the home screen in front of the loading screen (skipped for ?scene / ?unlock / ?start)
+    const playtest = startPlaytest(); // ?playtest: welcome, recorder and interview for remote testers (PLAYTEST.md)
     const ui = await mountView();
     if (!window.THREE) throw new Error('Three.js could not load. Check your internet connection.');
     const testStartId = await chooseTestStart(ui);
-    startGame(ui, { testStartId });
+    startGame(ui, { testStartId, playtest });
   } catch (error) {
     console.error('Dreamscape could not start.', error);
     const message = document.createElement('p');

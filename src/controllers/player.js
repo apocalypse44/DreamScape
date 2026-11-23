@@ -23,7 +23,7 @@ export function createSurfaceAt(platforms, terrainHeight) {
 // player who stepped off a ledge dropped inside the wall's blocking band and could not move.
 const EDGE = 0.55;
 
-export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, allowFallRecovery, isMovementBlocked = () => false, colliderFilter = () => true, locomotion = null }) {
+export function createPlayerController({ state, keys, player, chunks, terrainHeight, staticColliders, platforms, isUnsafe, courseRecovery, allowFallRecovery, isMovementBlocked = () => false, colliderFilter = () => true, locomotion = null, onFall = () => {} }) {
   const indices = new WeakMap(), nearby = [];
   function candidates(colliders, x, z, radius) {
     let index = indices.get(colliders);
@@ -173,7 +173,7 @@ export function createPlayerController({ state, keys, player, chunks, terrainHei
     // Use the preceding support state until landing is resolved. A player
     // standing on a floating slab is supported even far above bare terrain.
     if (recovery.shouldRespawn(dt)) {
-      recovery.respawn();
+      recovery.respawn(); onFall();
       return;
     }
     // Terrain may rise under a standing player; snapping up keeps them on the surface.
