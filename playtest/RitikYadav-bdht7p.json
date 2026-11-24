@@ -1,0 +1,191 @@
+{
+  "id": "RitikYadav-bdht7p",
+  "tester": "Ritik Yadav",
+  "submitted": true,
+  "answers": {
+    "confusing": "Understanding the direction ",
+    "controls": "9",
+    "controlsWhy": "controls were very smooth",
+    "glitches": "no",
+    "goal": "grimoire awaken",
+    "chaos": "Yes",
+    "best": "It got skit on the slope the best thing i found",
+    "change": "Nothing everything was good",
+    "again": "9",
+    "experience": "A lot",
+    "recording": ""
+  },
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+  "screen": "1536x695@1.25",
+  "gpu": "ANGLE (Intel, Intel(R) UHD Graphics (0x0000A7A8) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "minutes": 6.2,
+  "fps": {
+    "average": 28,
+    "worst1pct": 3,
+    "percentUnder30": 58
+  },
+  "dips": 15,
+  "falls": 0,
+  "resets": 0,
+  "steps": 1,
+  "helpOpened": 0,
+  "events": [
+    {
+      "t": 10.7,
+      "type": "begin"
+    },
+    {
+      "t": 23.2,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": ""
+    },
+    {
+      "t": 51.4,
+      "type": "step",
+      "title": "The Ember Hound",
+      "kingdom": "GRIMOIRE TOWER"
+    },
+    {
+      "t": 52.9,
+      "type": "fps-dip",
+      "minFps": 7,
+      "seconds": 1.4,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.06
+    },
+    {
+      "t": 57.9,
+      "type": "fps-dip",
+      "minFps": 27,
+      "seconds": 1,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.07
+    },
+    {
+      "t": 62.5,
+      "type": "fps-dip",
+      "minFps": 27,
+      "seconds": 1,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.09
+    },
+    {
+      "t": 64,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.08
+    },
+    {
+      "t": 76,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.06
+    },
+    {
+      "t": 77.6,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.05
+    },
+    {
+      "t": 84.8,
+      "type": "fps-dip",
+      "minFps": 27,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.13
+    },
+    {
+      "t": 85.8,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.14
+    },
+    {
+      "t": 89.4,
+      "type": "fps-dip",
+      "minFps": 26,
+      "seconds": 3.1,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.19
+    },
+    {
+      "t": 99.7,
+      "type": "fps-dip",
+      "minFps": 28,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.22
+    },
+    {
+      "t": 173.7,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 1,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.3
+    },
+    {
+      "t": 175.7,
+      "type": "fps-dip",
+      "minFps": 28,
+      "seconds": 1.6,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.29
+    },
+    {
+      "t": 183,
+      "type": "fps-dip",
+      "minFps": 6,
+      "seconds": 6.8,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.27
+    },
+    {
+      "t": 185.3,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 190.3,
+      "type": "fps-dip",
+      "minFps": 9,
+      "seconds": 4.8,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.19
+    },
+    {
+      "t": 195.6,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 177.4,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.16
+    }
+  ]
+}

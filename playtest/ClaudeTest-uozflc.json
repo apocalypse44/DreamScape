@@ -1,0 +1,122 @@
+{
+  "id": "ClaudeTest-uozflc",
+  "tester": "Claude Test",
+  "submitted": true,
+  "answers": {
+    "confusing": "[TEST by Claude, delete me] Not sure where to go after the first dialogue.",
+    "controls": "7",
+    "controlsWhy": "[TEST by Claude, delete me] WASD and mouse were familiar; H panel helped.",
+    "glitches": "[TEST by Claude, delete me] Long stutter right after Start Game, then smooth.",
+    "goal": "[TEST by Claude, delete me] Cure the companion and win back the four sigils.",
+    "chaos": "[TEST by Claude, delete me] Yes, sprinting and jumping turned the seal toward chaos.",
+    "best": "[TEST by Claude, delete me] The view from the Grimoire Tower.",
+    "change": "[TEST by Claude, delete me] Shorter loading time.",
+    "again": "8",
+    "experience": "Sometimes",
+    "recording": ""
+  },
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+  "screen": "1600x900@1.0000000149011612",
+  "gpu": "ANGLE (Intel, Intel(R) UHD Graphics (0x00009A60) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "minutes": 0.8,
+  "fps": {
+    "average": 28,
+    "worst1pct": 2,
+    "percentUnder30": 40
+  },
+  "dips": 6,
+  "falls": 0,
+  "resets": 0,
+  "steps": 1,
+  "helpOpened": 2,
+  "events": [
+    {
+      "t": 6.8,
+      "type": "begin"
+    },
+    {
+      "t": 18.7,
+      "type": "fps-dip",
+      "minFps": 2,
+      "seconds": 3.2,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.06
+    },
+    {
+      "t": 18.7,
+      "type": "step",
+      "title": "The Ember Hound",
+      "kingdom": "GRIMOIRE TOWER"
+    },
+    {
+      "t": 24.4,
+      "type": "help",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 27,
+      "type": "help",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 33.3,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.19
+    },
+    {
+      "t": 35.9,
+      "type": "fps-dip",
+      "minFps": 25,
+      "seconds": 2.6,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.32
+    },
+    {
+      "t": 39.3,
+      "type": "map",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 39.5,
+      "type": "fps-dip",
+      "minFps": 21,
+      "seconds": 3.7,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.5
+    },
+    {
+      "t": 44.7,
+      "type": "fps-dip",
+      "minFps": 29,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.41
+    },
+    {
+      "t": 48,
+      "type": "fps-dip",
+      "minFps": 8,
+      "seconds": 2.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.37
+    },
+    {
+      "t": 49.6,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "id": "Isha-s4x3fq",
+  "tester": "Isha",
+  "submitted": true,
+  "answers": {
+    "confusing": "Exactly what is the mission or what do i have to do, i seem very lost",
+    "controls": "8",
+    "controlsWhy": "They were okay",
+    "glitches": "there is some lag. no glitches",
+    "goal": "Didnt understand, saw the quests and map, still felt a little confused",
+    "chaos": "I didn't immediately notice that my movement affected the world. I think some visual indicators or a brief explanation during gameplay would make this mechanic more noticeable.",
+    "best": "I enjoyed exploring the world and discovering the different elements of the game. The overall concept and environment were interesting",
+    "change": "I would add a more guided introduction where the player completes their first quest with step-by-step instructions. Having a visible objective and directional markers during gameplay would also make navigation easier and the experience more engaging.",
+    "again": "8",
+    "experience": "Sometimes",
+    "recording": ""
+  },
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "screen": "1536x695@2.5",
+  "gpu": "ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00005917) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "minutes": 9.6,
+  "fps": {
+    "average": 11,
+    "worst1pct": 1,
+    "percentUnder30": 100
+  },
+  "dips": 1,
+  "falls": 0,
+  "resets": 0,
+  "steps": 1,
+  "helpOpened": 0,
+  "events": [
+    {
+      "t": 41.6,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 536.2,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.06
+    },
+    {
+      "t": 41.6,
+      "type": "step",
+      "title": "The Ember Hound",
+      "kingdom": "GRIMOIRE TOWER"
+    },
+    {
+      "t": 45.8,
+      "type": "begin"
+    },
+    {
+      "t": 314.1,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    }
+  ]
+}

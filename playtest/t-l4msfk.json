@@ -1,0 +1,37 @@
+{
+  "id": "t-l4msfk",
+  "tester": "",
+  "submitted": false,
+  "answers": null,
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0",
+  "screen": "1536x704@1.25",
+  "gpu": "ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0), or similar",
+  "minutes": 1.5,
+  "fps": {
+    "average": 21,
+    "worst1pct": 0,
+    "percentUnder30": 100
+  },
+  "dips": 1,
+  "falls": 0,
+  "resets": 0,
+  "steps": 1,
+  "helpOpened": 0,
+  "events": [
+    {
+      "t": 28.6,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 57.4,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.06
+    },
+    {
+      "t": 28.6,
+      "type": "step",
+      "title": "The Ember Hound",
+      "kingdom": "GRIMOIRE TOWER"
+    }
+  ]
+}

@@ -9,17 +9,19 @@ import json
 import pathlib
 import subprocess
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / 'playtest'
 
 
 def wrangler(*args):
-    # shell=True so Windows finds npx.cmd
-    cmd = ' '.join(['npx', 'wrangler', 'kv', 'key', *args, '--binding=PLAYTESTS', '--local' if '--local' in sys.argv else '--remote'])
-    run = subprocess.run(cmd, shell=True, cwd=ROOT, capture_output=True, text=True, encoding='utf8')
+    # shell=True so Windows finds npx.cmd; --yes so npx never waits on an install prompt when wrangler updates
+    cmd = ' '.join(['npx', '--yes', 'wrangler', 'kv', *args, '--binding=PLAYTESTS', '--local' if '--local' in sys.argv else '--remote'])
+    # stderr goes to the terminal so login/download prompts and progress are visible instead of a silent hang
+    run = subprocess.run(cmd, shell=True, cwd=ROOT, stdout=subprocess.PIPE, text=True, encoding='utf8')
     if run.returncode:
-        sys.exit(f'wrangler failed: {run.stderr.strip() or run.stdout.strip()}')
+        sys.exit(f'wrangler failed (see above): {run.stdout.strip()}')
     return run.stdout
 
 
@@ -61,10 +63,16 @@ def results_md(tests):
 
 def main():
     OUT.mkdir(exist_ok=True)
-    keys = [k['name'] for k in json.loads(wrangler('list', '--prefix=playtest:'))]
+    keys = [k['name'] for k in json.loads(wrangler('key', 'list', '--prefix=playtest:'))]
+    # one bulk get instead of a wrangler spawn per key (each spawn is ~20 s)
+    with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+        json.dump(keys, f)
+    values = json.loads(wrangler('bulk', 'get', f'"{f.name}"'))
+    pathlib.Path(f.name).unlink()
     tests = []
     for key in keys:
-        data = json.loads(wrangler('get', f'"{key}"', '--text'))
+        value = values[key]
+        data = json.loads(value) if isinstance(value, str) else value
         (OUT / f"{data['id']}.json").write_text(json.dumps(data, indent=2), encoding='utf8')
         tests.append(data)
     (OUT / 'RESULTS.md').write_text(results_md(tests), encoding='utf8')

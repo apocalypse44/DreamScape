@@ -1,0 +1,144 @@
+{
+  "id": "rija-uh224b",
+  "tester": "rija",
+  "submitted": true,
+  "answers": {
+    "confusing": "The objectives were unclear. There were no physical markers in the game to help figure out where to go.",
+    "controls": "7",
+    "controlsWhy": "In the tutorial, there was little indication for where to go for the grappling task. I only found out after running around the map. ",
+    "glitches": "I noticed that when jumping on a rock, you end up inside it instead of ontop of it. I also noticed that you can walk through the wall that you summon in the rune ring (not sure if we're supposed to be able to but I assumed that it shouldn't happen). ",
+    "goal": "Explore the world and try to complete the quests.",
+    "chaos": "I first noticed it when sprinting. The chaos gauge at the bottom right increased the more I would sprint. I also noticed that I could press G to automatically activate that.",
+    "best": "The dog transformation. I found it cool",
+    "change": "I would add a small 2D minimap in a corner of the screen to help the player navigate the world.",
+    "again": "8",
+    "experience": "A lot",
+    "recording": ""
+  },
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+  "screen": "1663x1304@1",
+  "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "minutes": 109.5,
+  "fps": {
+    "average": 60,
+    "worst1pct": 52,
+    "percentUnder30": 0
+  },
+  "dips": 6,
+  "falls": 0,
+  "resets": 1,
+  "steps": 1,
+  "helpOpened": 1,
+  "events": [
+    {
+      "t": 21.5,
+      "type": "step",
+      "title": "The Ember Hound",
+      "kingdom": "GRIMOIRE TOWER"
+    },
+    {
+      "t": 45,
+      "type": "begin"
+    },
+    {
+      "t": 46.8,
+      "type": "tutorial-lab"
+    },
+    {
+      "t": 48.1,
+      "type": "fps-dip",
+      "minFps": 8,
+      "seconds": 1,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.04
+    },
+    {
+      "t": 362.3,
+      "type": "reset",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 395.4,
+      "type": "fps-dip",
+      "minFps": 22,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.48
+    },
+    {
+      "t": 658.7,
+      "type": "map",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 661.3,
+      "type": "map",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 758.7,
+      "type": "help",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 790.4,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 2078.6,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.03
+    },
+    {
+      "t": 2461.7,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.03
+    },
+    {
+      "t": 2533.6,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 1,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.03
+    },
+    {
+      "t": 6147.6,
+      "type": "fps-dip",
+      "minFps": 0,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.03
+    },
+    {
+      "t": 6262.4,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    },
+    {
+      "t": 6329.4,
+      "type": "finish-opened",
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "t-zljahx",
+  "tester": "",
+  "submitted": false,
+  "answers": null,
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+  "screen": "1663x1304@1",
+  "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "minutes": 1.9,
+  "fps": {
+    "average": 59,
+    "worst1pct": 46,
+    "percentUnder30": 0
+  },
+  "dips": 1,
+  "falls": 0,
+  "resets": 0,
+  "steps": 1,
+  "helpOpened": 0,
+  "events": [
+    {
+      "t": 5.7,
+      "type": "step",
+      "title": "The Ember Hound",
+      "kingdom": "GRIMOIRE TOWER"
+    },
+    {
+      "t": 47.8,
+      "type": "fps-dip",
+      "minFps": 1,
+      "seconds": 0.5,
+      "kingdom": "GRIMOIRE TOWER",
+      "step": "The Ember Hound",
+      "chaos": 0.03
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "t-3hciym",
+  "tester": "",
+  "submitted": false,
+  "answers": null,
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0",
+  "screen": "1536x704@1.25",
+  "gpu": "ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0), or similar",
+  "minutes": 0.1,
+  "fps": null,
+  "dips": 0,
+  "falls": 0,
+  "resets": 0,
+  "steps": 0,
+  "helpOpened": 0,
+  "events": []
+}
